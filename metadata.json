@@ -1,0 +1,6 @@
+{
+  "name": "Shadow Lamp Generator",
+  "description": "Convert images into 3D-printable cylindrical shadow lamps via inverse ray projection and export watertight STLs.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
