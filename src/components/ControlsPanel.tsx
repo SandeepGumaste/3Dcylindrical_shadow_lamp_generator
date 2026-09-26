@@ -49,7 +49,7 @@ export const PRESETS: Preset[] = [
     id: 'dragon_tabletop',
     name: 'Dragon (Photo Match)',
     description: '360° Tabletop Radial Silhouette with Struts (Photo Match)',
-    lamp: { diameter: 80, height: 55, wallThickness: 1.2, segmentsAround: 288, segmentsVertical: 140, hasBase: true, ledCavityDiameter: 38 },
+    lamp: { diameter: 80, height: 55, wallThickness: 1.2, segmentsAround: 360, segmentsVertical: 124, hasBase: true, ledCavityDiameter: 38 },
     light: { target: 'tabletop', position: { x: 0, y: 32, z: 0 }, tableRadius: 220, radialStruts: 36, strutWidthColumns: 2 },
     resolution: 512,
   },
@@ -57,7 +57,7 @@ export const PRESETS: Preset[] = [
     id: 'celestial_tabletop',
     name: 'Celestial Moon & Stars',
     description: 'Moon, sun, and cosmic stars on tabletop',
-    lamp: { diameter: 85, height: 55, wallThickness: 1.2, segmentsAround: 288, segmentsVertical: 140, hasBase: true, ledCavityDiameter: 38 },
+    lamp: { diameter: 85, height: 55, wallThickness: 1.2, segmentsAround: 360, segmentsVertical: 116, hasBase: true, ledCavityDiameter: 38 },
     light: { target: 'tabletop', position: { x: 0, y: 32, z: 0 }, tableRadius: 230, radialStruts: 32, strutWidthColumns: 2 },
     resolution: 512,
   },
@@ -65,7 +65,7 @@ export const PRESETS: Preset[] = [
     id: 'portrait_wall',
     name: 'Portrait (Wall Screen)',
     description: '90 × 100 mm, vertical projection screen',
-    lamp: { diameter: 90, height: 100, wallThickness: 1.2, segmentsAround: 240, segmentsVertical: 140 },
+    lamp: { diameter: 90, height: 100, wallThickness: 1.2, segmentsAround: 300, segmentsVertical: 167 },
     light: { target: 'vertical_wall', position: { x: 0, y: 45, z: 0 }, projectionDistance: 250, radialStruts: 0 },
     resolution: 512,
   },
@@ -581,6 +581,7 @@ export const ControlsPanel: React.FC<ControlsPanelProps> = ({
                 <option value={240}>240 (Balanced)</option>
                 <option value={320}>320 (Sharp)</option>
                 <option value={360}>360 (Fine)</option>
+                <option value={480}>480 (Ultra)</option>
               </select>
             </div>
 

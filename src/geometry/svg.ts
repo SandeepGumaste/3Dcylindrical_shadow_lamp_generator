@@ -54,13 +54,50 @@ export function getRowSpans(
 /**
  * Finds an overlapping span in an adjacent row, if any.
  */
-function findOverlappingSpan(spans: Span[], target: Span): Span | null {
+export function findOverlappingSpan(spans: Span[], target: Span): Span | null {
   for (const s of spans) {
     if (Math.max(s.start, target.start) <= Math.min(s.end, target.end)) {
       return s;
     }
   }
   return null;
+}
+
+export interface SmoothedSpanBounds extends Span {
+  cInStart: number;  // left boundary column, interpolated toward the previous row (bottom edge)
+  cOutStart: number; // left boundary column, interpolated toward the next row (top edge)
+  cInEnd: number;    // right boundary column, interpolated toward the previous row (bottom edge)
+  cOutEnd: number;   // right boundary column, interpolated toward the next row (top edge)
+}
+
+/**
+ * Computes each open span's boundary columns interpolated against the overlapping span in the
+ * row above/below - the same diagonal-facet technique used by generateCircularMapSvg's and
+ * generateUnwrappedMapSvg's 'sharp-edges' styles to avoid pixelated square stair-steps, exposed
+ * here so 3D mesh generation and shadow simulation can share the identical boundary math instead
+ * of rasterizing the raw per-cell grid lines.
+ */
+export function getSmoothedRowSpanBounds(
+  mask: Uint8Array | Float32Array,
+  gridWidth: number,
+  gridHeight: number,
+  row: number
+): SmoothedSpanBounds[] {
+  const spans = getRowSpans(mask, row, gridWidth);
+  const prevSpans = row > 0 ? getRowSpans(mask, row - 1, gridWidth) : [];
+  const nextSpans = row < gridHeight - 1 ? getRowSpans(mask, row + 1, gridWidth) : [];
+
+  return spans.map((span) => {
+    const prev = findOverlappingSpan(prevSpans, span);
+    const next = findOverlappingSpan(nextSpans, span);
+    return {
+      ...span,
+      cInStart: prev ? 0.5 * (span.start + prev.start) : span.start,
+      cOutStart: next ? 0.5 * (span.start + next.start) : span.start,
+      cInEnd: prev ? 0.5 * (span.end + 1 + prev.end + 1) : span.end + 1,
+      cOutEnd: next ? 0.5 * (span.end + 1 + next.end + 1) : span.end + 1,
+    };
+  });
 }
 
 /**

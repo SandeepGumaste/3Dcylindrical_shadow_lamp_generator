@@ -3,6 +3,7 @@ import { getProjectionPlanePoint, castInverseRay, ProjectionPlane, castForwardRa
 import { thetaToU } from '../geometry/cylinder';
 import { sampleBilinear } from '../image/sampling';
 import { Vec3 } from '../geometry/vectors';
+import { getSmoothedRowSpanBounds } from '../geometry/svg';
 
 export interface SolverResult {
   cylindricalIntensity: Float32Array; // grid: segmentsAround x segmentsVertical
@@ -233,6 +234,49 @@ export function solveInverseShadow(
  * Simulates the shadow cast onto the projection plane/table by casting rays from the virtual LED
  * through the cylinder mask and evaluating the projected pattern.
  */
+// Stratified sub-pixel jitter offsets (3x3 = 9 samples/pixel) used to anti-alias the
+// simulated shadow against its own pixel grid, on top of the boundary smoothing below.
+const SUPERSAMPLE_OFFSETS = [-1 / 3, 0, 1 / 3];
+
+/**
+ * Builds a UV-space mask reader that looks up whether a cylindrical point falls inside an open
+ * perforation using each hole's row-to-row interpolated boundary (see getSmoothedRowSpanBounds)
+ * rather than the raw grid cell it lands in. A plain nearest-cell lookup reproduces the
+ * perforation grid's stair-stepped cell boundaries exactly - every edge lands on a hard, chunky
+ * step the width of a whole grid cell, which no amount of pixel-level supersampling can smooth
+ * out. Interpolating the hole's left/right boundary between the row above and below turns that
+ * staircase into a smooth diagonal line, matching what generateCircularMapSvg's 'sharp-edges'
+ * style already does for the flat 2D export. Row span bounds are cached since supersampling
+ * calls this many times per output pixel, almost always against the same one or two rows.
+ */
+function createMaskReader(
+  cylindricalMask: Uint8Array | Float32Array,
+  gridWidth: number,
+  gridHeight: number
+) {
+  const rowCache = new Map<number, ReturnType<typeof getSmoothedRowSpanBounds>>();
+
+  return (hitU: number, hitV: number): number => {
+    const rowF = hitV * gridHeight;
+    const row = Math.min(Math.max(Math.floor(rowF), 0), gridHeight - 1);
+    const t = Math.min(Math.max(rowF - row, 0), 1);
+    const col = hitU * gridWidth;
+
+    let spans = rowCache.get(row);
+    if (!spans) {
+      spans = getSmoothedRowSpanBounds(cylindricalMask, gridWidth, gridHeight, row);
+      rowCache.set(row, spans);
+    }
+
+    for (const span of spans) {
+      const left = span.cInStart + (span.cOutStart - span.cInStart) * t;
+      const right = span.cInEnd + (span.cOutEnd - span.cInEnd) * t;
+      if (col >= left && col < right) return 1.0;
+    }
+    return 0.0;
+  };
+}
+
 export function simulateShadowProjection(
   cylindricalMask: Uint8Array | boolean[] | Float32Array,
   gridWidth: number,
@@ -244,6 +288,10 @@ export function simulateShadowProjection(
 ): ShadowSimulationResult {
   const simPixels = new Float32Array(simResolution * simResolution);
   const isTabletop = light.target === 'tabletop';
+  const normalizedMask = Array.isArray(cylindricalMask)
+    ? Uint8Array.from(cylindricalMask, (v) => (v ? 1 : 0))
+    : cylindricalMask;
+  const readMaskCell = createMaskReader(normalizedMask, gridWidth, gridHeight);
 
   let totalDiff = 0;
   let count = 0;
@@ -254,39 +302,46 @@ export function simulateShadowProjection(
     const lightY = Math.max(light.position.y, 10);
 
     for (let py = 0; py < simResolution; py++) {
-      const v = (py + 0.5) / simResolution;
-      const z = (v - 0.5) * 2 * tableRadius;
-
       for (let px = 0; px < simResolution; px++) {
-        const u = (px + 0.5) / simResolution;
-        const x = (u - 0.5) * 2 * tableRadius;
-        const r = Math.sqrt(x * x + z * z);
+        let sampleSum = 0;
+        let sampleN = 0;
 
-        let simulatedVal = 0.0; // default dark background outside table
+        for (const oy of SUPERSAMPLE_OFFSETS) {
+          const v = (py + 0.5 + oy) / simResolution;
+          const z = (v - 0.5) * 2 * tableRadius;
 
-        if (r <= lampRadius) {
-          simulatedVal = 0.0; // solid shadow directly beneath lamp base
-        } else if (r <= tableRadius) {
-          const t = lampRadius / r;
-          const hitY = lightY * (1 - t);
+          for (const ox of SUPERSAMPLE_OFFSETS) {
+            const u = (px + 0.5 + ox) / simResolution;
+            const x = (u - 0.5) * 2 * tableRadius;
+            const r = Math.sqrt(x * x + z * z);
 
-          if (hitY >= 0 && hitY <= lamp.height) {
-            const theta = Math.atan2(z, x);
-            const hitU = thetaToU(theta);
-            const hitV = hitY / lamp.height;
+            let sampleVal = 0.0; // default dark background outside table
 
-            const col = Math.min(Math.floor(hitU * gridWidth), gridWidth - 1);
-            const row = Math.min(Math.floor(hitV * gridHeight), gridHeight - 1);
-            const cellIdx = row * gridWidth + col;
+            if (r <= lampRadius) {
+              sampleVal = 0.0; // solid shadow directly beneath lamp base
+            } else if (r <= tableRadius) {
+              const t = lampRadius / r;
+              const hitY = lightY * (1 - t);
 
-            const cellVal = cylindricalMask[cellIdx];
-            simulatedVal = typeof cellVal === 'boolean' ? (cellVal ? 1.0 : 0.0) : Number(cellVal);
+              if (hitY >= 0 && hitY <= lamp.height) {
+                const theta = Math.atan2(z, x);
+                const hitU = thetaToU(theta);
+                const hitV = hitY / lamp.height;
+                sampleVal = readMaskCell(hitU, hitV);
+              }
+            }
+
+            sampleSum += sampleVal;
+            sampleN++;
           }
         }
 
+        const simulatedVal = sampleSum / sampleN;
         const simIdx = py * simResolution + px;
         simPixels[simIdx] = simulatedVal;
 
+        const u = (px + 0.5) / simResolution;
+        const v = (py + 0.5) / simResolution;
         const origVal = sampleBilinear(originalImage, u, v);
         totalDiff += Math.abs(simulatedVal - origVal);
         count++;
@@ -302,26 +357,33 @@ export function simulateShadowProjection(
     };
 
     for (let py = 0; py < simResolution; py++) {
-      const v = (py + 0.5) / simResolution;
       for (let px = 0; px < simResolution; px++) {
-        const u = (px + 0.5) / simResolution;
-        const targetPoint = getProjectionPlanePoint(u, v, plane);
+        let sampleSum = 0;
+        let sampleN = 0;
 
-        const hit = castInverseRay(light.position, targetPoint, lamp);
-        let simulatedVal = 0; // default solid shadow
+        for (const oy of SUPERSAMPLE_OFFSETS) {
+          const v = (py + 0.5 + oy) / simResolution;
 
-        if (hit) {
-          const col = Math.min(Math.floor(hit.u * gridWidth), gridWidth - 1);
-          const row = Math.min(Math.floor(hit.v * gridHeight), gridHeight - 1);
-          const cellIdx = row * gridWidth + col;
+          for (const ox of SUPERSAMPLE_OFFSETS) {
+            const u = (px + 0.5 + ox) / simResolution;
+            const targetPoint = getProjectionPlanePoint(u, v, plane);
+            const hit = castInverseRay(light.position, targetPoint, lamp);
 
-          const cellVal = cylindricalMask[cellIdx];
-          simulatedVal = typeof cellVal === 'boolean' ? (cellVal ? 1.0 : 0.0) : Number(cellVal);
+            const sampleVal = hit
+              ? readMaskCell(hit.u, hit.v)
+              : 0; // default solid shadow
+
+            sampleSum += sampleVal;
+            sampleN++;
+          }
         }
 
+        const simulatedVal = sampleSum / sampleN;
         const simIdx = py * simResolution + px;
         simPixels[simIdx] = simulatedVal;
 
+        const u = (px + 0.5) / simResolution;
+        const v = (py + 0.5) / simResolution;
         const origVal = sampleBilinear(originalImage, u, v);
         totalDiff += Math.abs(simulatedVal - origVal);
         count++;

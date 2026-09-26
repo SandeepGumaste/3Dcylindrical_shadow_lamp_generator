@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { generateCircularMapSvg, generateUnwrappedMapSvg } from '../svg';
+import { generateCircularMapSvg, generateUnwrappedMapSvg, getSmoothedRowSpanBounds } from '../svg';
 import { LampConfig } from '../../types';
 
 describe('SVG Map Exporter', () => {
@@ -53,5 +53,37 @@ describe('SVG Map Exporter', () => {
     expect(svg).toContain('</svg>');
     expect(svg).toContain('Unwrapped Flat Cylindrical Map');
     expect(svg).toContain('<polygon');
+  });
+
+  it('interpolates a hole boundary that shifts between rows into a smooth diagonal, not a hard step', () => {
+    const gridWidth = 40;
+    const gridHeight = 10;
+    const mask = new Uint8Array(gridWidth * gridHeight);
+
+    // Row 4: hole spans columns 10-15. Row 5: the same hole shifted right to columns 14-19
+    // (simulating a diagonal silhouette edge crossing this row boundary).
+    for (let c = 10; c <= 15; c++) mask[4 * gridWidth + c] = 1;
+    for (let c = 14; c <= 19; c++) mask[5 * gridWidth + c] = 1;
+
+    const row4Bounds = getSmoothedRowSpanBounds(mask, gridWidth, gridHeight, 4);
+    const row5Bounds = getSmoothedRowSpanBounds(mask, gridWidth, gridHeight, 5);
+
+    expect(row4Bounds).toHaveLength(1);
+    expect(row5Bounds).toHaveLength(1);
+
+    // Row 4's top edge (facing row 5) should sit between the two rows' raw boundaries,
+    // not snapped to either one - that's the diagonal facet replacing the staircase.
+    expect(row4Bounds[0].cOutStart).toBeGreaterThan(10);
+    expect(row4Bounds[0].cOutStart).toBeLessThan(14);
+
+    // Row 4's bottom edge (facing row 3, which has no hole) has no neighbor to interpolate
+    // against, so it stays at the raw grid boundary.
+    expect(row4Bounds[0].cInStart).toBe(10);
+
+    // Row 4's interpolated top-facing boundary and row 5's interpolated bottom-facing
+    // boundary describe the exact same physical seam, so they must agree - otherwise the
+    // 3D mesh built from this would have a gap or overlap at that seam.
+    expect(row4Bounds[0].cOutStart).toBeCloseTo(row5Bounds[0].cInStart, 10);
+    expect(row4Bounds[0].cOutEnd).toBeCloseTo(row5Bounds[0].cInEnd, 10);
   });
 });

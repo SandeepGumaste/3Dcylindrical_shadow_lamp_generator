@@ -114,6 +114,40 @@ describe('Shadow Inverse Projection Solver', () => {
     expect(sim.similarityPercentage).toBeGreaterThan(40);
   });
 
+  it('anti-aliases simulated shadow edges instead of producing hard 0/1 steps', () => {
+    // A binary perforation mask projected through a point sample per pixel can only ever
+    // produce exactly 0 or 1 - every silhouette edge becomes a hard staircase at grid
+    // resolution. Supersampling each output pixel should produce intermediate gray values
+    // along those edges, proving the jagged boundary has been smoothed.
+    const circleImg = createSyntheticTestImage(128, 'circle');
+    const result = solveInverseShadow(circleImg, lamp, light);
+    const mask = generateCylindricalMask(
+      result.cylindricalIntensity,
+      lamp.segmentsAround,
+      lamp.segmentsVertical,
+      lamp,
+      { mode: 'binary', threshold: 0.5 }
+    );
+
+    const sim = simulateShadowProjection(
+      mask,
+      lamp.segmentsAround,
+      lamp.segmentsVertical,
+      lamp,
+      light,
+      circleImg,
+      128
+    );
+
+    let intermediateCount = 0;
+    for (let i = 0; i < sim.simulatedShadow.pixels.length; i++) {
+      const v = sim.simulatedShadow.pixels[i];
+      if (v > 0.15 && v < 0.85) intermediateCount++;
+    }
+
+    expect(intermediateCount).toBeGreaterThan(0);
+  });
+
   it('solves 360 tabletop radial projection and embeds radial struts matching photo', () => {
     const dragonImg = createSyntheticTestImage(128, 'dragon');
     const tabletopLight: LightConfig = {
