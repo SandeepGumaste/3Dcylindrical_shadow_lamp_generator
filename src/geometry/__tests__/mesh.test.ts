@@ -363,4 +363,52 @@ describe('Printable Lamp Mesh Generation & Validation', () => {
       expect(offGridVertexCount).toBeGreaterThan(0);
     });
   });
+
+  describe('inward radial struts extending toward center', () => {
+    it('generates 3D radial struts that extend inward toward the center with customizable length', () => {
+      const mask = new Uint8Array(lamp.segmentsAround * lamp.segmentsVertical);
+      const rIn = lamp.diameter / 2 - lamp.wallThickness;
+
+      const lampWithStruts: LampConfig = {
+        ...lamp,
+        radialStruts: 8,
+        strutWidthColumns: 2,
+        strutLength: 20, // extends 20 mm inward toward center
+      };
+
+      const mesh = generateLampMesh(mask, lamp.segmentsAround, lamp.segmentsVertical, lampWithStruts);
+      const validation = validateMesh(mesh);
+
+      expect(validation.isValid).toBe(true);
+
+      // Find minimum radius among all vertices
+      let minR = Infinity;
+      for (let i = 0; i < mesh.vertexCount; i++) {
+        const x = mesh.positions[i * 3];
+        const z = mesh.positions[i * 3 + 2];
+        const r = Math.sqrt(x * x + z * z);
+        if (r < minR) minR = r;
+      }
+
+      // Without base, normal cylinder minimum radius is rIn (~43.5 mm).
+      // With 20 mm inward struts, min radius should reach ~23.5 mm
+      expect(minR).toBeLessThanOrEqual(rIn - 19.5);
+
+      // Verify that inward strut vertices reach the full vertical height of the lamp (y = 0 and y = lamp.height)
+      let foundInwardAtBottom = false;
+      let foundInwardAtTop = false;
+      for (let i = 0; i < mesh.vertexCount; i++) {
+        const x = mesh.positions[i * 3];
+        const y = mesh.positions[i * 3 + 1];
+        const z = mesh.positions[i * 3 + 2];
+        const r = Math.sqrt(x * x + z * z);
+        if (r <= rIn - 19.0) {
+          if (Math.abs(y - 0) < 1e-3) foundInwardAtBottom = true;
+          if (Math.abs(y - lamp.height) < 1e-3) foundInwardAtTop = true;
+        }
+      }
+      expect(foundInwardAtBottom).toBe(true);
+      expect(foundInwardAtTop).toBe(true);
+    });
+  });
 });

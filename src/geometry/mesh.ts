@@ -533,6 +533,77 @@ export function generateLampMesh(
     }
   }
 
+  // 4. Inward-extending 3D Radial Struts (connecting inner cylinder wall toward the center)
+  if (lamp.radialStruts && lamp.radialStruts > 0) {
+    const numStruts = lamp.radialStruts;
+    const strutSpacing = Math.max(2, Math.floor(gridWidth / numStruts));
+    const strutWidth = Math.max(1, Math.min(strutSpacing - 1, lamp.strutWidthColumns ?? 2));
+    const targetLength = lamp.strutLength ?? (lamp.diameter / 2);
+
+    if (targetLength > 0.5) {
+      // Entire vertical strut runs the full height of the lamp cylinder
+      const strutH = height;
+      const rEnd = Math.max(0, rIn - targetLength);
+
+      for (let s = 0; s < numStruts; s++) {
+        const c0 = s * strutSpacing;
+        const c1 = Math.min(c0 + strutWidth, gridWidth);
+        const th0 = thetas[c0];
+        const th1 = thetas[c1];
+
+        // Bottom vertices at y = 0
+        const pOut0 = getCylPoint(rIn, th0, 0);
+        const pOut1 = getCylPoint(rIn, th1, 0);
+        const pIn0 = getCylPoint(rEnd, th0, 0);
+        const pIn1 = getCylPoint(rEnd, th1, 0);
+
+        // Top vertices at y = strutH
+        const tOut0 = getCylPoint(rIn, th0, strutH);
+        const tOut1 = getCylPoint(rIn, th1, strutH);
+        const tIn0 = getCylPoint(rEnd, th0, strutH);
+        const tIn1 = getCylPoint(rEnd, th1, strutH);
+
+        if (rEnd > 0.1) {
+          // Bottom face (facing -Y)
+          addQuad(pOut1, pOut0, pIn0, pIn1, { x: 0, y: -1, z: 0 });
+          // Top face (facing +Y)
+          addQuad(tOut0, tOut1, tIn1, tIn0, { x: 0, y: 1, z: 0 });
+          // West face (at theta = th0)
+          addQuad(pIn0, pOut0, tOut0, tIn0);
+          // East face (at theta = th1)
+          addQuad(pOut1, pIn1, tIn1, tOut1);
+          // Inward end face (at r = rEnd, facing towards center)
+          addQuad(pIn1, pIn0, tIn0, tIn1);
+          // Outward end face (at r = rIn, facing +R toward cylinder inner wall)
+          addQuad(pOut0, pOut1, tOut1, tOut0);
+        } else {
+          // rEnd is 0: inner vertices meet at the central axis (0, 0, 0) and (0, strutH, 0)
+          const cBot = { x: 0, y: 0, z: 0 };
+          const cTop = { x: 0, y: strutH, z: 0 };
+
+          // Bottom face (triangle, facing -Y)
+          const bIdx = positionsArr.length / 3;
+          positionsArr.push(pOut1.x, pOut1.y, pOut1.z, pOut0.x, pOut0.y, pOut0.z, cBot.x, cBot.y, cBot.z);
+          for (let i = 0; i < 3; i++) normalsArr.push(0, -1, 0);
+          indicesArr.push(bIdx, bIdx + 1, bIdx + 2);
+
+          // Top face (triangle, facing +Y)
+          const tIdx = positionsArr.length / 3;
+          positionsArr.push(tOut0.x, tOut0.y, tOut0.z, tOut1.x, tOut1.y, tOut1.z, cTop.x, cTop.y, cTop.z);
+          for (let i = 0; i < 3; i++) normalsArr.push(0, 1, 0);
+          indicesArr.push(tIdx, tIdx + 1, tIdx + 2);
+
+          // West side face (at theta = th0)
+          addQuad(cBot, pOut0, tOut0, cTop);
+          // East side face (at theta = th1)
+          addQuad(pOut1, cBot, cTop, tOut1);
+          // Outward end face (at r = rIn)
+          addQuad(pOut0, pOut1, tOut1, tOut0);
+        }
+      }
+    }
+  }
+
   const positions = new Float32Array(positionsArr);
   const normals = new Float32Array(normalsArr);
   const indices = new Uint32Array(indicesArr);

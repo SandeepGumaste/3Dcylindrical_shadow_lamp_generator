@@ -68,9 +68,11 @@ export function generateCylindricalMask(
       }
 
       // Radial structural struts (matching tabletop candle shadow lamps)
+      // Vertical ribs run full height on the cylinder wall to connect floating islands
       if (options.radialStruts && options.radialStruts > 0) {
         const strutSpacing = Math.max(2, Math.floor(gridWidth / options.radialStruts));
-        const strutWidth = Math.max(1, options.strutWidthColumns ?? 1);
+        const rawWidth = Math.max(1, options.strutWidthColumns ?? 2);
+        const strutWidth = Math.min(Math.max(1, strutSpacing - 1), rawWidth);
         if ((col % strutSpacing) < strutWidth) {
           isOpen = false;
         }

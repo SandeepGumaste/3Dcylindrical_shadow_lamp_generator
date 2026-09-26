@@ -110,7 +110,8 @@ export async function runGeneration(
       {
         ...halftoneOptions,
         radialStruts: light.radialStruts,
-        strutWidthColumns: light.strutWidthColumns ?? 1,
+        strutWidthColumns: light.strutWidthColumns ?? 2,
+        strutLength: light.strutLength ?? lamp.strutLength ?? (lamp.diameter / 2),
       }
     );
 
@@ -131,7 +132,13 @@ export async function runGeneration(
     if (onProgress) onProgress({ percent: 85, message: 'Constructing 3D watertight mesh...', step: 'mesh' });
     await new Promise((r) => setTimeout(r, 10));
 
-    const mesh = generateLampMesh(mask, lamp.segmentsAround, lamp.segmentsVertical, lamp);
+    const effectiveLamp: LampConfig = {
+      ...lamp,
+      radialStruts: light.radialStruts ?? lamp.radialStruts,
+      strutWidthColumns: light.strutWidthColumns ?? lamp.strutWidthColumns ?? 2,
+      strutLength: light.strutLength ?? lamp.strutLength ?? (lamp.diameter / 2),
+    };
+    const mesh = generateLampMesh(mask, lamp.segmentsAround, lamp.segmentsVertical, effectiveLamp);
     const validation = validateMesh(mesh);
 
     if (onProgress) onProgress({ percent: 95, message: 'Encoding binary STL...', step: 'stl' });

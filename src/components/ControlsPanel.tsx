@@ -49,16 +49,16 @@ export const PRESETS: Preset[] = [
     id: 'dragon_tabletop',
     name: 'Dragon (Photo Match)',
     description: '360° Tabletop Radial Silhouette with Struts (Photo Match)',
-    lamp: { diameter: 80, height: 55, wallThickness: 1.2, segmentsAround: 360, segmentsVertical: 124, hasBase: true, ledCavityDiameter: 38 },
-    light: { target: 'tabletop', position: { x: 0, y: 32, z: 0 }, tableRadius: 220, radialStruts: 36, strutWidthColumns: 2 },
+    lamp: { diameter: 80, height: 55, wallThickness: 1.2, segmentsAround: 360, segmentsVertical: 124, hasBase: true, ledCavityDiameter: 38, strutLength: 40 },
+    light: { target: 'tabletop', position: { x: 0, y: 32, z: 0 }, tableRadius: 220, radialStruts: 36, strutWidthColumns: 2, strutLength: 40 },
     resolution: 512,
   },
   {
     id: 'celestial_tabletop',
     name: 'Celestial Moon & Stars',
     description: 'Moon, sun, and cosmic stars on tabletop',
-    lamp: { diameter: 85, height: 55, wallThickness: 1.2, segmentsAround: 360, segmentsVertical: 116, hasBase: true, ledCavityDiameter: 38 },
-    light: { target: 'tabletop', position: { x: 0, y: 32, z: 0 }, tableRadius: 230, radialStruts: 32, strutWidthColumns: 2 },
+    lamp: { diameter: 85, height: 55, wallThickness: 1.2, segmentsAround: 360, segmentsVertical: 116, hasBase: true, ledCavityDiameter: 38, strutLength: 42.5 },
+    light: { target: 'tabletop', position: { x: 0, y: 32, z: 0 }, tableRadius: 230, radialStruts: 32, strutWidthColumns: 2, strutLength: 42.5 },
     resolution: 512,
   },
   {
@@ -713,24 +713,233 @@ export const ControlsPanel: React.FC<ControlsPanelProps> = ({
                     Connects floating islands (wings, head) and casts the radial sunbeam lines seen in the photo.
                   </span>
 
-                  {/* Strut Thickness Selection */}
-                  <div className="flex items-center justify-between pt-1">
-                    <span className="text-[11px] text-slate-400">Strut Thickness</span>
-                    <div className="flex items-center gap-1 bg-slate-900 p-0.5 rounded border border-slate-800">
-                      {[1, 2, 3].map((w) => (
-                        <button
-                          key={w}
-                          onClick={() => setLight((prev) => ({ ...prev, strutWidthColumns: w }))}
-                          className={`px-2 py-0.5 rounded text-[10px] transition-colors ${
-                            (light.strutWidthColumns ?? 2) === w
-                              ? 'bg-amber-500/20 text-amber-300 font-medium border border-amber-500/30'
-                              : 'text-slate-400 hover:text-slate-200'
-                          }`}
-                        >
-                          {w === 1 ? 'Fine' : w === 2 ? 'Solid (Photo)' : 'Bold'}
-                        </button>
-                      ))}
+                  {/* Strut Width Configuration */}
+                  <div
+                    className={`flex flex-col gap-1.5 pt-1.5 mt-0.5 border-t border-slate-800/40 transition-opacity ${
+                      light.radialStruts === 0 ? 'opacity-50 pointer-events-none' : 'opacity-100'
+                    }`}
+                  >
+                    <div className="flex justify-between items-center text-[11px]">
+                      <span className="text-slate-300 font-medium">Strut Width (Rib Thickness)</span>
+                      <span className="font-mono text-amber-300 font-medium">
+                        {light.strutWidthColumns ?? 2} {((light.strutWidthColumns ?? 2) === 1 ? 'col' : 'cols')}
+                        <span className="text-slate-400 font-normal ml-1">
+                          (~{(((light.strutWidthColumns ?? 2) * (Math.PI * lamp.diameter)) / lamp.segmentsAround).toFixed(1)} mm)
+                        </span>
+                      </span>
                     </div>
+
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="range"
+                        min="1"
+                        max="8"
+                        step="1"
+                        value={light.strutWidthColumns ?? 2}
+                        disabled={light.radialStruts === 0}
+                        onChange={(e) =>
+                          setLight((prev) => ({
+                            ...prev,
+                            strutWidthColumns: parseInt(e.target.value),
+                          }))
+                        }
+                        className="flex-1 accent-amber-400 h-1.5 bg-slate-800 rounded-lg cursor-pointer disabled:cursor-not-allowed"
+                      />
+
+                      {/* Stepper buttons */}
+                      <div className="flex items-center bg-slate-900 rounded border border-slate-800">
+                        <button
+                          type="button"
+                          disabled={light.radialStruts === 0 || (light.strutWidthColumns ?? 2) <= 1}
+                          onClick={() =>
+                            setLight((prev) => ({
+                              ...prev,
+                              strutWidthColumns: Math.max(1, (prev.strutWidthColumns ?? 2) - 1),
+                            }))
+                          }
+                          className="px-2 py-0.5 text-xs text-slate-400 hover:text-slate-200 disabled:opacity-30 disabled:hover:text-slate-400"
+                          title="Decrease strut width by 1 column"
+                        >
+                          -
+                        </button>
+                        <span className="px-1.5 text-[11px] font-mono text-amber-400 select-none min-w-[16px] text-center">
+                          {light.strutWidthColumns ?? 2}
+                        </span>
+                        <button
+                          type="button"
+                          disabled={light.radialStruts === 0 || (light.strutWidthColumns ?? 2) >= 8}
+                          onClick={() =>
+                            setLight((prev) => ({
+                              ...prev,
+                              strutWidthColumns: Math.min(8, (prev.strutWidthColumns ?? 2) + 1),
+                            }))
+                          }
+                          className="px-2 py-0.5 text-xs text-slate-400 hover:text-slate-200 disabled:opacity-30 disabled:hover:text-slate-400"
+                          title="Increase strut width by 1 column"
+                        >
+                          +
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Quick preset chips */}
+                    <div className="grid grid-cols-4 gap-1 pt-0.5">
+                      {[
+                        { label: 'Fine (1)', val: 1, desc: 'Subtle shadow' },
+                        { label: 'Medium (2)', val: 2, desc: 'Photo match' },
+                        { label: 'Bold (3)', val: 3, desc: 'Extra rigid' },
+                        { label: 'Heavy (4)', val: 4, desc: 'Heavy duty' },
+                      ].map((preset) => {
+                        const active = (light.strutWidthColumns ?? 2) === preset.val;
+                        return (
+                          <button
+                            key={preset.val}
+                            type="button"
+                            disabled={light.radialStruts === 0}
+                            onClick={() => setLight((prev) => ({ ...prev, strutWidthColumns: preset.val }))}
+                            className={`py-1 px-1 rounded text-[10px] text-center transition-colors border ${
+                              active
+                                ? 'bg-amber-500/20 text-amber-300 font-medium border-amber-500/40 shadow-sm shadow-amber-500/10'
+                                : 'bg-slate-900/80 text-slate-400 border-slate-800 hover:text-slate-200 hover:border-slate-700'
+                            }`}
+                            title={`${preset.desc} (~${((preset.val * (Math.PI * lamp.diameter)) / lamp.segmentsAround).toFixed(1)} mm)`}
+                          >
+                            {preset.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    {light.radialStruts === 0 ? (
+                      <span className="text-[10px] text-slate-500 italic">
+                        Enable spokes (&gt; 0) above to apply structural struts.
+                      </span>
+                    ) : (
+                      <div className="flex justify-between text-[10px] text-slate-500 pt-0.5">
+                        <span>
+                          Spacing: ~{Math.floor(lamp.segmentsAround / Math.max(1, light.radialStruts))} cols (~{(((Math.PI * lamp.diameter) / Math.max(1, light.radialStruts))).toFixed(1)} mm apart)
+                        </span>
+                        <span>
+                          {light.radialStruts} struts × {light.strutWidthColumns ?? 2} cols
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Strut Length (Extend Toward Center) */}
+                  <div
+                    className={`flex flex-col gap-1.5 pt-1.5 mt-0.5 border-t border-slate-800/40 transition-opacity ${
+                      light.radialStruts === 0 ? 'opacity-50 pointer-events-none' : 'opacity-100'
+                    }`}
+                  >
+                    <div className="flex justify-between items-center text-[11px]">
+                      <span className="text-slate-300 font-medium">Strut Length (Extend Toward Center)</span>
+                      <span className="font-mono text-amber-300 font-medium">
+                        {(light.strutLength ?? Math.round(lamp.diameter / 2)).toFixed(0)} mm
+                        <span className="text-slate-400 font-normal ml-1">
+                          ({Math.round(((light.strutLength ?? Math.round(lamp.diameter / 2)) / (lamp.diameter / 2)) * 100)}%)
+                        </span>
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="range"
+                        min={Math.max(2, Math.round(lamp.diameter * 0.1))}
+                        max={Math.round(lamp.diameter / 2)}
+                        step="1"
+                        value={light.strutLength ?? Math.round(lamp.diameter / 2)}
+                        disabled={light.radialStruts === 0}
+                        onChange={(e) =>
+                          setLight((prev) => ({
+                            ...prev,
+                            strutLength: parseInt(e.target.value),
+                          }))
+                        }
+                        className="flex-1 accent-amber-400 h-1.5 bg-slate-800 rounded-lg cursor-pointer disabled:cursor-not-allowed"
+                      />
+
+                      {/* Stepper buttons */}
+                      <div className="flex items-center bg-slate-900 rounded border border-slate-800">
+                        <button
+                          type="button"
+                          disabled={
+                            light.radialStruts === 0 ||
+                            (light.strutLength ?? Math.round(lamp.diameter / 2)) <= Math.max(2, Math.round(lamp.diameter * 0.1))
+                          }
+                          onClick={() =>
+                            setLight((prev) => ({
+                              ...prev,
+                              strutLength: Math.max(
+                                Math.max(2, Math.round(lamp.diameter * 0.1)),
+                                (prev.strutLength ?? Math.round(lamp.diameter / 2)) - 2
+                              ),
+                            }))
+                          }
+                          className="px-2 py-0.5 text-xs text-slate-400 hover:text-slate-200 disabled:opacity-30 disabled:hover:text-slate-400"
+                          title="Decrease strut reach toward center"
+                        >
+                          -
+                        </button>
+                        <span className="px-1.5 text-[11px] font-mono text-amber-400 select-none min-w-[24px] text-center">
+                          {Math.round(light.strutLength ?? (lamp.diameter / 2))}
+                        </span>
+                        <button
+                          type="button"
+                          disabled={
+                            light.radialStruts === 0 ||
+                            (light.strutLength ?? Math.round(lamp.diameter / 2)) >= Math.round(lamp.diameter / 2)
+                          }
+                          onClick={() =>
+                            setLight((prev) => ({
+                              ...prev,
+                              strutLength: Math.min(
+                                Math.round(lamp.diameter / 2),
+                                (prev.strutLength ?? Math.round(lamp.diameter / 2)) + 2
+                              ),
+                            }))
+                          }
+                          className="px-2 py-0.5 text-xs text-slate-400 hover:text-slate-200 disabled:opacity-30 disabled:hover:text-slate-400"
+                          title="Increase strut reach toward center"
+                        >
+                          +
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Quick preset chips for length */}
+                    <div className="grid grid-cols-4 gap-1 pt-0.5">
+                      {[
+                        { label: '25% (Edge)', fraction: 0.25 },
+                        { label: '50% (Half)', fraction: 0.5 },
+                        { label: '75% (Deep)', fraction: 0.75 },
+                        { label: '100% (Center)', fraction: 1.0 },
+                      ].map((preset) => {
+                        const targetLen = Math.round((lamp.diameter / 2) * preset.fraction);
+                        const currentVal = Math.round(light.strutLength ?? (lamp.diameter / 2));
+                        const active = Math.abs(currentVal - targetLen) <= 1;
+                        return (
+                          <button
+                            key={preset.label}
+                            type="button"
+                            disabled={light.radialStruts === 0}
+                            onClick={() => setLight((prev) => ({ ...prev, strutLength: targetLen }))}
+                            className={`py-1 px-1 rounded text-[10px] text-center transition-colors border ${
+                              active
+                                ? 'bg-amber-500/20 text-amber-300 font-medium border-amber-500/40 shadow-sm shadow-amber-500/10'
+                                : 'bg-slate-900/80 text-slate-400 border-slate-800 hover:text-slate-200 hover:border-slate-700'
+                            }`}
+                            title={`Extend struts ${targetLen} mm toward center (${Math.round(preset.fraction * 100)}%)`}
+                          >
+                            {preset.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    <span className="text-[10px] text-slate-500 leading-snug">
+                      Inward depth of the entire vertical struts extending from the cylinder wall towards the central LED cavity / table axis.
+                    </span>
                   </div>
                 </div>
               </>

@@ -32,6 +32,9 @@ export interface LampConfig {
   ledCavityDiameter: number; // mm, e.g. 38 (fits standard tea light)
   ledCavityDepth: number;    // mm, e.g. 6
   wireSlotWidth: number;     // mm, e.g. 3.5
+  radialStruts?: number;     // number of structural radial struts
+  strutWidthColumns?: number;// width in discrete columns (1 to 8)
+  strutLength?: number;      // mm length extending towards center (from outer radius/wall inward)
 }
 
 export type ProjectionTarget = 'tabletop' | 'vertical_wall';
@@ -46,7 +49,8 @@ export interface LightConfig {
   projectionHeight: number;   // mm height of target screen, e.g. 300mm
   radialStruts: number;       // number of structural radial shadow ribs (e.g. 32 or 40, matching the photo)
   strutThicknessRatio: number;// width of radial ribs (0.05 to 0.3)
-  strutWidthColumns?: number; // width in discrete columns (1, 2, or 3)
+  strutWidthColumns?: number; // width in discrete columns (1 to 8, with physical mm display)
+  strutLength?: number;       // mm length extending towards center (default: diameter / 2)
 }
 
 export interface HalftoneOptions {
@@ -55,7 +59,8 @@ export interface HalftoneOptions {
   bayerSize?: 4 | 8;
   preserveBridges?: boolean; // Ensure 3D print connectivity
   radialStruts?: number;     // Number of vertical struts casting radial shadow ribs (e.g. 32)
-  strutWidthColumns?: number;// Width of struts in grid columns (default 1)
+  strutWidthColumns?: number;// Width of struts in grid columns (default 2)
+  strutLength?: number;      // mm length extending towards center
 }
 
 

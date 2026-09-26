@@ -203,4 +203,35 @@ describe('Shadow Inverse Projection Solver', () => {
     expect(sim.simulatedShadow.pixels.length).toBe(64 * 64);
     expect(sim.similarityPercentage).toBeGreaterThan(30);
   });
+
+  it('supports configurable strut width: larger column widths produce wider solid ribs', () => {
+    const syntheticImg = createSyntheticTestImage(64, 'circle');
+    const result = solveInverseShadow(syntheticImg, lamp, light);
+
+    const mask1Col = generateCylindricalMask(
+      result.cylindricalIntensity,
+      lamp.segmentsAround,
+      lamp.segmentsVertical,
+      lamp,
+      { mode: 'binary', threshold: 0.2, radialStruts: 12, strutWidthColumns: 1 }
+    );
+
+    const mask3Col = generateCylindricalMask(
+      result.cylindricalIntensity,
+      lamp.segmentsAround,
+      lamp.segmentsVertical,
+      lamp,
+      { mode: 'binary', threshold: 0.2, radialStruts: 12, strutWidthColumns: 3 }
+    );
+
+    // Count open cells in both: 3-column struts must occupy more solid space (fewer open cells)
+    let openCount1 = 0;
+    let openCount3 = 0;
+    for (let i = 0; i < mask1Col.length; i++) {
+      if (mask1Col[i] === 1) openCount1++;
+      if (mask3Col[i] === 1) openCount3++;
+    }
+
+    expect(openCount3).toBeLessThan(openCount1);
+  });
 });

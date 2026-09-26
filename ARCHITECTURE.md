@@ -41,9 +41,9 @@ Generation (solve → mask → mesh → validate) runs inside a Web Worker ([src
 ## Key domain types (`src/types/index.ts`)
 
 - **`LampConfig`** — physical shade parameters: diameter, height, wall thickness, minimum feature size, hole size, grid resolution (`segmentsAround` × `segmentsVertical`), rim heights, and printer-friendly extras (base with cavity for a tea light/LED, wire slot).
-- **`LightConfig`** — virtual light source: position relative to the lamp, projection target (`'tabletop'` or `'vertical_wall'`), table radius / projection screen size, and radial strut settings.
+- **`LightConfig`** — virtual light source: position relative to the lamp, projection target (`'tabletop'` or `'vertical_wall'`), table radius / projection screen size, and radial strut settings (spoke count, configurable strut width in columns / physical mm, and customizable strut length extending towards center).
 - **`ImageAdjustments`** — standard image prep controls plus `mode: 'halftone' | 'binary'`.
-- **`HalftoneOptions`** — dithering mode/threshold, Bayer matrix size, bridge preservation, strut count/width.
+- **`HalftoneOptions`** — dithering mode/threshold, Bayer matrix size, bridge preservation, strut count/width/length.
 - **`MeshData` / `TriangleMesh`** — positions/normals/indices plus `isWatertight` and `validationErrors`, so a broken (non-printable) mesh is surfaced before export.
 - **`Preset`** — named bundles of lamp/light/resolution settings (see `PRESETS` in [ControlsPanel.tsx](src/components/ControlsPanel.tsx)) for quick starts.
 

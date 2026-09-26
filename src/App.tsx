@@ -32,6 +32,7 @@ export default function App() {
     ledCavityDiameter: 38,
     ledCavityDepth: 6,
     wireSlotWidth: 3.5,
+    strutLength: 40,
   });
 
   const [light, setLight] = useState<LightConfig>({
@@ -45,6 +46,7 @@ export default function App() {
     radialStruts: 36,
     strutThicknessRatio: 0.15,
     strutWidthColumns: 2,
+    strutLength: 40,
   });
 
   const [adjustments, setAdjustments] = useState<ImageAdjustments>({

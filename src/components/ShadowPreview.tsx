@@ -457,7 +457,9 @@ export const ShadowPreview: React.FC<ShadowPreviewProps> = ({
                 {similarityPercentage > 0 ? `${similarityPercentage}%` : 'Pending'}
               </span>
               , MAE: {meanAbsoluteError > 0 ? meanAbsoluteError.toFixed(3) : '0.000'}) is an analytical ray-intersection simulation on the {light.target === 'tabletop' ? 'horizontal tabletop surface' : 'projection screen'}.
-              {light.target === 'tabletop' && ' The radial shadow lines correspond to structural struts keeping the dragon wings and floating pieces physically connected.'}
+              {light.target === 'tabletop' && light.radialStruts > 0 && (
+                <> The radial shadow lines correspond to structural struts ({light.radialStruts} struts × {light.strutWidthColumns ?? 2} cols, extending {(light.strutLength ?? (lamp.diameter / 2)).toFixed(0)}mm towards center) keeping floating pieces physically connected.</>
+              )}
             </span>
           </div>
 

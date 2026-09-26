@@ -71,7 +71,8 @@ self.onmessage = (e: MessageEvent<WorkerInputMessage>) => {
       {
         ...halftoneOptions,
         radialStruts: light.radialStruts,
-        strutWidthColumns: light.strutWidthColumns ?? 1,
+        strutWidthColumns: light.strutWidthColumns ?? 2,
+        strutLength: light.strutLength ?? lamp.strutLength ?? (lamp.diameter / 2),
       }
     );
 
@@ -102,7 +103,13 @@ self.onmessage = (e: MessageEvent<WorkerInputMessage>) => {
       message: 'Building 3D-printable watertight geometry...',
     } as WorkerOutputMessage);
 
-    const mesh = generateLampMesh(mask, lamp.segmentsAround, lamp.segmentsVertical, lamp);
+    const effectiveLamp: LampConfig = {
+      ...lamp,
+      radialStruts: light.radialStruts ?? lamp.radialStruts,
+      strutWidthColumns: light.strutWidthColumns ?? lamp.strutWidthColumns ?? 2,
+      strutLength: light.strutLength ?? lamp.strutLength ?? (lamp.diameter / 2),
+    };
+    const mesh = generateLampMesh(mask, lamp.segmentsAround, lamp.segmentsVertical, effectiveLamp);
     const validation = validateMesh(mesh);
 
     // 5. Binary STL Generation
