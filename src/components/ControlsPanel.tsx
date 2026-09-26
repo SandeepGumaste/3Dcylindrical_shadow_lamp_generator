@@ -3,7 +3,6 @@ import {
   LampConfig,
   LightConfig,
   ImageAdjustments,
-  Preset,
 } from '../types';
 import {
   Upload,
@@ -32,7 +31,6 @@ interface ControlsPanelProps {
   adjustments: ImageAdjustments;
   setAdjustments: React.Dispatch<React.SetStateAction<ImageAdjustments>>;
   onImageUpload: (file: File) => void;
-  onSelectSample: (type: 'dragon' | 'wolf' | 'celestial' | 'circle' | 'mandala' | 'stripes') => void;
   onGenerate: () => void;
   onExportSTL: () => void;
   onExportCircularSVG: () => void;
@@ -44,34 +42,6 @@ interface ControlsPanelProps {
   triangleCount: number;
 }
 
-export const PRESETS: Preset[] = [
-  {
-    id: 'dragon_tabletop',
-    name: 'Dragon (Photo Match)',
-    description: '360° Tabletop Radial Silhouette with Struts (Photo Match)',
-    lamp: { diameter: 80, height: 55, wallThickness: 1.2, segmentsAround: 360, segmentsVertical: 124, hasBase: true, ledCavityDiameter: 38, strutLength: 40 },
-    light: { target: 'tabletop', position: { x: 0, y: 32, z: 0 }, tableRadius: 220, radialStruts: 36, strutWidthColumns: 2, strutLength: 40 },
-    resolution: 512,
-  },
-  {
-    id: 'celestial_tabletop',
-    name: 'Celestial Moon & Stars',
-    description: 'Moon, sun, and cosmic stars on tabletop',
-    lamp: { diameter: 85, height: 55, wallThickness: 1.2, segmentsAround: 360, segmentsVertical: 116, hasBase: true, ledCavityDiameter: 38, strutLength: 42.5 },
-    light: { target: 'tabletop', position: { x: 0, y: 32, z: 0 }, tableRadius: 230, radialStruts: 32, strutWidthColumns: 2, strutLength: 42.5 },
-    resolution: 512,
-  },
-  {
-    id: 'portrait_wall',
-    name: 'Portrait (Wall Screen)',
-    description: '90 × 100 mm, vertical projection screen',
-    lamp: { diameter: 90, height: 100, wallThickness: 1.2, segmentsAround: 300, segmentsVertical: 167 },
-    light: { target: 'vertical_wall', position: { x: 0, y: 45, z: 0 }, projectionDistance: 250, radialStruts: 0 },
-    resolution: 512,
-  },
-];
-
-
 export const ControlsPanel: React.FC<ControlsPanelProps> = ({
   lamp,
   setLamp,
@@ -80,7 +50,6 @@ export const ControlsPanel: React.FC<ControlsPanelProps> = ({
   adjustments,
   setAdjustments,
   onImageUpload,
-  onSelectSample,
   onGenerate,
   onExportSTL,
   onExportCircularSVG,
@@ -116,17 +85,6 @@ export const ControlsPanel: React.FC<ControlsPanelProps> = ({
 
   const handleDragLeave = () => {
     setIsDragging(false);
-  };
-
-  const applyPreset = (preset: Preset) => {
-    setLamp((prev) => ({ ...prev, ...preset.lamp }));
-    if (preset.light.position) {
-      setLight((prev) => ({
-        ...prev,
-        ...preset.light,
-        position: { ...prev.position, ...preset.light.position },
-      }));
-    }
   };
 
   return (
@@ -230,35 +188,6 @@ export const ControlsPanel: React.FC<ControlsPanelProps> = ({
 
 
       <div className="p-4 flex flex-col gap-5">
-        {/* Preset Selector */}
-        <div className="flex flex-col gap-2">
-          <label className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-            Presets
-          </label>
-          <div className="grid grid-cols-3 gap-1.5">
-            {PRESETS.map((p) => {
-              const isSelected =
-                lamp.diameter === p.lamp.diameter && lamp.height === p.lamp.height;
-              return (
-                <button
-                  key={p.id}
-                  onClick={() => applyPreset(p)}
-                  className={`p-2 rounded-lg border text-left flex flex-col transition-colors ${
-                    isSelected
-                      ? 'bg-amber-500/15 border-amber-500/50 text-amber-300'
-                      : 'bg-slate-950/50 border-slate-800 hover:border-slate-700 text-slate-300'
-                  }`}
-                >
-                  <span className="font-medium text-[11px] truncate">{p.name.split(' ')[0]}</span>
-                  <span className="text-[10px] text-slate-500">
-                    {p.lamp.diameter}×{p.lamp.height}mm
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
         {/* 1. Image Upload & Quick Samples */}
         <div className="flex flex-col gap-2.5">
           <div className="flex items-center justify-between">
@@ -307,41 +236,6 @@ export const ControlsPanel: React.FC<ControlsPanelProps> = ({
                 SVG vector, PNG, JPG, or WebP
               </p>
             </div>
-          </div>
-
-          {/* Quick Synthetic Test Samples */}
-          <div className="flex items-center justify-between pt-1">
-            <span className="text-[10px] text-slate-500">Or use test pattern:</span>
-            <div className="flex flex-wrap items-center gap-1">
-              <button
-                onClick={() => onSelectSample('dragon')}
-                className="px-2 py-0.5 rounded bg-amber-500/25 text-amber-300 font-medium hover:bg-amber-500/35 border border-amber-500/40 text-[10px] flex items-center gap-1 shadow-sm"
-                title="Dragon silhouette with radial shadow rays matching reference photo"
-              >
-                <span>🐉 Dragon (Photo)</span>
-              </button>
-              <button
-                onClick={() => onSelectSample('wolf')}
-                className="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] flex items-center gap-1"
-                title="Howling wolf on cliff"
-              >
-                <span>🐺 Wolf</span>
-              </button>
-              <button
-                onClick={() => onSelectSample('celestial')}
-                className="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] flex items-center gap-1"
-                title="Sun, moon, and stars"
-              >
-                <span>🌙 Celestial</span>
-              </button>
-              <button
-                onClick={() => onSelectSample('mandala')}
-                className="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px]"
-              >
-                Mandala
-              </button>
-            </div>
-
           </div>
         </div>
 

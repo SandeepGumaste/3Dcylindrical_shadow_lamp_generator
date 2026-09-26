@@ -80,12 +80,3 @@ export interface MeshData {
   isWatertight: boolean;
   validationErrors: string[];
 }
-
-export interface Preset {
-  id: string;
-  name: string;
-  description: string;
-  lamp: Partial<LampConfig>;
-  light: Partial<LightConfig>;
-  resolution: number;
-}

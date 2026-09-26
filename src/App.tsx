@@ -5,11 +5,12 @@ import {
   LampConfig,
   LightConfig,
 } from './types';
-import { loadImageToGray, createSyntheticTestImage } from './image/loadImage';
+import { loadImageToGray } from './image/loadImage';
 import { rgbaToGrayscale } from './image/grayscale';
 import { ThreeViewport } from './components/ThreeViewport';
 import { ShadowPreview } from './components/ShadowPreview';
-import { ControlsPanel, PRESETS } from './components/ControlsPanel';
+import { ControlsPanel } from './components/ControlsPanel';
+import defaultShapeSvg from './assets/default-shape.svg?raw';
 import { runGeneration, GenerationResult } from './workers/lampRunner';
 import { downloadSTL } from './geometry/stl';
 import { generateCircularMapSvg, generateUnwrappedMapSvg, downloadSVG } from './geometry/svg';
@@ -61,7 +62,7 @@ export default function App() {
   });
 
   // Image source state
-  const [activeImageSource, setActiveImageSource] = useState<File | 'dragon' | 'wolf' | 'celestial' | 'circle' | 'mandala' | 'stripes'>('dragon');
+  const [activeImageSource, setActiveImageSource] = useState<File | 'default'>('default');
   const [grayImage, setGrayImage] = useState<GrayImage | null>(null);
   const [sourcePreviewUrl, setSourcePreviewUrl] = useState<string | null>(null);
 
@@ -77,30 +78,21 @@ export default function App() {
   // Debounced light change tracker
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Loads the bundled default silhouette (SVG) as the initial/default image
+  const loadDefaultImage = useCallback(async () => {
+    const { grayImage: loaded, previewUrl } = await loadImageToGray(defaultShapeSvg, {
+      targetResolution: 512,
+      adjustments,
+    });
+    setGrayImage(loaded);
+    setSourcePreviewUrl(previewUrl);
+    return loaded;
+  }, [adjustments]);
+
   // Helper to load or regenerate the input GrayImage
   const processSourceImage = useCallback(async () => {
-    if (typeof activeImageSource === 'string') {
-      const synthetic = createSyntheticTestImage(512, activeImageSource);
-      setGrayImage(synthetic);
-
-      // Create a canvas preview URL for synthetic image
-      const canvas = document.createElement('canvas');
-      canvas.width = 512;
-      canvas.height = 512;
-      const ctx = canvas.getContext('2d');
-      if (ctx) {
-        const imgData = ctx.createImageData(512, 512);
-        for (let i = 0; i < synthetic.pixels.length; i++) {
-          const v = Math.round(synthetic.pixels[i] * 255);
-          imgData.data[i * 4] = v;
-          imgData.data[i * 4 + 1] = v;
-          imgData.data[i * 4 + 2] = v;
-          imgData.data[i * 4 + 3] = 255;
-        }
-        ctx.putImageData(imgData, 0, 0);
-        setSourcePreviewUrl(canvas.toDataURL());
-      }
-      return synthetic;
+    if (activeImageSource === 'default') {
+      return loadDefaultImage();
     } else if (activeImageSource instanceof File) {
       const { grayImage: loaded, previewUrl } = await loadImageToGray(activeImageSource, {
         targetResolution: 512,
@@ -111,7 +103,7 @@ export default function App() {
       return loaded;
     }
     return null;
-  }, [activeImageSource, adjustments]);
+  }, [activeImageSource, adjustments, loadDefaultImage]);
 
   // Main Generation Handler
   const handleGenerate = useCallback(async (customImg?: GrayImage) => {
@@ -178,31 +170,6 @@ export default function App() {
     handleGenerate(loaded);
   };
 
-  const handleSelectSample = async (type: 'dragon' | 'wolf' | 'celestial' | 'circle' | 'mandala' | 'stripes') => {
-    setActiveImageSource(type);
-    const synthetic = createSyntheticTestImage(512, type);
-    setGrayImage(synthetic);
-
-    const canvas = document.createElement('canvas');
-    canvas.width = 512;
-    canvas.height = 512;
-    const ctx = canvas.getContext('2d');
-    if (ctx) {
-      const imgData = ctx.createImageData(512, 512);
-      for (let i = 0; i < synthetic.pixels.length; i++) {
-        const v = Math.round(synthetic.pixels[i] * 255);
-        imgData.data[i * 4] = v;
-        imgData.data[i * 4 + 1] = v;
-        imgData.data[i * 4 + 2] = v;
-        imgData.data[i * 4 + 3] = 255;
-      }
-      ctx.putImageData(imgData, 0, 0);
-      setSourcePreviewUrl(canvas.toDataURL());
-    }
-
-    handleGenerate(synthetic);
-  };
-
   // STL Export Trigger
   const handleExportSTL = () => {
     if (!generationResult?.stlBuffer) return;
@@ -246,7 +213,6 @@ export default function App() {
           adjustments={adjustments}
           setAdjustments={setAdjustments}
           onImageUpload={handleImageUpload}
-          onSelectSample={handleSelectSample}
           onGenerate={() => handleGenerate()}
           onExportSTL={handleExportSTL}
           onExportCircularSVG={handleExportCircularSVG}

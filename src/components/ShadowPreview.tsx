@@ -414,7 +414,7 @@ export const ShadowPreview: React.FC<ShadowPreviewProps> = ({
                   />
                 ) : (
                   <div className="text-xs text-slate-600 font-mono text-center p-4">
-                    Upload an image or select a preset to preview
+                    Upload an image or select a sample to preview
                   </div>
                 )}
                 <div className="absolute bottom-2 left-2 px-2 py-0.5 rounded bg-slate-900/80 backdrop-blur-sm text-[10px] text-slate-400 border border-slate-700/50">
