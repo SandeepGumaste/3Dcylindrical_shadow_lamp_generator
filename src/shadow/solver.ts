@@ -127,7 +127,15 @@ export function solveInverseShadow(
               cylindricalIntensity[idx] = 1; // background outside table
             }
           } else {
-            cylindricalIntensity[idx] = 0; // solid above light height
+            // No straight ray from the LED can ever reach the table after passing through
+            // the wall above the LED's own height - exiting there means travelling upward,
+            // so it can never come back down to y = 0 (every row up here has weight 0 for
+            // that same physical reason, not a missing sample). Nothing up here can ever be
+            // seen from the table, so rather than derive a pattern from the source image at
+            // all, leave it fully open: a plain hollow cylinder, sealed only by the
+            // structural radial struts and top rim generateCylindricalMask already applies
+            // independently of this intensity value.
+            cylindricalIntensity[idx] = 1;
           }
         }
       }

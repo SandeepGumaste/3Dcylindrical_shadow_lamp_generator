@@ -479,6 +479,44 @@ export const ControlsPanel: React.FC<ControlsPanelProps> = ({
               </select>
             </div>
 
+            {/* Top Rim */}
+            <div className="flex flex-col gap-1">
+              <span className="text-slate-400">Top Rim (mm)</span>
+              <input
+                type="number"
+                min="0"
+                max="20"
+                step="0.5"
+                value={lamp.topRimHeight}
+                onChange={(e) =>
+                  setLamp((prev) => ({
+                    ...prev,
+                    topRimHeight: Math.max(0, parseFloat(e.target.value) || 0),
+                  }))
+                }
+                className="bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1 text-slate-100 font-mono focus:border-amber-400 outline-none"
+              />
+            </div>
+
+            {/* Bottom Rim */}
+            <div className="flex flex-col gap-1">
+              <span className="text-slate-400">Bottom Rim (mm)</span>
+              <input
+                type="number"
+                min="0"
+                max="20"
+                step="0.5"
+                value={lamp.bottomRimHeight}
+                onChange={(e) =>
+                  setLamp((prev) => ({
+                    ...prev,
+                    bottomRimHeight: Math.max(0, parseFloat(e.target.value) || 0),
+                  }))
+                }
+                className="bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1 text-slate-100 font-mono focus:border-amber-400 outline-none"
+              />
+            </div>
+
             {/* Base Toggle */}
             <div className="col-span-2 flex items-center justify-between pt-1 border-t border-slate-800/60">
               <span className="text-slate-300">Mounting Base & LED Cavity</span>
@@ -739,7 +777,7 @@ export const ControlsPanel: React.FC<ControlsPanelProps> = ({
                     <div className="flex items-center gap-2">
                       <input
                         type="range"
-                        min={Math.max(2, Math.round(lamp.diameter * 0.1))}
+                        min={Math.max(1, Math.round(lamp.diameter * 0.025))}
                         max={Math.round(lamp.diameter / 2)}
                         step="1"
                         value={light.strutLength ?? Math.round(lamp.diameter / 2)}
@@ -759,13 +797,13 @@ export const ControlsPanel: React.FC<ControlsPanelProps> = ({
                           type="button"
                           disabled={
                             light.radialStruts === 0 ||
-                            (light.strutLength ?? Math.round(lamp.diameter / 2)) <= Math.max(2, Math.round(lamp.diameter * 0.1))
+                            (light.strutLength ?? Math.round(lamp.diameter / 2)) <= Math.max(1, Math.round(lamp.diameter * 0.025))
                           }
                           onClick={() =>
                             setLight((prev) => ({
                               ...prev,
                               strutLength: Math.max(
-                                Math.max(2, Math.round(lamp.diameter * 0.1)),
+                                Math.max(1, Math.round(lamp.diameter * 0.025)),
                                 (prev.strutLength ?? Math.round(lamp.diameter / 2)) - 2
                               ),
                             }))

@@ -38,7 +38,20 @@ export function generateCylindricalMask(
   const maxMVal = mSize * mSize;
 
   const topRimRows = Math.ceil((lamp.topRimHeight / lamp.height) * gridHeight);
-  const bottomRimRows = Math.ceil((lamp.bottomRimHeight / lamp.height) * gridHeight);
+  // The solid mounting base's plinth (generateLampMesh's "Base Generator") seals itself to the
+  // wall at the row boundary the base's height snaps up to (see baseTopRow there - same
+  // formula). That seam is only ever a plain, weldable row boundary if every row up to AND
+  // INCLUDING the row right above it is forced fully solid here too: a perforation reaching
+  // into the plinth would leave the plate's inner edge floating over an open cell, and even a
+  // single open cell in the row immediately above the seam leaves its solid neighbors' east/west
+  // walls with a radial (rIn-to-rOut) bottom edge the plinth has nothing shaped to weld to.
+  const requiredBaseRows = lamp.hasBase
+    ? Math.ceil((Math.max(4, lamp.baseHeight) / lamp.height) * gridHeight) + 1
+    : 0;
+  const bottomRimRows = Math.max(
+    Math.ceil((lamp.bottomRimHeight / lamp.height) * gridHeight),
+    requiredBaseRows
+  );
 
   for (let row = 0; row < gridHeight; row++) {
     // Solid bottom ring and top ring for 3D printing

@@ -94,6 +94,17 @@ export function generateLampMesh(
     yVals[r] = (r / gridHeight) * height;
   }
 
+  // Row index of the grid line the LED cavity cup's shelf snaps to (0 when there's no base).
+  // Using an exact grid line - rather than the raw baseHeight mm value - guarantees the shelf
+  // lands on real wall vertices instead of floating mid-face partway through whichever row
+  // happens to contain that Y coordinate, which otherwise leaves the shelf's inner edge
+  // permanently unwelded to the wall (a real gap, not just an unsmoothed stair-step).
+  // generateCylindricalMask forces every row up to and including this one fully solid so the
+  // seam this snaps to is always a plain, wedge-free row boundary.
+  const baseTopRow = lamp.hasBase
+    ? Math.min(gridHeight, Math.max(1, Math.ceil((Math.max(4, lamp.baseHeight) / height) * gridHeight)))
+    : 0;
+
   function colTheta(c: number): number {
     return (c / gridWidth) * 2 * Math.PI - Math.PI;
   }
@@ -361,6 +372,21 @@ export function generateLampMesh(
   }
 
   // 1. Generate Wall Cells (Outer, Inner, and Opening Boundary Walls)
+  // Runs uniformly over every row, including the base region: the lamp is a thin hollow shell
+  // (wallThickness between rIn and rOut) top to bottom, the same as the "no base" case. The
+  // base region is just forced fully solid by generateCylindricalMask (see requiredBaseRows
+  // there) so it prints as a plain, unperforated band rather than carrying the silhouette
+  // pattern - it isn't a separate solid-filled block.
+  //
+  // Rows below baseTopRow skip their INNER skin only (outer skin, the visible outside of the
+  // riser, is unaffected). The LED cavity cup's shelf (below) welds its outer edge to row
+  // baseTopRow's own inner-skin bottom edge - the only other thing that could claim that same
+  // edge is this continuous inner tube arriving from below, which would make it a 3-way
+  // junction (non-manifold) instead of a clean 2-way weld. Leaving the riser's interior (r <
+  // rIn) without its own inner wall isn't a defect: nothing needs it, since the space it would
+  // enclose is already open to the outside through the un-floored center of the bottom rim
+  // annulus below - the riser is simply a hollow, open-bottomed cylinder, same as a cup or pipe
+  // is normally modeled and prints fine despite that boundary loop.
   for (let row = 0; row < gridHeight; row++) {
     const y0 = yVals[row];
     const y1 = yVals[row + 1];
@@ -382,8 +408,13 @@ export function generateLampMesh(
 
       // Outer skin: outward-facing strip between the bottom and top edge point lists.
       stitchStrip(rOut, edges.bottom, edges.top, y0, y1, false);
-      // Inner skin: inward-facing (reversed winding).
-      stitchStrip(rIn, edges.bottom, edges.top, y0, y1, true);
+      // Inner skin: inward-facing (reversed winding). Omitted within the base riser (see the
+      // comment above the row loop) so the LED cavity cup's shelf has a clean, single row
+      // boundary to weld to instead of an already-continuous tube.
+      const isBaseRiserRow = lamp.hasBase && row < baseTopRow;
+      if (!isBaseRiserRow) {
+        stitchStrip(rIn, edges.bottom, edges.top, y0, y1, true);
+      }
 
       const out00 = getCylPoint(rOut, th0y0, y0);
       const out10 = getCylPoint(rOut, th1y0, y0);
@@ -461,42 +492,45 @@ export function generateLampMesh(
     addQuad(pOut0, pOut1, pIn1, pIn0, { x: 0, y: 1, z: 0 });
   }
 
-  // 3. Base Generator
+  // 3. Bottom rim: a thin annulus (rIn..rOut) at y = 0, same as the top rim - the lamp is a
+  // hollow shell of wallThickness top to bottom, never a solid-filled disc, whether or not it
+  // has a mounting base.
+  for (let c = 0; c < gridWidth; c++) {
+    const th0 = thetas[c];
+    const th1 = thetas[c + 1];
+    const pOut0 = getCylPoint(rOut, th0, 0);
+    const pOut1 = getCylPoint(rOut, th1, 0);
+    const pIn0 = getCylPoint(rIn, th0, 0);
+    const pIn1 = getCylPoint(rIn, th1, 0);
+
+    // Facing -Y
+    addQuad(pOut1, pOut0, pIn0, pIn1, { x: 0, y: -1, z: 0 });
+  }
+
+  // 4. LED/tea-light cavity: a thin-walled cup (shelf + cavity wall + cavity floor) welded
+  // inside the hollow tube at the base's height, not a solid-filled block. Its shelf's outer
+  // (rIn) edge welds to the wall's own inner skin at row baseTopRow's bottom boundary (raw,
+  // unwedged theta values - generateCylindricalMask forces every row up to and including
+  // baseTopRow fully solid so that seam is always a plain row boundary to weld to).
   const baseH = lamp.hasBase ? Math.max(4, lamp.baseHeight) : 0;
   const cavityR = lamp.hasBase ? Math.min(lamp.ledCavityDiameter / 2, rIn * 0.85) : 0;
   const cavityD = lamp.hasBase ? Math.min(lamp.ledCavityDepth, baseH - 1.5) : 0;
 
   if (lamp.hasBase && baseH > 0) {
-    // Generate solid mounting base with LED cavity
-    // Bottom floor disk at y = 0
-    // Floor annulus between cavityR and rOut at y = baseH
-    // Floor of cavity at y = baseH - cavityD
-    const floorY = 0;
-    const baseTopY = baseH;
+    // Snapped to an actual wall row boundary (see baseTopRow above) rather than the raw
+    // baseHeight mm value, so the shelf welds to the wall's real vertices instead of floating
+    // mid-face partway through whichever row happens to contain that Y coordinate.
+    const baseTopY = yVals[baseTopRow];
 
     for (let c = 0; c < gridWidth; c++) {
       const th0 = thetas[c];
       const th1 = thetas[c + 1];
 
-      // Flat bottom of the entire lamp (facing -Y)
-      const b0 = getCylPoint(rOut, th0, floorY);
-      const b1 = getCylPoint(rOut, th1, floorY);
-      const bCenter0 = { x: 0, y: floorY, z: 0 };
-      // Triangle fan piece
-      const baseIdx = positionsArr.length / 3;
-      positionsArr.push(bCenter0.x, bCenter0.y, bCenter0.z);
-      positionsArr.push(b1.x, b1.y, b1.z);
-      positionsArr.push(b0.x, b0.y, b0.z);
-      for (let i = 0; i < 3; i++) normalsArr.push(0, -1, 0);
-      indicesArr.push(baseIdx, baseIdx + 1, baseIdx + 2);
-
-      // Base top annular plate connecting to inner lamp wall (y = baseTopY)
+      // Shelf connecting to the inner lamp wall (y = baseTopY), facing +Y
       const ptCav0 = getCylPoint(cavityR, th0, baseTopY);
       const ptCav1 = getCylPoint(cavityR, th1, baseTopY);
       const ptIn0 = getCylPoint(rIn, th0, baseTopY);
       const ptIn1 = getCylPoint(rIn, th1, baseTopY);
-
-      // Facing +Y
       addQuad(ptIn0, ptIn1, ptCav1, ptCav0, { x: 0, y: 1, z: 0 });
 
       // Cavity vertical inner cylindrical wall
@@ -517,19 +551,6 @@ export function generateLampMesh(
         for (let i = 0; i < 3; i++) normalsArr.push(0, 1, 0);
         indicesArr.push(cIdx, cIdx + 1, cIdx + 2);
       }
-    }
-  } else {
-    // No base: simple bottom rim annulus at y = 0
-    for (let c = 0; c < gridWidth; c++) {
-      const th0 = thetas[c];
-      const th1 = thetas[c + 1];
-      const pOut0 = getCylPoint(rOut, th0, 0);
-      const pOut1 = getCylPoint(rOut, th1, 0);
-      const pIn0 = getCylPoint(rIn, th0, 0);
-      const pIn1 = getCylPoint(rIn, th1, 0);
-
-      // Facing -Y
-      addQuad(pOut1, pOut0, pIn0, pIn1, { x: 0, y: -1, z: 0 });
     }
   }
 

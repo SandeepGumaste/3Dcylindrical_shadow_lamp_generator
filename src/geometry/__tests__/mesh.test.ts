@@ -316,9 +316,12 @@ describe('Printable Lamp Mesh Generation & Validation', () => {
       const smoothed = generateLampMesh(mask, lamp.segmentsAround, lamp.segmentsVertical, lamp);
       const reference = referenceGenerateLampMesh(mask, lamp.segmentsAround, lamp.segmentsVertical, lamp);
 
-      // No matched row-to-row span ever overlaps in this pattern, so smoothing never triggers
-      // at all - this really should be byte-for-byte identical to the reference.
-      expect(countNonManifoldEdges(smoothed)).toBe(countNonManifoldEdges(reference));
+      // No matched row-to-row span ever overlaps in this pattern, so boundary smoothing itself
+      // never triggers here - same "no more than the reference" comparison as the sibling
+      // tests above, since the base plinth's own seal to the wall (a separate fix, unrelated
+      // to hole-boundary smoothing) legitimately reduces the defect count below the frozen
+      // reference's, which still reproduces the old, unwelded base geometry on purpose.
+      expect(countNonManifoldEdges(smoothed)).toBeLessThanOrEqual(countNonManifoldEdges(reference));
     });
 
     it('handles sparse random noise, including holes touching the wraparound seam, without adding non-manifold edges', () => {
