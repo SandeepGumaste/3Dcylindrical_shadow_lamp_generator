@@ -3,7 +3,7 @@ import { getProjectionPlanePoint, castInverseRay, ProjectionPlane, castForwardRa
 import { thetaToU } from '../geometry/cylinder';
 import { sampleBilinear } from '../image/sampling';
 import { Vec3 } from '../geometry/vectors';
-import { getSmoothedRowSpanBounds } from '../geometry/svg';
+import { extractSmoothLoops, LoopIndex } from '../geometry/contours';
 
 export interface SolverResult {
   cylindricalIntensity: Float32Array; // grid: segmentsAround x segmentsVertical
@@ -248,41 +248,19 @@ const SUPERSAMPLE_OFFSETS = [-1 / 3, 0, 1 / 3];
 
 /**
  * Builds a UV-space mask reader that looks up whether a cylindrical point falls inside an open
- * perforation using each hole's row-to-row interpolated boundary (see getSmoothedRowSpanBounds)
- * rather than the raw grid cell it lands in. A plain nearest-cell lookup reproduces the
- * perforation grid's stair-stepped cell boundaries exactly - every edge lands on a hard, chunky
- * step the width of a whole grid cell, which no amount of pixel-level supersampling can smooth
- * out. Interpolating the hole's left/right boundary between the row above and below turns that
- * staircase into a smooth diagonal line, matching what generateCircularMapSvg's 'sharp-edges'
- * style already does for the flat 2D export. Row span bounds are cached since supersampling
- * calls this many times per output pixel, almost always against the same one or two rows.
+ * perforation using the smoothed hole outlines (see contours.ts) rather than the raw grid cell it
+ * lands in. A plain nearest-cell lookup reproduces the perforation grid's stair-stepped cell
+ * boundaries exactly - every edge lands on a hard, chunky step the width of a whole grid cell,
+ * which no amount of pixel-level supersampling can smooth out. The same outlines drive the SVG
+ * export and the 3D mesh, so the simulated shadow matches what is cut and printed.
  */
 function createMaskReader(
   cylindricalMask: Uint8Array | Float32Array,
   gridWidth: number,
   gridHeight: number
 ) {
-  const rowCache = new Map<number, ReturnType<typeof getSmoothedRowSpanBounds>>();
-
-  return (hitU: number, hitV: number): number => {
-    const rowF = hitV * gridHeight;
-    const row = Math.min(Math.max(Math.floor(rowF), 0), gridHeight - 1);
-    const t = Math.min(Math.max(rowF - row, 0), 1);
-    const col = hitU * gridWidth;
-
-    let spans = rowCache.get(row);
-    if (!spans) {
-      spans = getSmoothedRowSpanBounds(cylindricalMask, gridWidth, gridHeight, row);
-      rowCache.set(row, spans);
-    }
-
-    for (const span of spans) {
-      const left = span.cInStart + (span.cOutStart - span.cInStart) * t;
-      const right = span.cInEnd + (span.cOutEnd - span.cInEnd) * t;
-      if (col >= left && col < right) return 1.0;
-    }
-    return 0.0;
-  };
+  const index = new LoopIndex(extractSmoothLoops(cylindricalMask, gridWidth, gridHeight), gridHeight);
+  return (hitU: number, hitV: number): number => (index.contains(hitU * gridWidth, hitV * gridHeight) ? 1.0 : 0.0);
 }
 
 export function simulateShadowProjection(

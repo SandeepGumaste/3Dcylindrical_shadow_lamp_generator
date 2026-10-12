@@ -1,6 +1,8 @@
 import { LampConfig, MeshData } from '../types';
 import { cross, length, normalize, subtract, Vec3 } from './vectors';
+import cdt2d from 'cdt2d';
 import { getRowSpans, findOverlappingSpan, Span } from './svg';
+import { extractSmoothLoops } from './contours';
 
 interface CellEdges {
   bottom: number[]; // theta values at y0, ascending
@@ -387,96 +389,277 @@ export function generateLampMesh(
   // enclose is already open to the outside through the un-floored center of the bottom rim
   // annulus below - the riser is simply a hollow, open-bottomed cylinder, same as a cup or pipe
   // is normally modeled and prints fine despite that boundary loop.
-  for (let row = 0; row < gridHeight; row++) {
-    const y0 = yVals[row];
-    const y1 = yVals[row + 1];
-
-    for (let col = 0; col < gridWidth; col++) {
-      const idx = row * gridWidth + col;
-      const isCellOpen = mask[idx] === 1;
-
-      // If cell is open, it has no outer or inner skin (light passes through)
-      if (isCellOpen) {
-        continue;
-      }
-
-      const edges = getEdges(row, col);
-      const th0y0 = edges.bottom[0];
-      const th0y1 = edges.top[0];
-      const th1y0 = edges.bottom[edges.bottom.length - 1];
-      const th1y1 = edges.top[edges.top.length - 1];
-
-      // Outer skin: outward-facing strip between the bottom and top edge point lists.
-      stitchStrip(rOut, edges.bottom, edges.top, y0, y1, false);
-      // Inner skin: inward-facing (reversed winding). Omitted within the base riser (see the
-      // comment above the row loop) so the LED cavity cup's shelf has a clean, single row
-      // boundary to weld to instead of an already-continuous tube.
-      const isBaseRiserRow = lamp.hasBase && row < baseTopRow;
-      if (!isBaseRiserRow) {
-        stitchStrip(rIn, edges.bottom, edges.top, y0, y1, true);
-      }
-
-      const out00 = getCylPoint(rOut, th0y0, y0);
-      const out10 = getCylPoint(rOut, th1y0, y0);
-      const out11 = getCylPoint(rOut, th1y1, y1);
-      const out01 = getCylPoint(rOut, th0y1, y1);
-      const in00 = getCylPoint(rIn, th0y0, y0);
-      const in10 = getCylPoint(rIn, th1y0, y0);
-      const in11 = getCylPoint(rIn, th1y1, y1);
-      const in01 = getCylPoint(rIn, th0y1, y1);
-
-      // North neighbor: row + 1. The default (un-overridden) cap must use this cell's own raw,
-      // un-extended column boundary - not th0y1/th1y1, which can reach past it when this same
-      // cell is also a wedge for a row-to-row transition. Using the extended value here would
-      // over-cap into territory already properly skin-to-skin connected to the adjacent row,
-      // overlapping rather than sealing it.
-      const key = row * gridWidth + col;
-      const northOverride = northCapOverride.get(key);
-      const isNorthOpenRaw = row + 1 < gridHeight && mask[(row + 1) * gridWidth + col] === 1;
-      if (northOverride ? !northOverride.suppress : isNorthOpenRaw) {
-        const w = northOverride ? northOverride.west : thetas[col];
-        const e = northOverride ? northOverride.east : thetas[col + 1];
-        addQuad(
-          getCylPoint(rOut, w, y1),
-          getCylPoint(rOut, e, y1),
-          getCylPoint(rIn, e, y1),
-          getCylPoint(rIn, w, y1),
-          { x: 0, y: 1, z: 0 }
-        );
-      }
-
-      // South neighbor: row - 1 (same reasoning as the north cap above).
-      const southOverride = southCapOverride.get(key);
-      const isSouthOpenRaw = row > 0 && mask[(row - 1) * gridWidth + col] === 1;
-      if (southOverride ? !southOverride.suppress : isSouthOpenRaw) {
-        const w = southOverride ? southOverride.west : thetas[col];
-        const e = southOverride ? southOverride.east : thetas[col + 1];
-        addQuad(
-          getCylPoint(rOut, e, y0),
-          getCylPoint(rOut, w, y0),
-          getCylPoint(rIn, w, y0),
-          getCylPoint(rIn, e, y0),
-          { x: 0, y: -1, z: 0 }
-        );
-      }
-
-      // East neighbor: (col + 1) % gridWidth
-      const eastCol = (col + 1) % gridWidth;
-      const isEastOpen = mask[row * gridWidth + eastCol] === 1;
-      if (isEastOpen) {
-        // Wall following the (possibly wedge-extended) east edge
-        addQuad(out10, in10, in11, out11);
-      }
-
-      // West neighbor: (col - 1 + gridWidth) % gridWidth
-      const westCol = (col - 1 + gridWidth) % gridWidth;
-      const isWestOpen = mask[row * gridWidth + westCol] === 1;
-      if (isWestOpen) {
-        // Wall following the (possibly wedge-extended) west edge
-        addQuad(in00, out00, out01, in01);
+  // Contour walls: hole outlines are the smoothed contours (see contours.ts) rather than raw
+  // grid-cell edges. Solid cells away from any hole stay plain grid quads; a thin band of cells
+  // around the holes is triangulated as a constrained mesh that respects the contours. Needs every
+  // hole to sit strictly inside the wall - a hole touching the wrap seam, the top/bottom edge or
+  // the base rows falls back to the per-cell walls below.
+  const MAX_CONTOUR_BAND_POINTS = 14000; // constrained triangulation cost grows steeply past this
+  function canUseContourWalls(): boolean {
+    if (gridWidth < 3 || gridHeight < 3) return false;
+    const lowestOpenAllowed = Math.max(baseTopRow, 0);
+    for (let r = 0; r < gridHeight; r++) {
+      if (mask[r * gridWidth] === 1 || mask[r * gridWidth + gridWidth - 1] === 1) return false;
+      if (r <= lowestOpenAllowed || r === gridHeight - 1) {
+        for (let c = 0; c < gridWidth; c++) if (mask[r * gridWidth + c] === 1) return false;
       }
     }
+    return true;
   }
+
+  function addOrientedTriangle(a: Vec3, b: Vec3, c: Vec3, want: Vec3): void {
+    let n = cross(subtract(b, a), subtract(c, a));
+    const len = length(n);
+    if (len < 1e-12) return;
+    n = { x: n.x / len, y: n.y / len, z: n.z / len };
+    const flip = n.x * want.x + n.y * want.y + n.z * want.z < 0;
+    const [q, r] = flip ? [c, b] : [b, c];
+    if (flip) n = { x: -n.x, y: -n.y, z: -n.z };
+    const baseIdx = positionsArr.length / 3;
+    positionsArr.push(a.x, a.y, a.z, q.x, q.y, q.z, r.x, r.y, r.z);
+    for (let i = 0; i < 3; i++) normalsArr.push(n.x, n.y, n.z);
+    indicesArr.push(baseIdx, baseIdx + 1, baseIdx + 2);
+  }
+
+  function addContourWalls(): boolean {
+    const W = gridWidth;
+    const H = gridHeight;
+    const isOpenCell = (r: number, c: number) => r >= 0 && r < H && c >= 0 && c < W && mask[r * W + c] === 1;
+
+    // 0 = solid cell with no hole nearby, 1 = solid cell touching a hole (band), 2 = open cell
+    const cellState = new Uint8Array(W * H);
+    for (let r = 0; r < H; r++) {
+      for (let c = 0; c < W; c++) {
+        if (isOpenCell(r, c)) {
+          cellState[r * W + c] = 2;
+          continue;
+        }
+        let touchesOpen = false;
+        for (let dr = -1; dr <= 1 && !touchesOpen; dr++) {
+          for (let dc = -1; dc <= 1; dc++) {
+            if (isOpenCell(r + dr, c + dc)) {
+              touchesOpen = true;
+              break;
+            }
+          }
+        }
+        cellState[r * W + c] = touchesOpen ? 1 : 0;
+      }
+    }
+    const inBandRegion = (r: number, c: number) => r >= 0 && r < H && c >= 0 && c < W && cellState[r * W + c] !== 0;
+
+    const loops = extractSmoothLoops(mask, W, H);
+    const mmX = (2 * Math.PI * rOut) / W;
+    const mmY = height / H;
+
+    const pts: [number, number][] = []; // grid coordinates (col, row)
+    const edges: [number, number][] = [];
+    const nodeIndex = new Map<number, number>();
+    const nodeKey = (c: number, r: number) => r * (W + 1) + c;
+    const touchesOpenNode = (c: number, r: number) =>
+      isOpenCell(r - 1, c - 1) || isOpenCell(r - 1, c) || isOpenCell(r, c - 1) || isOpenCell(r, c);
+    const getNode = (c: number, r: number): number => {
+      const k = nodeKey(c, r);
+      let i = nodeIndex.get(k);
+      if (i === undefined) {
+        i = pts.length;
+        pts.push([c, r]);
+        nodeIndex.set(k, i);
+      }
+      return i;
+    };
+
+    // The band region is every non-far cell. Its outer boundary (against far cells or the edge of
+    // the wall) is constrained along grid lines, so the band's triangles meet the far quads
+    // exactly at shared grid nodes.
+    for (let r = 0; r < H; r++) {
+      for (let c = 0; c < W; c++) {
+        if (cellState[r * W + c] !== 1) continue;
+        for (let dr = 0; dr <= 1; dr++) {
+          for (let dc = 0; dc <= 1; dc++) {
+            if (!touchesOpenNode(c + dc, r + dr)) getNode(c + dc, r + dr);
+          }
+        }
+        if (!inBandRegion(r - 1, c)) edges.push([getNode(c, r), getNode(c + 1, r)]);
+        if (!inBandRegion(r + 1, c)) edges.push([getNode(c, r + 1), getNode(c + 1, r + 1)]);
+        if (!inBandRegion(r, c - 1)) edges.push([getNode(c, r), getNode(c, r + 1)]);
+        if (!inBandRegion(r, c + 1)) edges.push([getNode(c + 1, r), getNode(c + 1, r + 1)]);
+      }
+    }
+
+    let loopPointCount = 0;
+    for (const loop of loops) loopPointCount += loop.length;
+    if (pts.length + loopPointCount > MAX_CONTOUR_BAND_POINTS) return false;
+
+    for (const loop of loops) {
+      const first = pts.length;
+      for (const [c, r] of loop) pts.push([c, r]);
+      for (let i = 0; i < loop.length; i++) edges.push([first + i, first + ((i + 1) % loop.length)]);
+    }
+
+    const tris = pts.length >= 3
+      ? cdt2d(
+          pts.map(([c, r]) => [c * mmX, r * mmY] as [number, number]),
+          edges,
+          { exterior: false }
+        )
+      : [];
+
+    const emitSkinTriangle = (p0: [number, number], p1: [number, number], p2: [number, number], inner: boolean) => {
+      const at = (p: [number, number], radius: number) =>
+        getCylPoint(radius, (p[0] / W) * 2 * Math.PI - Math.PI, (p[1] / H) * height);
+      const meanTheta = (((p0[0] + p1[0] + p2[0]) / 3) / W) * 2 * Math.PI - Math.PI;
+      const sign = inner ? -1 : 1;
+      const want = { x: sign * Math.cos(meanTheta), y: 0, z: sign * Math.sin(meanTheta) };
+      const radius = inner ? rIn : rOut;
+      addOrientedTriangle(at(p0, radius), at(p1, radius), at(p2, radius), want);
+    };
+
+    for (const [i0, i1, i2] of tris) {
+      emitSkinTriangle(pts[i0], pts[i1], pts[i2], false);
+      emitSkinTriangle(pts[i0], pts[i1], pts[i2], true);
+    }
+
+    // Far solid cells: plain grid quads. Rows below baseTopRow have no inner skin (see below).
+    for (let r = 0; r < H; r++) {
+      for (let c = 0; c < W; c++) {
+        if (cellState[r * W + c] !== 0) continue;
+        const a: [number, number] = [c, r];
+        const b: [number, number] = [c + 1, r];
+        const d: [number, number] = [c + 1, r + 1];
+        const e: [number, number] = [c, r + 1];
+        emitSkinTriangle(a, b, d, false);
+        emitSkinTriangle(a, d, e, false);
+        if (!(lamp.hasBase && r < baseTopRow)) {
+          emitSkinTriangle(a, b, d, true);
+          emitSkinTriangle(a, d, e, true);
+        }
+      }
+    }
+
+    // Walls around each opening, facing into the opening (the left of the loop's direction).
+    for (const loop of loops) {
+      for (let i = 0; i < loop.length; i++) {
+        const [c0, r0] = loop[i];
+        const [c1, r1] = loop[(i + 1) % loop.length];
+        const th0 = (c0 / gridWidth) * 2 * Math.PI - Math.PI;
+        const th1 = (c1 / gridWidth) * 2 * Math.PI - Math.PI;
+        const y0 = (r0 / gridHeight) * height;
+        const y1 = (r1 / gridHeight) * height;
+        const midTheta = 0.5 * (th0 + th1);
+        const du = (c1 - c0) * mmX;
+        const dv = (r1 - r0) * mmY;
+        const want = {
+          x: -Math.sin(midTheta) * -dv,
+          y: du,
+          z: Math.cos(midTheta) * -dv,
+        };
+        const o0 = getCylPoint(rOut, th0, y0);
+        const o1 = getCylPoint(rOut, th1, y1);
+        const i0 = getCylPoint(rIn, th0, y0);
+        const i1 = getCylPoint(rIn, th1, y1);
+        addOrientedTriangle(o0, o1, i1, want);
+        addOrientedTriangle(o0, i1, i0, want);
+      }
+    }
+    return true;
+  }
+
+  function addGridWalls(): void {
+    for (let row = 0; row < gridHeight; row++) {
+      const y0 = yVals[row];
+      const y1 = yVals[row + 1];
+
+      for (let col = 0; col < gridWidth; col++) {
+        const idx = row * gridWidth + col;
+        const isCellOpen = mask[idx] === 1;
+
+        // If cell is open, it has no outer or inner skin (light passes through)
+        if (isCellOpen) {
+          continue;
+        }
+
+        const edges = getEdges(row, col);
+        const th0y0 = edges.bottom[0];
+        const th0y1 = edges.top[0];
+        const th1y0 = edges.bottom[edges.bottom.length - 1];
+        const th1y1 = edges.top[edges.top.length - 1];
+
+        // Outer skin: outward-facing strip between the bottom and top edge point lists.
+        stitchStrip(rOut, edges.bottom, edges.top, y0, y1, false);
+        // Inner skin: inward-facing (reversed winding). Omitted within the base riser (see the
+        // comment above the row loop) so the LED cavity cup's shelf has a clean, single row
+        // boundary to weld to instead of an already-continuous tube.
+        const isBaseRiserRow = lamp.hasBase && row < baseTopRow;
+        if (!isBaseRiserRow) {
+          stitchStrip(rIn, edges.bottom, edges.top, y0, y1, true);
+        }
+
+        const out00 = getCylPoint(rOut, th0y0, y0);
+        const out10 = getCylPoint(rOut, th1y0, y0);
+        const out11 = getCylPoint(rOut, th1y1, y1);
+        const out01 = getCylPoint(rOut, th0y1, y1);
+        const in00 = getCylPoint(rIn, th0y0, y0);
+        const in10 = getCylPoint(rIn, th1y0, y0);
+        const in11 = getCylPoint(rIn, th1y1, y1);
+        const in01 = getCylPoint(rIn, th0y1, y1);
+
+        // North neighbor: row + 1. The default (un-overridden) cap must use this cell's own raw,
+        // un-extended column boundary - not th0y1/th1y1, which can reach past it when this same
+        // cell is also a wedge for a row-to-row transition. Using the extended value here would
+        // over-cap into territory already properly skin-to-skin connected to the adjacent row,
+        // overlapping rather than sealing it.
+        const key = row * gridWidth + col;
+        const northOverride = northCapOverride.get(key);
+        const isNorthOpenRaw = row + 1 < gridHeight && mask[(row + 1) * gridWidth + col] === 1;
+        if (northOverride ? !northOverride.suppress : isNorthOpenRaw) {
+          const w = northOverride ? northOverride.west : thetas[col];
+          const e = northOverride ? northOverride.east : thetas[col + 1];
+          addQuad(
+            getCylPoint(rOut, w, y1),
+            getCylPoint(rOut, e, y1),
+            getCylPoint(rIn, e, y1),
+            getCylPoint(rIn, w, y1),
+            { x: 0, y: 1, z: 0 }
+          );
+        }
+
+        // South neighbor: row - 1 (same reasoning as the north cap above).
+        const southOverride = southCapOverride.get(key);
+        const isSouthOpenRaw = row > 0 && mask[(row - 1) * gridWidth + col] === 1;
+        if (southOverride ? !southOverride.suppress : isSouthOpenRaw) {
+          const w = southOverride ? southOverride.west : thetas[col];
+          const e = southOverride ? southOverride.east : thetas[col + 1];
+          addQuad(
+            getCylPoint(rOut, e, y0),
+            getCylPoint(rOut, w, y0),
+            getCylPoint(rIn, w, y0),
+            getCylPoint(rIn, e, y0),
+            { x: 0, y: -1, z: 0 }
+          );
+        }
+
+        // East neighbor: (col + 1) % gridWidth
+        const eastCol = (col + 1) % gridWidth;
+        const isEastOpen = mask[row * gridWidth + eastCol] === 1;
+        if (isEastOpen) {
+          // Wall following the (possibly wedge-extended) east edge
+          addQuad(out10, in10, in11, out11);
+        }
+
+        // West neighbor: (col - 1 + gridWidth) % gridWidth
+        const westCol = (col - 1 + gridWidth) % gridWidth;
+        const isWestOpen = mask[row * gridWidth + westCol] === 1;
+        if (isWestOpen) {
+          // Wall following the (possibly wedge-extended) west edge
+          addQuad(in00, out00, out01, in01);
+        }
+      }
+    }
+
+  }
+
+  if (!(canUseContourWalls() && addContourWalls())) addGridWalls();
 
   // 2. Top Rim Capping (annulus from rIn to rOut at y = height)
   const topY = height;

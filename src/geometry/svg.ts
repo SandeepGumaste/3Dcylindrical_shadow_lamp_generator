@@ -1,4 +1,5 @@
 import { LampConfig } from '../types';
+import { extractSmoothLoops, groupShapes, Loop } from './contours';
 
 export interface CircularSvgOptions {
   outerRadiusMm?: number; // e.g. lamp.diameter / 2 or customized
@@ -63,43 +64,6 @@ export function findOverlappingSpan(spans: Span[], target: Span): Span | null {
   return null;
 }
 
-export interface SmoothedSpanBounds extends Span {
-  cInStart: number;  // left boundary column, interpolated toward the previous row (bottom edge)
-  cOutStart: number; // left boundary column, interpolated toward the next row (top edge)
-  cInEnd: number;    // right boundary column, interpolated toward the previous row (bottom edge)
-  cOutEnd: number;   // right boundary column, interpolated toward the next row (top edge)
-}
-
-/**
- * Computes each open span's boundary columns interpolated against the overlapping span in the
- * row above/below - the same diagonal-facet technique used by generateCircularMapSvg's and
- * generateUnwrappedMapSvg's 'sharp-edges' styles to avoid pixelated square stair-steps, exposed
- * here so 3D mesh generation and shadow simulation can share the identical boundary math instead
- * of rasterizing the raw per-cell grid lines.
- */
-export function getSmoothedRowSpanBounds(
-  mask: Uint8Array | Float32Array,
-  gridWidth: number,
-  gridHeight: number,
-  row: number
-): SmoothedSpanBounds[] {
-  const spans = getRowSpans(mask, row, gridWidth);
-  const prevSpans = row > 0 ? getRowSpans(mask, row - 1, gridWidth) : [];
-  const nextSpans = row < gridHeight - 1 ? getRowSpans(mask, row + 1, gridWidth) : [];
-
-  return spans.map((span) => {
-    const prev = findOverlappingSpan(prevSpans, span);
-    const next = findOverlappingSpan(nextSpans, span);
-    return {
-      ...span,
-      cInStart: prev ? 0.5 * (span.start + prev.start) : span.start,
-      cOutStart: next ? 0.5 * (span.start + next.start) : span.start,
-      cInEnd: prev ? 0.5 * (span.end + 1 + prev.end + 1) : span.end + 1,
-      cOutEnd: next ? 0.5 * (span.end + 1 + next.end + 1) : span.end + 1,
-    };
-  });
-}
-
 /**
  * Generates a precision vector SVG of the Circular Polar Map with SHARP FLAT EDGES (no squares on edges).
  * Maps cylindrical coordinates:
@@ -127,64 +91,16 @@ export function generateCircularMapSvg(
   const dr = (outerR - innerR) / gridHeight;
 
   if (style === 'sharp-edges') {
-    // Precompute all spans per row
-    const allSpans: Span[][] = [];
-    for (let r = 0; r < gridHeight; r++) {
-      allSpans.push(getRowSpans(mask, r, gridWidth));
-    }
-
-    for (let row = 0; row < gridHeight; row++) {
-      const r0 = innerR + row * dr;
-      const r1 = r0 + dr;
-      const currentSpans = allSpans[row];
-      const prevSpans = row > 0 ? allSpans[row - 1] : [];
-      const nextSpans = row < gridHeight - 1 ? allSpans[row + 1] : [];
-
-      for (const span of currentSpans) {
-        const prev = findOverlappingSpan(prevSpans, span);
-        const next = findOverlappingSpan(nextSpans, span);
-
-        // Interpolate boundary column indices for sharp flat diagonal edges
-        const cInStart = prev ? 0.5 * (span.start + prev.start) : span.start;
-        const cOutStart = next ? 0.5 * (span.start + next.start) : span.start;
-
-        const cInEnd = prev ? 0.5 * (span.end + 1 + prev.end + 1) : span.end + 1;
-        const cOutEnd = next ? 0.5 * (span.end + 1 + next.end + 1) : span.end + 1;
-
-        // Polar angles
-        const thInStart = (cInStart / gridWidth) * 2 * Math.PI - Math.PI;
-        const thOutStart = (cOutStart / gridWidth) * 2 * Math.PI - Math.PI;
-        const thOutEnd = (cOutEnd / gridWidth) * 2 * Math.PI - Math.PI;
-        const thInEnd = (cInEnd / gridWidth) * 2 * Math.PI - Math.PI;
-
-        // 4 Key vertices:
-        // P0: (r0, thInStart)
-        // P1: (r1, thOutStart)
-        // P2: (r1, thOutEnd)
-        // P3: (r0, thInEnd)
-        const x0 = cx + r0 * Math.cos(thInStart);
-        const y0 = cy + r0 * Math.sin(thInStart);
-        const x1 = cx + r1 * Math.cos(thOutStart);
-        const y1 = cy + r1 * Math.sin(thOutStart);
-        const x2 = cx + r1 * Math.cos(thOutEnd);
-        const y2 = cy + r1 * Math.sin(thOutEnd);
-        const x3 = cx + r0 * Math.cos(thInEnd);
-        const y3 = cy + r0 * Math.sin(thInEnd);
-
-        const arcOut = Math.abs(thOutEnd - thOutStart);
-        const arcIn = Math.abs(thInEnd - thInStart);
-        const largeArcOut = arcOut > Math.PI ? 1 : 0;
-        const largeArcIn = arcIn > Math.PI ? 1 : 0;
-
-        // Closed shape with sharp flat straight side edges and concentric arcs
-        const pathD = `M ${x0.toFixed(3)} ${y0.toFixed(3)} ` +
-          `L ${x1.toFixed(3)} ${y1.toFixed(3)} ` +
-          `A ${r1.toFixed(3)} ${r1.toFixed(3)} 0 ${largeArcOut} 1 ${x2.toFixed(3)} ${y2.toFixed(3)} ` +
-          `L ${x3.toFixed(3)} ${y3.toFixed(3)} ` +
-          `A ${r0.toFixed(3)} ${r0.toFixed(3)} 0 ${largeArcIn} 0 ${x0.toFixed(3)} ${y0.toFixed(3)} Z`;
-
-        elements.push(`<path d="${pathD}" fill="${fillColor}" />`);
-      }
+    // Smooth traced outlines of each open region (see contours.ts), mapped onto the polar plane.
+    const toXY = ([col, row]: [number, number]): string => {
+      const theta = (col / gridWidth) * 2 * Math.PI - Math.PI;
+      const radius = innerR + row * dr;
+      return `${(cx + radius * Math.cos(theta)).toFixed(3)} ${(cy + radius * Math.sin(theta)).toFixed(3)}`;
+    };
+    const loopPath = (loop: Loop) => 'M ' + loop.map(toXY).join(' L ') + ' Z';
+    for (const shape of groupShapes(extractSmoothLoops(mask, gridWidth, gridHeight))) {
+      const d = [shape.outer, ...shape.holes].map(loopPath).join(' ');
+      elements.push(`<path d="${d}" fill="${fillColor}" fill-rule="evenodd" />`);
     }
   } else if (style === 'circles') {
     // Round circular holes option
@@ -319,7 +235,8 @@ export function generateCircularMapSvg(
 
 /**
  * Generates an unwrapped rectangular flat cylindrical map in SVG format with sharp flat edges.
- * Contiguous cells in each row are merged into clean polygons with sharp flat slanted transitions.
+ * Each open region is a single path traced along its smoothed outline (see contours.ts), with any
+ * enclosed solid islands as holes.
  * Directly usable for flat sheet laser cutting, CNC milling, or paper stencils.
  */
 export function generateUnwrappedMapSvg(
@@ -338,44 +255,14 @@ export function generateUnwrappedMapSvg(
   const cellH = heightMm / gridHeight;
   const fillColor = options.fillColor || '#f59e0b';
 
-  // Extract spans per row
-  const allSpans: Span[][] = [];
-  for (let r = 0; r < gridHeight; r++) {
-    allSpans.push(getRowSpans(mask, r, gridWidth));
-  }
+  const toXY = ([col, row]: [number, number]): string =>
+    `${(marginMm + (col / gridWidth) * widthMm).toFixed(3)} ${(marginMm + (gridHeight - row) * cellH).toFixed(3)}`;
+  const loopPath = (loop: Loop) => 'M ' + loop.map(toXY).join(' L ') + ' Z';
 
-  const polygons: string[] = [];
-
-  for (let row = 0; row < gridHeight; row++) {
-    // Canvas / SVG Y is inverted (top is row = gridHeight - 1)
-    const yTop = marginMm + (gridHeight - 1 - row) * cellH;
-    const yBot = yTop + cellH;
-
-    const currentSpans = allSpans[row];
-    const prevSpans = row > 0 ? allSpans[row - 1] : [];
-    const nextSpans = row < gridHeight - 1 ? allSpans[row + 1] : [];
-
-    for (const span of currentSpans) {
-      const prev = findOverlappingSpan(prevSpans, span);
-      const next = findOverlappingSpan(nextSpans, span);
-
-      // Interpolate boundary column indices for sharp flat diagonal edges
-      const cInStart = prev ? 0.5 * (span.start + prev.start) : span.start;
-      const cOutStart = next ? 0.5 * (span.start + next.start) : span.start;
-
-      const cInEnd = prev ? 0.5 * (span.end + 1 + prev.end + 1) : span.end + 1;
-      const cOutEnd = next ? 0.5 * (span.end + 1 + next.end + 1) : span.end + 1;
-
-      const x0 = marginMm + (cInStart / gridWidth) * widthMm;
-      const x1 = marginMm + (cOutStart / gridWidth) * widthMm;
-      const x2 = marginMm + (cOutEnd / gridWidth) * widthMm;
-      const x3 = marginMm + (cInEnd / gridWidth) * widthMm;
-
-      polygons.push(
-        `<polygon points="${x0.toFixed(3)},${yBot.toFixed(3)} ${x1.toFixed(3)},${yTop.toFixed(3)} ${x2.toFixed(3)},${yTop.toFixed(3)} ${x3.toFixed(3)},${yBot.toFixed(3)}" fill="${fillColor}" />`
-      );
-    }
-  }
+  const polygons = groupShapes(extractSmoothLoops(mask, gridWidth, gridHeight)).map((shape) => {
+    const d = [shape.outer, ...shape.holes].map(loopPath).join(' ');
+    return `<path d="${d}" fill="${fillColor}" fill-rule="evenodd" />`;
+  });
 
   const svgContent = `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" 

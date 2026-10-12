@@ -414,4 +414,67 @@ describe('Printable Lamp Mesh Generation & Validation', () => {
       expect(foundInwardAtTop).toBe(true);
     });
   });
+
+  describe('contour walls', () => {
+    function signedVolume(mesh: TriangleMesh): number {
+      const p = mesh.positions;
+      let v = 0;
+      for (let t = 0; t < mesh.triangleCount; t++) {
+        const a = mesh.indices[t * 3] * 3;
+        const b = mesh.indices[t * 3 + 1] * 3;
+        const c = mesh.indices[t * 3 + 2] * 3;
+        v +=
+          (p[a] * (p[b + 1] * p[c + 2] - p[b + 2] * p[c + 1]) -
+            p[a + 1] * (p[b] * p[c + 2] - p[b + 2] * p[c]) +
+            p[a + 2] * (p[b] * p[c + 1] - p[b + 1] * p[c])) /
+          6;
+      }
+      return v;
+    }
+
+    // Elliptical ring (so there is a solid island inside the opening) plus two cells touching only
+    // at a corner. None of it reaches the seam, top/bottom edge or base rows.
+    function ringMask(): Uint8Array {
+      const mask = new Uint8Array(lamp.segmentsAround * lamp.segmentsVertical);
+      for (let r = 0; r < lamp.segmentsVertical; r++) {
+        for (let c = 0; c < lamp.segmentsAround; c++) {
+          const dx = (c - 30) / 14;
+          const dy = (r - 17) / 8;
+          const d = dx * dx + dy * dy;
+          if (d < 1 && d > 0.15) mask[r * lamp.segmentsAround + c] = 1;
+        }
+      }
+      mask[8 * lamp.segmentsAround + 5] = 1;
+      mask[9 * lamp.segmentsAround + 6] = 1;
+      return mask;
+    }
+
+    it('adds no leaks over a plain unperforated lamp, even with islands and corner-touching cells', () => {
+      const mask = ringMask();
+      const mesh = generateLampMesh(mask, lamp.segmentsAround, lamp.segmentsVertical, lamp);
+      const plain = generateLampMesh(
+        new Uint8Array(mask.length),
+        lamp.segmentsAround,
+        lamp.segmentsVertical,
+        lamp
+      );
+
+      expect(countNonManifoldEdges(mesh)).toBe(countNonManifoldEdges(plain));
+      expect(validateMesh(mesh).isValid).toBe(true);
+    });
+
+    it('is correctly oriented: positive volume, and holes remove material', () => {
+      const mask = ringMask();
+      const mesh = generateLampMesh(mask, lamp.segmentsAround, lamp.segmentsVertical, lamp);
+      const plain = generateLampMesh(
+        new Uint8Array(mask.length),
+        lamp.segmentsAround,
+        lamp.segmentsVertical,
+        lamp
+      );
+
+      expect(signedVolume(mesh)).toBeGreaterThan(0);
+      expect(signedVolume(mesh)).toBeLessThan(signedVolume(plain));
+    });
+  });
 });
