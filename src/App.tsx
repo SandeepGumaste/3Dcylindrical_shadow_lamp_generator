@@ -22,13 +22,13 @@ import { TableInset } from './components/TableInset';
 
 type AppMode = 'cylinder' | 'tealight' | 'bowl';
 const MODES: { id: AppMode; label: string }[] = [
-  { id: 'cylinder', label: 'Cylinder lamp (wall)' },
   { id: 'tealight', label: 'Tealight shade (table)' },
+  { id: 'cylinder', label: 'Cylinder lamp (wall)' },
   { id: 'bowl', label: 'Shadow-art bowl' },
 ];
 
 export default function App() {
-  const [appMode, setAppMode] = useState<AppMode>('cylinder');
+  const [appMode, setAppMode] = useState<AppMode>('tealight');
   const tableMode = appMode === 'bowl' ? 'bowl' : 'tealight';
   const tea = useTealightGenerator(appMode !== 'cylinder', tableMode);
 
@@ -163,15 +163,18 @@ export default function App() {
     }
   }, [grayImage, lamp, light, adjustments, processSourceImage]);
 
-  // Initial load
+  // Initial load: only generate the cylinder lamp once its mode is first shown
+  const cylinderStarted = useRef(false);
   useEffect(() => {
+    if (appMode !== 'cylinder' || cylinderStarted.current) return;
+    cylinderStarted.current = true;
     (async () => {
       const img = await processSourceImage();
       if (img) {
         handleGenerate(img);
       }
     })();
-  }, []);
+  }, [appMode]);
 
   // When source image or adjustments change, reprocess image
   const handleImageUpload = async (file: File) => {
