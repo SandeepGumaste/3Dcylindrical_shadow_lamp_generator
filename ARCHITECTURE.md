@@ -76,3 +76,20 @@ src/
   components/  ControlsPanel, ThreeViewport, ShadowPreview
   App.tsx      top-level state + pipeline wiring
 ```
+
+## Table modes: tealight shade and shadow-art bowl
+
+A mode switch at the top of the sidebar selects **Cylinder lamp (wall)** (everything above, unchanged), **Tealight shade (table)** or **Shadow-art bowl**. The two new modes are self-contained and use a z-up, table-at-z=0 convention (the cylinder mode is y-up).
+
+```
+src/geometry/tealightShade.ts   params, r(z)/z_max formulas, inverse sampling, ribs/vents/island bridging, LED socket, forward projection (compareShadow)
+src/geometry/shellMesh.ts       generic marching-squares shell mesher on a (theta, z) field; shared vertices, seam wrap, watertight by construction
+src/geometry/shadowBowl.ts      silhouette radii -> h(theta) = hLED (1 - R / rs), smoothing, revolved profile mesh
+src/geometry/meshCheck.ts       index-based manifold / orientation / degenerate / signed-volume checks
+src/image/tealightSamples.ts    procedural sample patterns (mandala, crest, cat head) + asymmetric test image
+src/workers/tealight*.ts        shared compute, worker and runner (main-thread fallback)
+src/hooks/useTealightGenerator.ts  state, validation, debounced regenerate, STL download
+src/components/Tealight*.tsx, TableInset.tsx   panel, lit three.js preview, forward-projection inset
+```
+
+Notes: outer-surface vertices sit where the ray from the light through the inner vertex meets the outer cone (a constant scale about the light), blended to zero at the bottom and top rims so both rims stay planar. Wall rows are spaced geometrically in table radius, so cells are roughly square on the table rather than on the wall. The bowl uses the outer top edge of the rim (R + wall) as the grazing edge.
