@@ -10,7 +10,7 @@
 import type { GrayImage } from '../types';
 import { MeshBuilder } from './shellMesh';
 import { checkMesh, MeshCheck } from './meshCheck';
-import { pixelToTable, tableToPixel } from './tealightShade';
+import { tableToPixel } from './tealightShade';
 
 export interface BowlParams {
   threshold: number;       // 0..255
@@ -198,4 +198,3 @@ export function generateShadowBowl(img: GrayImage, p: BowlParams, runChecks = tr
   return { positions, indices, triangleCount: indices.length / 3, rimHeights: rim, silhouette: rs, report: { check, warnings, ms: t1 - t0 } };
 }
 
-export { pixelToTable };
