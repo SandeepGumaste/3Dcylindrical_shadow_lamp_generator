@@ -15,8 +15,23 @@ import { runGeneration, GenerationResult } from './workers/lampRunner';
 import { downloadSTL } from './geometry/stl';
 import { generateCircularMapSvg, generateUnwrappedMapSvg, downloadSVG } from './geometry/svg';
 import { CheckCircle2, Download, Flame, HelpCircle } from 'lucide-react';
+import { useTealightGenerator } from './hooks/useTealightGenerator';
+import { TealightPanel } from './components/TealightPanel';
+import { TealightViewport } from './components/TealightViewport';
+import { TableInset } from './components/TableInset';
+
+type AppMode = 'cylinder' | 'tealight' | 'bowl';
+const MODES: { id: AppMode; label: string }[] = [
+  { id: 'cylinder', label: 'Cylinder lamp (wall)' },
+  { id: 'tealight', label: 'Tealight shade (table)' },
+  { id: 'bowl', label: 'Shadow-art bowl' },
+];
 
 export default function App() {
+  const [appMode, setAppMode] = useState<AppMode>('cylinder');
+  const tableMode = appMode === 'bowl' ? 'bowl' : 'tealight';
+  const tea = useTealightGenerator(appMode !== 'cylinder', tableMode);
+
   // 1. Core States
   const [lamp, setLamp] = useState<LampConfig>({
     diameter: 80,
@@ -203,29 +218,71 @@ export default function App() {
 
   return (
     <div className="flex h-screen w-screen bg-slate-950 text-slate-100 overflow-hidden font-sans antialiased">
-      {/* Left Sidebar: Controls & Configuration */}
-      <div className="w-[380px] xl:w-[420px] h-full shrink-0 flex flex-col z-20 shadow-2xl">
-        <ControlsPanel
-          lamp={lamp}
-          setLamp={setLamp}
-          light={light}
-          setLight={setLight}
-          adjustments={adjustments}
-          setAdjustments={setAdjustments}
-          onImageUpload={handleImageUpload}
-          onGenerate={() => handleGenerate()}
-          onExportSTL={handleExportSTL}
-          onExportCircularSVG={handleExportCircularSVG}
-          onExportUnwrappedSVG={handleExportUnwrappedSVG}
-          isGenerating={isGenerating}
-          progressPercent={progressPercent}
-          progressMessage={progressMessage}
-          hasGeometry={Boolean(generationResult?.positions && generationResult.positions.length > 0)}
-          triangleCount={generationResult?.triangleCount ?? 0}
-        />
+      {/* Left Sidebar: mode switch + controls */}
+      <div className="w-[380px] xl:w-[420px] h-full shrink-0 flex flex-col z-20 shadow-2xl bg-slate-900">
+        <div className="shrink-0 p-2 border-b border-slate-800 bg-slate-950/60 grid grid-cols-3 gap-1" role="tablist" aria-label="Lamp mode">
+          {MODES.map((m) => (
+            <button
+              key={m.id}
+              role="tab"
+              aria-selected={appMode === m.id}
+              onClick={() => setAppMode(m.id)}
+              className={`px-1.5 py-1.5 rounded-md text-[11px] leading-tight font-medium transition-colors ${
+                appMode === m.id ? 'bg-amber-500/20 text-amber-200 border border-amber-500/40' : 'text-slate-400 border border-transparent hover:bg-slate-800'
+              }`}
+            >
+              {m.label}
+            </button>
+          ))}
+        </div>
+        <div className="flex-1 min-h-0 [&>*]:h-full">
+          {appMode === 'cylinder' ? (
+          <ControlsPanel
+            lamp={lamp}
+            setLamp={setLamp}
+            light={light}
+            setLight={setLight}
+            adjustments={adjustments}
+            setAdjustments={setAdjustments}
+            onImageUpload={handleImageUpload}
+            onGenerate={() => handleGenerate()}
+            onExportSTL={handleExportSTL}
+            onExportCircularSVG={handleExportCircularSVG}
+            onExportUnwrappedSVG={handleExportUnwrappedSVG}
+            isGenerating={isGenerating}
+            progressPercent={progressPercent}
+            progressMessage={progressMessage}
+            hasGeometry={Boolean(generationResult?.positions && generationResult.positions.length > 0)}
+            triangleCount={generationResult?.triangleCount ?? 0}
+          />
+          ) : (
+            <TealightPanel c={tea} />
+          )}
+        </div>
       </div>
 
-      {/* Main Content Area: 3D Viewport & Optical Shadow Simulation */}
+      {appMode !== 'cylinder' ? (
+        <div className="flex-1 h-full flex flex-col overflow-y-auto custom-scrollbar p-4 lg:p-6 gap-5 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
+          <div className="w-full h-[56vh] min-h-[380px] shrink-0">
+            <TealightViewport
+              positions={tea.result?.positions ?? null}
+              indices={tea.result?.indices ?? null}
+              lightZ={tea.result?.lightZ ?? 25}
+              topZ={tea.result?.topZ ?? 60}
+              groundRadius={tea.result?.groundRadius ?? 150}
+              triangleCount={tea.result?.triangleCount ?? 0}
+              busy={tea.busy}
+            />
+          </div>
+          {appMode === 'tealight' && <TableInset comparison={tea.result?.comparison ?? null} />}
+          {appMode === 'bowl' && (
+            <p className="text-xs text-slate-400 px-1">
+              The bowl has no holes: the rim height changes with angle so the rim&apos;s shadow edge follows the silhouette. Orbit the lit
+              preview to see the shadow it throws on the ground plane.
+            </p>
+          )}
+        </div>
+      ) : (
       <div className="flex-1 h-full flex flex-col overflow-y-auto custom-scrollbar p-4 lg:p-6 gap-5 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
         {/* Top: 3D Preview */}
         <div className="w-full h-[52vh] min-h-[380px] shrink-0">
@@ -259,6 +316,7 @@ export default function App() {
 
         </div>
       </div>
+      )}
     </div>
   );
 }
