@@ -1,6 +1,6 @@
 import React, { useRef } from 'react';
 import { Download, RotateCcw, Upload, Play, AlertTriangle, CheckCircle2 } from 'lucide-react';
-import { DEFAULT_IMAGE_ID } from '../hooks/useTealightGenerator';
+import { BUNDLED_IMAGES } from '../hooks/useTealightGenerator';
 import type { TealightController } from '../hooks/useTealightGenerator';
 import { TEALIGHT_SAMPLES } from '../image/tealightSamples';
 
@@ -50,7 +50,7 @@ export const TealightPanel: React.FC<{ c: TealightController }> = ({ c }) => {
     <div className="w-full h-full flex flex-col bg-slate-900 overflow-y-auto custom-scrollbar select-none text-slate-300 text-xs">
       <Group title="Image">
         <div className="grid grid-cols-3 gap-1.5">
-          {[{ id: DEFAULT_IMAGE_ID, name: 'Hanuman' }, ...TEALIGHT_SAMPLES].map((s) => (
+          {[...BUNDLED_IMAGES, ...TEALIGHT_SAMPLES].map((s) => (
             <button key={s.id} onClick={() => c.selectSample(s.id)}
               className={`px-2 py-1.5 rounded-md border text-center ${c.sampleId === s.id ? 'border-amber-500/60 bg-amber-500/15 text-amber-200' : 'border-slate-700 hover:bg-slate-800'}`}>
               {s.name}

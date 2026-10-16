@@ -4,6 +4,7 @@ import { DEFAULT_TEALIGHT_PARAMS, TealightParams, validateTealightParams, LED_CL
 import { DEFAULT_BOWL_PARAMS, BowlParams, validateBowlParams } from '../geometry/shadowBowl';
 import { TEALIGHT_SAMPLES } from '../image/tealightSamples';
 import hanumanUrl from '../assets/hanuman.png';
+import catUrl from '../assets/cat.png';
 import { loadImageToGray } from '../image/loadImage';
 import { runTealight } from '../workers/tealightRunner';
 import type { TealightOutput } from '../workers/tealightCompute';
@@ -13,6 +14,11 @@ import { downloadSVG } from '../geometry/svg';
 export type TableMode = 'tealight' | 'bowl';
 
 export const DEFAULT_IMAGE_ID = 'hanuman';
+/** Bundled raster images, loaded once at start-up. */
+export const BUNDLED_IMAGES = [
+  { id: 'hanuman', name: 'Hanuman', url: hanumanUrl },
+  { id: 'cat', name: 'Cat', url: catUrl },
+];
 const NEUTRAL = { invert: false, brightness: 0, contrast: 1, gamma: 1, threshold: 0.5, rotation: 0, flipHorizontal: false } as const;
 
 export function useTealightGenerator(active: boolean, mode: TableMode) {
@@ -25,18 +31,21 @@ export function useTealightGenerator(active: boolean, mode: TableMode) {
   const [runError, setRunError] = useState<string | null>(null);
   const token = useRef(0);
 
-  const [hanuman, setHanuman] = useState<GrayImage | null>(null);
+  const [bundled, setBundled] = useState<Record<string, GrayImage>>({});
   useEffect(() => {
-    loadImageToGray(hanumanUrl, { targetResolution: 512, adjustments: { ...NEUTRAL } })
-      .then(({ grayImage }) => setHanuman(grayImage))
-      .catch((e: Error) => setRunError(`Could not load the default image: ${e.message}`));
+    for (const b of BUNDLED_IMAGES) {
+      loadImageToGray(b.url, { targetResolution: 512, adjustments: { ...NEUTRAL } })
+        .then(({ grayImage }) => setBundled((m) => ({ ...m, [b.id]: grayImage })))
+        .catch((e: Error) => setRunError(`Could not load the ${b.name} image: ${e.message}`));
+    }
   }, []);
 
   const image = useMemo<GrayImage | null>(() => {
     if (sampleId === 'upload' && uploaded) return uploaded.image;
-    if (sampleId === DEFAULT_IMAGE_ID) return hanuman;
+    if (sampleId in bundled) return bundled[sampleId];
+    if (BUNDLED_IMAGES.some((b) => b.id === sampleId)) return null; // still loading
     return (TEALIGHT_SAMPLES.find((s) => s.id === sampleId) ?? TEALIGHT_SAMPLES[0]).make(512);
-  }, [sampleId, uploaded, hanuman]);
+  }, [sampleId, uploaded, bundled]);
   const imageName = sampleId === 'upload' && uploaded ? uploaded.name : sampleId;
 
   const errors = useMemo(() => (mode === 'tealight' ? validateTealightParams(tParams) : validateBowlParams(bParams)), [mode, tParams, bParams]);
