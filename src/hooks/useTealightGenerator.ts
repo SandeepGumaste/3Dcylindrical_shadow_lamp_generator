@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { GrayImage } from '../types';
 import { DEFAULT_TEALIGHT_PARAMS, TealightParams, validateTealightParams, LED_CLEARANCE } from '../geometry/tealightShade';
 import { DEFAULT_BOWL_PARAMS, BowlParams, validateBowlParams } from '../geometry/shadowBowl';
-import { TEALIGHT_SAMPLES } from '../image/tealightSamples';
 import hanumanUrl from '../assets/hanuman.png';
 import catUrl from '../assets/cat.png';
 import { loadImageToGray } from '../image/loadImage';
@@ -16,13 +15,13 @@ export type TableMode = 'tealight' | 'bowl';
 export const DEFAULT_IMAGE_ID = 'hanuman';
 /** Bundled raster images, loaded once at start-up. */
 export const BUNDLED_IMAGES = [
-  { id: 'hanuman', name: 'Hanuman', url: hanumanUrl },
-  { id: 'cat', name: 'Cat', url: catUrl },
+  { id: 'hanuman', name: 'Hanuman', url: hanumanUrl, params: { imageScale: 85 } as Partial<TealightParams> },
+  { id: 'cat', name: 'Cat', url: catUrl, params: { imageScale: 80 } as Partial<TealightParams> },
 ];
 const NEUTRAL = { invert: false, brightness: 0, contrast: 1, gamma: 1, threshold: 0.5, rotation: 0, flipHorizontal: false } as const;
 
 export function useTealightGenerator(active: boolean, mode: TableMode) {
-  const [tParams, setTParams] = useState<TealightParams>({ ...DEFAULT_TEALIGHT_PARAMS, ...TEALIGHT_SAMPLES[0].params });
+  const [tParams, setTParams] = useState<TealightParams>({ ...DEFAULT_TEALIGHT_PARAMS, ...BUNDLED_IMAGES[0].params });
   const [bParams, setBParams] = useState<BowlParams>({ ...DEFAULT_BOWL_PARAMS });
   const [sampleId, setSampleId] = useState<string>(DEFAULT_IMAGE_ID);
   const [uploaded, setUploaded] = useState<{ name: string; image: GrayImage } | null>(null);
@@ -43,8 +42,7 @@ export function useTealightGenerator(active: boolean, mode: TableMode) {
   const image = useMemo<GrayImage | null>(() => {
     if (sampleId === 'upload' && uploaded) return uploaded.image;
     if (sampleId in bundled) return bundled[sampleId];
-    if (BUNDLED_IMAGES.some((b) => b.id === sampleId)) return null; // still loading
-    return (TEALIGHT_SAMPLES.find((s) => s.id === sampleId) ?? TEALIGHT_SAMPLES[0]).make(512);
+    return null; // bundled image still loading
   }, [sampleId, uploaded, bundled]);
   const imageName = sampleId === 'upload' && uploaded ? uploaded.name : sampleId;
 
@@ -70,10 +68,9 @@ export function useTealightGenerator(active: boolean, mode: TableMode) {
 
   const selectSample = (id: string) => {
     setSampleId(id);
-    const s = TEALIGHT_SAMPLES.find((x) => x.id === id);
+    const s = BUNDLED_IMAGES.find((x) => x.id === id);
     if (s) {
       setTParams((p) => ({ ...p, ...s.params }));
-      setBParams((p) => ({ ...p, threshold: s.params.threshold ?? p.threshold, invert: s.params.invert ?? p.invert }));
     }
   };
 
@@ -95,7 +92,7 @@ export function useTealightGenerator(active: boolean, mode: TableMode) {
     });
 
   const reset = () => {
-    const s = TEALIGHT_SAMPLES.find((x) => x.id === sampleId);
+    const s = BUNDLED_IMAGES.find((x) => x.id === sampleId);
     if (mode === 'tealight') setTParams({ ...DEFAULT_TEALIGHT_PARAMS, ...(s?.params ?? {}) });
     else setBParams({ ...DEFAULT_BOWL_PARAMS });
   };
