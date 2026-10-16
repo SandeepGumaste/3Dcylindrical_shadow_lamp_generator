@@ -20,9 +20,14 @@ export interface TealightParams {
   cols: number;             // columns around
   flameHeight: number;      // mm, ignored in LED mode
   shadowRadius: number;     // mm, radius of the image disk on the table
+  imageOffsetX: number;     // mm, shifts the image on the table (+x right); moves the light relative to the image
+  imageOffsetY: number;     // mm, (+y up)
+  imageScale: number;       // % of the shadow disk the image's shorter side spans (100 = fills it)
   ribs: number;             // 0 = off
   ribWidth: number;         // mm
   vents: number;            // 0 = off
+  closeBottom: boolean;     // solid floor plate under the shade (needs vents = 0)
+  floorThickness: number;   // mm, floor plate thickness when closeBottom is on
   ventSize: number;         // mm
   useLed: boolean;
   tealightDiameter: number; // mm
@@ -39,19 +44,24 @@ export const DEFAULT_TEALIGHT_PARAMS: TealightParams = {
   innerDiameter: 60,
   topDiameter: 40,
   height: 70,
-  wallThickness: 1.6,
-  cols: 360,
+  wallThickness: 0.8,
+  cols: 480,           // ~0.4 mm per column at the foot: matches a 0.4 mm nozzle
   flameHeight: 25,
   shadowRadius: 150,
+  imageScale: 100,
+  imageOffsetX: 0,
+  imageOffsetY: 0,
   ribs: 6,
   ribWidth: 2,
-  vents: 6,
+  vents: 0,
+  closeBottom: true,
+  floorThickness: 0.4,
   ventSize: 8,
   useLed: false,
   tealightDiameter: 38,
   bodyHeight: 16,
   ledTipHeight: 10,
-  minFeature: 0,
+  minFeature: 0.8,     // two nozzle widths; smaller holes/specks will not print on a 0.4 mm nozzle
   autoBridge: true,
 };
 
@@ -99,13 +109,30 @@ export function outerHeight(g: TealightGeometry, z: number): number {
   return z + w * (g.s - 1) * (z - g.hf);
 }
 
+/**
+ * Radial height of the triangular support rib at (theta, z). Each rib is an isosceles triangle in
+ * cross-section: base = ribWidth on the inner wall, apex pointing inward, equilateral proportions
+ * (height = ribWidth * sqrt(3) / 2). The ribs sit inside the forced-solid strips, so they never
+ * clip a light ray (the triangle narrows toward the axis faster than the light sector does); they fade out above the pattern band so the top rim stays clean.
+ */
+export function ribBump(g: TealightGeometry, p: TealightParams, theta: number, z: number, radius: number): number {
+  if (p.ribs <= 0 || p.ribWidth <= 0) return 0;
+  const taper = z <= g.zmax ? 1 : Math.max(0, (g.H - z) / (g.H - g.zmax));
+  if (taper === 0) return 0;
+  const step = (2 * Math.PI) / p.ribs;
+  const arc = Math.abs(angDiff(theta, Math.round(theta / step) * step)) * radius;
+  const half = p.ribWidth / 2;
+  if (arc >= half) return 0;
+  return taper * ((p.ribWidth * Math.sqrt(3)) / 2) * (1 - arc / half);
+}
+
 export function deriveGeometry(p: TealightParams): TealightGeometry {
   const Rb = p.innerDiameter / 2;
   const Rt = p.topDiameter / 2;
   const H = p.height;
   const k = (Rt - Rb) / H;
   const wall = p.wallThickness;
-  const lipT = Math.max(wall, 1.2);
+  const lipT = wall;
   const hf = p.useLed ? H + lipT - p.ledTipHeight : p.flameHeight;
   const s = 1 + wall / (Rb + k * hf);
   const ventNeed = p.vents > 0 ? p.ventSize + 1.5 : 0;
@@ -147,7 +174,11 @@ export function validateTealightParams(p: TealightParams): string[] {
   if (p.cols < 60 || p.cols > 1440) e.push('Resolution must be between 60 and 1440 columns.');
   if (!p.useLed && p.flameHeight >= p.height) e.push('Flame Height must be below Height.');
   if (p.shadowRadius <= p.innerDiameter / 2) e.push('Shadow Radius must exceed the bottom radius.');
+  if (!(p.imageScale >= 10 && p.imageScale <= 300)) e.push('Image Size must be between 10 % and 300 %.');
+  if (Math.abs(p.imageOffsetX) > p.shadowRadius || Math.abs(p.imageOffsetY) > p.shadowRadius) e.push('Image offset cannot exceed the Shadow Size radius.');
   if (p.ribs < 0 || p.vents < 0) e.push('Ribs and vents cannot be negative.');
+  if (p.closeBottom && !(p.floorThickness >= 0.2)) e.push('Floor Thickness must be at least 0.2 mm.');
+  if (p.closeBottom && p.vents > 0) e.push('Base vents need an open bottom; turn off Close Bottom or set vents to 0.');
   if (p.vents > 0 && p.vents * (p.ventSize + 2) > Math.PI * p.innerDiameter)
     e.push('Base vents do not fit around the base; reduce count or size.');
   if (p.useLed) {
@@ -292,7 +323,7 @@ export function buildTealightField(img: GrayImage, p: TealightParams): TealightF
     const r = tableRadiusAt(g, zs[g.bandStart + jb]);
     for (let i = 0; i < C; i++) {
       const th = (2 * Math.PI * i) / C;
-      lum[i + C * jb] = r > Rs ? 1 : luminanceAt(img, Rs, r * Math.cos(th), r * Math.sin(th), p.invert);
+      lum[i + C * jb] = r > Rs ? 1 : luminanceAt(img, Rs * (p.imageScale / 100), r * Math.cos(th) - p.imageOffsetX, r * Math.sin(th) - p.imageOffsetY, p.invert);
     }
   }
   const blurred = gaussianBlur(lum, C, nb, p.edgeRounding / 10);
@@ -478,7 +509,8 @@ export function generateTealightShade(img: GrayImage, p: TealightParams, runChec
   const mb = new MeshBuilder();
 
   const innerMap = (th: number, z: number): [number, number, number] => {
-    const r = coneRadius(g.Rb, g.k, z);
+    const r0 = coneRadius(g.Rb, g.k, z);
+    const r = r0 - ribBump(g, p, th, z, r0);
     return [r * Math.cos(th), r * Math.sin(th), z];
   };
   const outerMap = (th: number, z: number): [number, number, number] => {
@@ -487,12 +519,15 @@ export function generateTealightShade(img: GrayImage, p: TealightParams, runChec
     return [r * Math.cos(th), r * Math.sin(th), zo];
   };
 
-  const { topInner, topOuter } = buildShell(mb, { cols: C, zs: g.zs, field, inner: innerMap, outer: outerMap }, {
+  const { topInner, topOuter, bottomInner, bottomOuter } = buildShell(mb, { cols: C, zs: g.zs, field, inner: innerMap, outer: outerMap }, {
     skipTopBorder: p.useLed,
+    skipBottomBorder: p.closeBottom,
   });
+  if (p.closeBottom) addFloor(mb, C, bottomInner, bottomOuter, p.floorThickness);
 
   if (p.useLed) addLedSocket(mb, g, p, topInner, topOuter);
 
+  if (p.closeBottom) for (let v = 2; v < mb.positions.length; v += 3) mb.positions[v] += p.floorThickness; // rest the floor on z = 0
   const { positions, indices } = mb.toArrays();
   const check = runChecks
     ? checkMesh(positions, indices)
@@ -527,11 +562,71 @@ export function generateTealightShade(img: GrayImage, p: TealightParams, runChec
   };
 }
 
+/**
+ * Solid floor plate below the shade: a disc closing the inner bottom ring (top face) plus the
+ * plate's side wall and underside. The shell's own bottom ring edge is shared with the plate side,
+ * so the whole thing stays one closed manifold. The plate occupies z in [-thickness, 0].
+ */
+function addFloor(mb: MeshBuilder, C: number, bottomInner: Int32Array, bottomOuter: Int32Array, thickness: number) {
+  const pos = mb.positions;
+  const at = (v: number): [number, number] => [pos[3 * v], pos[3 * v + 1]];
+  const centerTop = mb.vertex(0, 0, 0);
+  const centerBottom = mb.vertex(0, 0, -thickness);
+  const rim = new Int32Array(C);
+  for (let i = 0; i < C; i++) {
+    const [x, y] = at(bottomOuter[i]);
+    rim[i] = mb.vertex(x, y, -thickness);
+  }
+  for (let i = 0; i < C; i++) {
+    const i1 = (i + 1) % C;
+    mb.tri(centerTop, bottomInner[i], bottomInner[i1]);               // floor, facing up
+    mb.quad(bottomOuter[i], rim[i], rim[i1], bottomOuter[i1]);        // plate side, facing out
+    mb.tri(centerBottom, rim[i1], rim[i]);                            // underside, facing down
+  }
+}
+
+/**
+ * Unwrapped wall map as SVG (mm): x = arc length around the shade at mid height, y = height
+ * (top of the shade at the top). Solid wall is black, holes are white. Cells are merged into
+ * horizontal runs per row, so the file stays small.
+ */
+export function generateTealightMapSvg(res: Pick<TealightResult, 'field' | 'geometry'>, p: TealightParams): string {
+  const { geometry: g, field } = res;
+  const C = g.cols, zs = g.zs;
+  const rMid = g.Rb + (g.k * g.H) / 2;
+  const W = 2 * Math.PI * rMid, Hh = g.H;
+  const cw = W / C;
+  const f = (n: number) => +n.toFixed(3);
+  const rects: string[] = [];
+  for (let j = g.bandStart; j < g.bandEnd; j++) {
+    const y = Hh - zs[j + 1], h = zs[j + 1] - zs[j];
+    let run = -1;
+    for (let i = 0; i <= C; i++) {
+      const i1 = (i + 1) % C;
+      const hole = i < C && field[i + C * j] + field[i1 + C * j] + field[i + C * (j + 1)] + field[i1 + C * (j + 1)] <= 0;
+      if (hole && run < 0) run = i;
+      if (!hole && run >= 0) {
+        rects.push(`<rect x="${f(run * cw)}" y="${f(y)}" width="${f((i - run) * cw)}" height="${f(h)}"/>`);
+        run = -1;
+      }
+    }
+  }
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="${f(W)}mm" height="${f(Hh)}mm" viewBox="0 0 ${f(W)} ${f(Hh)}">
+<title>Tealight shade unwrapped map (${p.innerDiameter} mm base, ${p.height} mm high)</title>
+<rect width="${f(W)}" height="${f(Hh)}" fill="#000"/>
+<g fill="#fff">
+${rects.join('\n')}
+</g>
+</svg>
+`;
+}
+
 /** Flange + upright tube on the top rim that carries the inverted LED tealight body. */
 function addLedSocket(mb: MeshBuilder, g: TealightGeometry, p: TealightParams, topInner: Int32Array, topOuter: Int32Array) {
   const C = g.cols;
   const a = (p.tealightDiameter + LED_CLEARANCE) / 2;
-  const tube = Math.max(g.wall, 1.6);
+  const tube = g.wall;
   const b = a + tube;
   const lipR = a - LIP_WIDTH;
   const H = g.H;
@@ -625,7 +720,7 @@ export function compareShadow(img: GrayImage, p: TealightParams, res: Pick<Teali
       const y = (0.5 - (py + 0.5) / size) * 2 * Rs;
       const r = Math.hypot(x, y);
       const idx = px + size * py;
-      const lumT = luminanceAt(img, Rs, x, y, p.invert);
+      const lumT = luminanceAt(img, Rs * (p.imageScale / 100), x - p.imageOffsetX, y - p.imageOffsetY, p.invert);
       target[idx] = lumT * 255 - p.threshold <= 0 ? 1 : 0;
       if (r < rMin || r > rMax) continue;
       const th = Math.atan2(y, x);

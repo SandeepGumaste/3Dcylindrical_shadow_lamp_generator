@@ -3,35 +3,46 @@ import type { GrayImage } from '../types';
 import { DEFAULT_TEALIGHT_PARAMS, TealightParams, validateTealightParams, LED_CLEARANCE } from '../geometry/tealightShade';
 import { DEFAULT_BOWL_PARAMS, BowlParams, validateBowlParams } from '../geometry/shadowBowl';
 import { TEALIGHT_SAMPLES } from '../image/tealightSamples';
+import hanumanUrl from '../assets/hanuman.png';
 import { loadImageToGray } from '../image/loadImage';
 import { runTealight } from '../workers/tealightRunner';
 import type { TealightOutput } from '../workers/tealightCompute';
 import { downloadSTL } from '../geometry/stl';
+import { downloadSVG } from '../geometry/svg';
 
 export type TableMode = 'tealight' | 'bowl';
 
+export const DEFAULT_IMAGE_ID = 'hanuman';
 const NEUTRAL = { invert: false, brightness: 0, contrast: 1, gamma: 1, threshold: 0.5, rotation: 0, flipHorizontal: false } as const;
 
 export function useTealightGenerator(active: boolean, mode: TableMode) {
   const [tParams, setTParams] = useState<TealightParams>({ ...DEFAULT_TEALIGHT_PARAMS, ...TEALIGHT_SAMPLES[0].params });
   const [bParams, setBParams] = useState<BowlParams>({ ...DEFAULT_BOWL_PARAMS });
-  const [sampleId, setSampleId] = useState<string>(TEALIGHT_SAMPLES[0].id);
+  const [sampleId, setSampleId] = useState<string>(DEFAULT_IMAGE_ID);
   const [uploaded, setUploaded] = useState<{ name: string; image: GrayImage } | null>(null);
   const [result, setResult] = useState<TealightOutput | null>(null);
   const [busy, setBusy] = useState(false);
   const [runError, setRunError] = useState<string | null>(null);
   const token = useRef(0);
 
-  const image = useMemo<GrayImage>(() => {
+  const [hanuman, setHanuman] = useState<GrayImage | null>(null);
+  useEffect(() => {
+    loadImageToGray(hanumanUrl, { targetResolution: 512, adjustments: { ...NEUTRAL } })
+      .then(({ grayImage }) => setHanuman(grayImage))
+      .catch((e: Error) => setRunError(`Could not load the default image: ${e.message}`));
+  }, []);
+
+  const image = useMemo<GrayImage | null>(() => {
     if (sampleId === 'upload' && uploaded) return uploaded.image;
+    if (sampleId === DEFAULT_IMAGE_ID) return hanuman;
     return (TEALIGHT_SAMPLES.find((s) => s.id === sampleId) ?? TEALIGHT_SAMPLES[0]).make(512);
-  }, [sampleId, uploaded]);
+  }, [sampleId, uploaded, hanuman]);
   const imageName = sampleId === 'upload' && uploaded ? uploaded.name : sampleId;
 
   const errors = useMemo(() => (mode === 'tealight' ? validateTealightParams(tParams) : validateBowlParams(bParams)), [mode, tParams, bParams]);
 
   const generate = useCallback(() => {
-    if (errors.length) return;
+    if (errors.length || !image) return;
     const my = ++token.current;
     setBusy(true);
     setRunError(null);
@@ -87,9 +98,15 @@ export function useTealightGenerator(active: boolean, mode: TableMode) {
     downloadSTL(result.stl, `${prefix}-${imageName}-${date}.stl`);
   };
 
+  const downloadMap = () => {
+    if (!result?.mapSvg) return;
+    const date = new Date().toISOString().slice(0, 10);
+    downloadSVG(result.mapSvg, `tealight-shade-map-${imageName}-${date}.svg`);
+  };
+
   return {
     mode, tParams, bParams, setTealight, setBowl: (patch: Partial<BowlParams>) => setBParams((p) => ({ ...p, ...patch })),
-    sampleId, selectSample, upload, imageName, image, result, busy, errors, runError, generate, reset, download,
+    sampleId, selectSample, upload, imageName, image, result, busy, errors, runError, generate, reset, download, downloadMap,
   };
 }
 

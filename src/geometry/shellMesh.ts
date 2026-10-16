@@ -44,12 +44,17 @@ export interface ShellSpec {
 export interface ShellOptions {
   /** Leave the top border open (caller closes it with its own faces). Top row must be all solid. */
   skipTopBorder?: boolean;
+  /** Leave the bottom border open (caller closes it with its own faces). Bottom row must be all solid. */
+  skipBottomBorder?: boolean;
 }
 
 export interface ShellResult {
   /** Vertex indices of the top row's nodes (only filled when skipTopBorder). */
   topInner: Int32Array;
   topOuter: Int32Array;
+  /** Vertex indices of the bottom row's nodes (only filled when skipBottomBorder). */
+  bottomInner: Int32Array;
+  bottomOuter: Int32Array;
 }
 
 const CLAMP = 0.01;
@@ -133,7 +138,7 @@ export function buildShell(mb: MeshBuilder, spec: ShellSpec, opts: ShellOptions 
         let free = follow[m] === 0;
         if (!free) {
           const side = sideOf[m];
-          if (side === 0 && j === 0) free = true;
+          if (side === 0 && j === 0 && !opts.skipBottomBorder) free = true;
           else if (side === 2 && j === rows - 1 && !opts.skipTopBorder) free = true;
         }
         if (!free) continue;
@@ -152,5 +157,13 @@ export function buildShell(mb: MeshBuilder, spec: ShellSpec, opts: ShellOptions 
       topOuter[i] = outerIdx[id];
     }
   }
-  return { topInner, topOuter };
+  const bottomInner = new Int32Array(C).fill(-1);
+  const bottomOuter = new Int32Array(C).fill(-1);
+  if (opts.skipBottomBorder) {
+    for (let i = 0; i < C; i++) {
+      bottomInner[i] = innerIdx[i];
+      bottomOuter[i] = outerIdx[i];
+    }
+  }
+  return { topInner, topOuter, bottomInner, bottomOuter };
 }

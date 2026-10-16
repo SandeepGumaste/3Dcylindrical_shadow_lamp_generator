@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   DEFAULT_TEALIGHT_PARAMS, TealightParams, deriveGeometry, tableRadiusAt, wallHeightForTableRadius,
   zMaxFormula, tableToPixel, pixelToTable, labelComponents, generateTealightShade, compareShadow,
-  validateTealightParams, buildTealightField,
+  validateTealightParams, buildTealightField, ribBump, generateTealightMapSvg,
 } from '../tealightShade';
 import { TEALIGHT_SAMPLES, asymmetricTestImage } from '../../image/tealightSamples';
 
@@ -148,5 +148,82 @@ describe('LED socket + vents + ribs', () => {
     for (let i = 2; i < res.positions.length; i += 3) minZ = Math.min(minZ, res.positions[i]);
     expect(minZ).toBeCloseTo(0, 6);
     expect(res.triangleCount).toBeLessThan(1_000_000);
+  });
+});
+
+describe('triangular ribs', () => {
+  it('is a 2 mm base triangle (equilateral), centred on each rib', () => {
+    const p = P({ ribs: 6, ribWidth: 2 });
+    const g = deriveGeometry(p);
+    const z = g.baseBand + 1, r = 30;
+    expect(ribBump(g, p, 0, z, r)).toBeCloseTo(Math.sqrt(3), 6);                 // apex
+    expect(ribBump(g, p, 0.5 / r, z, r)).toBeCloseTo(Math.sqrt(3) / 2, 6);      // half way up the flank
+    expect(ribBump(g, p, 1 / r, z, r)).toBeCloseTo(0, 6);                        // base edge at 1 mm
+    expect(ribBump(g, p, Math.PI / 6, z, r)).toBe(0);                            // between ribs
+    expect(ribBump(g, p, 0, g.H, r)).toBe(0);                                    // faded out at the rim
+  });
+  it('stays watertight with ribs on', () => {
+    const res = generateTealightShade(TEALIGHT_SAMPLES[0].make(512), P({ ribs: 6 }));
+    expect(res.report.check.watertight).toBe(true);
+  });
+});
+
+describe('closed bottom', () => {
+  const img = () => TEALIGHT_SAMPLES[0].make(512);
+  it('adds a watertight floor (0.4 mm default, adjustable) and rests on z = 0', () => {
+    const open = generateTealightShade(img(), P({ closeBottom: false }));
+    const closed = generateTealightShade(img(), P({ closeBottom: true }));
+    expect(closed.report.check.watertight).toBe(true);
+    expect(closed.report.check.errors).toEqual([]);
+    let minZ = Infinity, maxZ = -Infinity, openMax = -Infinity;
+    for (let i = 2; i < closed.positions.length; i += 3) { minZ = Math.min(minZ, closed.positions[i]); maxZ = Math.max(maxZ, closed.positions[i]); }
+    for (let i = 2; i < open.positions.length; i += 3) openMax = Math.max(openMax, open.positions[i]);
+    expect(minZ).toBeCloseTo(0, 6);
+    expect(maxZ - openMax).toBeCloseTo(0.4, 5);
+    const thick = generateTealightShade(img(), P({ floorThickness: 1.4 }));
+    let thickMax = -Infinity;
+    for (let i = 2; i < thick.positions.length; i += 3) thickMax = Math.max(thickMax, thick.positions[i]);
+    expect(thickMax - openMax).toBeCloseTo(1.4, 5);
+  });
+  it('rejects vents with a closed bottom', () => {
+    expect(validateTealightParams(P({ closeBottom: true, vents: 4 })).join(' ')).toMatch(/vents/i);
+  });
+});
+
+describe('image size', () => {
+  it('scales the image inside the shadow disk', () => {
+    const img = asymmetricTestImage(512);
+    const full = P({ vents: 0, ribs: 0, closeBottom: false });
+    const half = { ...full, imageScale: 50 };
+    const a = compareShadow(img, full, generateTealightShade(img, full), 256);
+    const b = compareShadow(img, half, generateTealightShade(img, half), 256);
+    let ta = 0, tb = 0;
+    for (let k = 0; k < a.target.length; k++) { ta += a.target[k]; tb += b.target[k]; }
+    expect(tb / ta).toBeGreaterThan(0.2);
+    expect(tb / ta).toBeLessThan(0.3); // about (50 %)^2 of the black area
+    expect(validateTealightParams(P({ imageScale: 5 })).join(' ')).toMatch(/Image Size/);
+  });
+});
+
+describe('image offset', () => {
+  it('shifts the target on the table', () => {
+    const img = asymmetricTestImage(512);
+    const base = P({ vents: 0, ribs: 0, closeBottom: false });
+    const moved = { ...base, imageOffsetX: 40 };
+    const a = compareShadow(img, base, generateTealightShade(img, base), 256);
+    const b = compareShadow(img, moved, generateTealightShade(img, moved), 256);
+    const cx = (t: Uint8Array, n: number) => { let s = 0, c = 0; for (let k = 0; k < t.length; k++) if (t[k]) { s += k % n; c++; } return s / c; };
+    const pxPerMm = a.size / (2 * base.shadowRadius);
+    expect(cx(b.target, b.size) - cx(a.target, a.size)).toBeGreaterThan(30 * pxPerMm);
+  });
+});
+
+describe('unwrapped map svg', () => {
+  it('is a mm-sized svg with hole rectangles', () => {
+    const p = P();
+    const res = generateTealightShade(TEALIGHT_SAMPLES[0].make(512), p);
+    const svg = generateTealightMapSvg(res, p);
+    expect(svg).toMatch(/<svg[^>]+width="[\d.]+mm" height="70mm"/);
+    expect((svg.match(/<rect /g) ?? []).length).toBeGreaterThan(50);
   });
 });

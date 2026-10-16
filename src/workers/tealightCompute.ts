@@ -1,5 +1,5 @@
 import type { GrayImage } from '../types';
-import { TealightParams, generateTealightShade, compareShadow, ShadowComparison, FieldReport } from '../geometry/tealightShade';
+import { TealightParams, generateTealightShade, generateTealightMapSvg, compareShadow, ShadowComparison, FieldReport } from '../geometry/tealightShade';
 import { BowlParams, generateShadowBowl } from '../geometry/shadowBowl';
 import { indexedMeshToBinarySTL } from '../geometry/stl';
 import type { MeshCheck } from '../geometry/meshCheck';
@@ -21,6 +21,8 @@ export interface TealightOutput {
   lightZ: number;
   topZ: number;
   groundRadius: number;
+  /** Unwrapped wall map (tealight mode only). */
+  mapSvg?: string;
   fieldReport?: FieldReport & { effectiveShadowRadius: number };
   comparison?: ShadowComparison;
 }
@@ -29,6 +31,7 @@ export interface TealightOutput {
 export function runTealightRequest(req: TealightRequest): TealightOutput {
   if (req.kind === 'tealight') {
     const res = generateTealightShade(req.image, req.params);
+    const floor = req.params.closeBottom ? req.params.floorThickness : 0;
     const comparison = compareShadow(req.image, req.params, res, 256);
     return {
       kind: 'tealight',
@@ -39,9 +42,10 @@ export function runTealightRequest(req: TealightRequest): TealightOutput {
       check: res.report.check,
       warnings: res.report.warnings,
       ms: res.report.ms,
-      lightZ: res.geometry.hf,
-      topZ: req.params.height + (req.params.useLed ? res.geometry.lipT + req.params.bodyHeight : 0),
+      lightZ: res.geometry.hf + floor,
+      topZ: floor + req.params.height + (req.params.useLed ? res.geometry.lipT + req.params.bodyHeight : 0),
       groundRadius: req.params.shadowRadius,
+      mapSvg: generateTealightMapSvg(res, req.params),
       fieldReport: res.report,
       comparison,
     };

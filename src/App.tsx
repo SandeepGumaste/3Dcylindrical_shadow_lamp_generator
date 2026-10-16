@@ -23,8 +23,6 @@ import { TableInset } from './components/TableInset';
 type AppMode = 'cylinder' | 'tealight' | 'bowl';
 const MODES: { id: AppMode; label: string }[] = [
   { id: 'tealight', label: 'Tealight shade (table)' },
-  { id: 'cylinder', label: 'Cylinder lamp (wall)' },
-  { id: 'bowl', label: 'Shadow-art bowl' },
 ];
 
 export default function App() {
@@ -223,7 +221,7 @@ export default function App() {
     <div className="flex h-screen w-screen bg-slate-950 text-slate-100 overflow-hidden font-sans antialiased">
       {/* Left Sidebar: mode switch + controls */}
       <div className="w-[380px] xl:w-[420px] h-full shrink-0 flex flex-col z-20 shadow-2xl bg-slate-900">
-        <div className="shrink-0 p-2 border-b border-slate-800 bg-slate-950/60 grid grid-cols-3 gap-1" role="tablist" aria-label="Lamp mode">
+        {MODES.length > 1 && <div className="shrink-0 p-2 border-b border-slate-800 bg-slate-950/60 grid grid-cols-3 gap-1" role="tablist" aria-label="Lamp mode">
           {MODES.map((m) => (
             <button
               key={m.id}
@@ -237,7 +235,7 @@ export default function App() {
               {m.label}
             </button>
           ))}
-        </div>
+        </div>}
         <div className="flex-1 min-h-0 [&>*]:h-full">
           {appMode === 'cylinder' ? (
           <ControlsPanel

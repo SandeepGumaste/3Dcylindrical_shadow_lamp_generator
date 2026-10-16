@@ -26,44 +26,19 @@ function raster(size: number, black: (x: number, y: number) => boolean): GrayIma
   return { width: size, height: size, pixels };
 }
 
-const mandala = (x: number, y: number) => {
+const dots = (x: number, y: number) => {
   const r = Math.hypot(x, y);
   const a = Math.atan2(y, x);
-  if (r < 0.26 || r > 0.96) return false;
-  if (r < 0.36) return Math.cos(12 * a) > 0.2 && r > 0.29;           // ring of dots
-  if (r < 0.72) return r < 0.42 + 0.3 * Math.abs(Math.cos(6 * a)) && r > 0.42; // six petals
-  if (r > 0.8 && r < 0.92) return Math.cos(24 * a) > 0.1;             // outer slots
-  return false;
-};
-
-const crest = (x: number, y: number) => {
-  // shield outline: top edge flat, sides straight, bottom a point
-  const hw = (yy: number) => (yy >= -0.1 ? 0.62 : 0.62 * Math.max(0, 1 - Math.pow((-0.1 - yy) / 0.8, 1.6)));
-  const inside = (xx: number, yy: number, shrink: number) => yy < 0.62 - shrink && yy > -0.9 + shrink && Math.abs(xx) < hw(yy) - shrink;
-  const outline = inside(x, y, 0) && !inside(x, y, 0.08);
-  const cross = inside(x, y, 0.2) && ((Math.abs(x) < 0.07 && y > -0.55) || (Math.abs(y - 0.18) < 0.07 && Math.abs(x) < 0.4));
-  const star = Math.hypot(x, y + 0.42) < 0.12;
-  return outline || cross || star;
-};
-
-const catHead = (x: number, y: number) => {
-  const head = Math.hypot(x / 0.62, (y + 0.1) / 0.55) < 1;
-  const tri = (ax: number, ay: number, bx: number, by: number, cx: number, cy: number) => {
-    const d1 = (x - bx) * (ay - by) - (ax - bx) * (y - by);
-    const d2 = (x - cx) * (by - cy) - (bx - cx) * (y - cy);
-    const d3 = (x - ax) * (cy - ay) - (cx - ax) * (y - ay);
-    return !((d1 < 0 || d2 < 0 || d3 < 0) && (d1 > 0 || d2 > 0 || d3 > 0));
-  };
-  const ears = tri(-0.58, 0.1, -0.2, 0.28, -0.52, 0.72) || tri(0.58, 0.1, 0.2, 0.28, 0.52, 0.72);
-  const eyes = Math.hypot(x - 0.26, y - 0.0) < 0.1 || Math.hypot(x + 0.26, y - 0.0) < 0.1;
-  const nose = tri(-0.08, -0.22, 0.08, -0.22, 0, -0.32);
-  return (head || ears) && !eyes && !nose;
+  if (r < 0.3 || r > 0.9) return false;
+  const ring = r < 0.55 ? 0.42 : 0.74;
+  const n = r < 0.55 ? 10 : 18;
+  const cell = (2 * Math.PI) / n;
+  const da = ((((a % cell) + cell) % cell) - cell / 2) * ring;
+  return Math.hypot(r - ring, da) < 0.07;
 };
 
 export const TEALIGHT_SAMPLES: TealightSample[] = [
-  { id: 'mandala', name: 'Mandala', make: (n = 512) => raster(n, mandala), params: { threshold: 128, edgeRounding: 10, invert: false } },
-  { id: 'crest', name: 'Crest', make: (n = 512) => raster(n, crest), params: { threshold: 128, edgeRounding: 10, invert: false } },
-  { id: 'cat', name: 'Cat head', make: (n = 512) => raster(n, catHead), params: { threshold: 128, edgeRounding: 10, invert: false } },
+  { id: 'dots', name: 'Dots', make: (n = 512) => raster(n, dots), params: { threshold: 128, edgeRounding: 10, invert: false } },
 ];
 
 /** Asymmetric test pattern (an "L" plus a dot in the upper-right) for mirroring checks. */

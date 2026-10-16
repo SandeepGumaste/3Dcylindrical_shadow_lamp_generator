@@ -1,5 +1,6 @@
 import React, { useRef } from 'react';
 import { Download, RotateCcw, Upload, Play, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { DEFAULT_IMAGE_ID } from '../hooks/useTealightGenerator';
 import type { TealightController } from '../hooks/useTealightGenerator';
 import { TEALIGHT_SAMPLES } from '../image/tealightSamples';
 
@@ -49,7 +50,7 @@ export const TealightPanel: React.FC<{ c: TealightController }> = ({ c }) => {
     <div className="w-full h-full flex flex-col bg-slate-900 overflow-y-auto custom-scrollbar select-none text-slate-300 text-xs">
       <Group title="Image">
         <div className="grid grid-cols-3 gap-1.5">
-          {TEALIGHT_SAMPLES.map((s) => (
+          {[{ id: DEFAULT_IMAGE_ID, name: 'Hanuman' }, ...TEALIGHT_SAMPLES].map((s) => (
             <button key={s.id} onClick={() => c.selectSample(s.id)}
               className={`px-2 py-1.5 rounded-md border text-center ${c.sampleId === s.id ? 'border-amber-500/60 bg-amber-500/15 text-amber-200' : 'border-slate-700 hover:bg-slate-800'}`}>
               {s.name}
@@ -81,10 +82,16 @@ export const TealightPanel: React.FC<{ c: TealightController }> = ({ c }) => {
             <Num label="Wall Thickness" unit="mm" value={t.wallThickness} min={0.8} max={4} step={0.1} onChange={(v) => c.setTealight({ wallThickness: v })} />
             <Num label="Resolution (cols)" value={t.cols} min={120} max={720} step={20} onChange={(v) => c.setTealight({ cols: v })} />
             <Num label="Flame Height" unit="mm" value={t.flameHeight} min={8} max={100} disabled={t.useLed} onChange={(v) => c.setTealight({ flameHeight: v })} />
-            <Num label="Shadow Radius" unit="mm" value={t.shadowRadius} min={60} max={400} onChange={(v) => c.setTealight({ shadowRadius: v })} />
+            <Num label="Shadow Size (radius)" unit="mm" value={t.shadowRadius} min={60} max={400} onChange={(v) => c.setTealight({ shadowRadius: v })} />
+            <Num label="Image Size in shadow" unit="%" value={t.imageScale} min={20} max={200} step={5} onChange={(v) => c.setTealight({ imageScale: v })} />
+            <Num label="Image Offset X (light → image)" unit="mm" value={t.imageOffsetX} min={-t.shadowRadius} max={t.shadowRadius} step={1} onChange={(v) => c.setTealight({ imageOffsetX: v })} />
+            <Num label="Image Offset Y" unit="mm" value={t.imageOffsetY} min={-t.shadowRadius} max={t.shadowRadius} step={1} onChange={(v) => c.setTealight({ imageOffsetY: v })} />
             <Num label="Support Ribs" value={t.ribs} min={0} max={24} onChange={(v) => c.setTealight({ ribs: v })} />
             <Num label="Rib Width" unit="mm" value={t.ribWidth} min={0.8} max={6} step={0.2} disabled={t.ribs === 0} onChange={(v) => c.setTealight({ ribWidth: v })} />
-            <Num label="Base Vents" value={t.vents} min={0} max={16} onChange={(v) => c.setTealight({ vents: v })} />
+            <Check label="Close bottom (floor plate)" value={t.closeBottom} onChange={(v) => c.setTealight({ closeBottom: v, ...(v ? { vents: 0 } : {}) })}
+              hint="The tealight then sits on the plate; flame height is measured from its top." />
+            <Num label="Floor Thickness" unit="mm" value={t.floorThickness} min={0.2} max={3} step={0.2} disabled={!t.closeBottom} onChange={(v) => c.setTealight({ floorThickness: v })} />
+            <Num label="Base Vents" value={t.vents} min={0} max={16} disabled={t.closeBottom} onChange={(v) => c.setTealight({ vents: v })} />
             <Num label="Vent Size" unit="mm" value={t.ventSize} min={3} max={16} step={0.5} disabled={t.vents === 0} onChange={(v) => c.setTealight({ ventSize: v })} />
           </Group>
           <Group title="Printability">
@@ -147,6 +154,12 @@ export const TealightPanel: React.FC<{ c: TealightController }> = ({ c }) => {
           <button onClick={c.download} disabled={!c.result || bad || !c.result.check.watertight} className="flex items-center gap-1.5 px-2.5 py-2 rounded-lg bg-emerald-500/20 border border-emerald-500/40 text-emerald-200 hover:bg-emerald-500/30 disabled:opacity-40">
             <Download className="w-3.5 h-3.5" />STL
           </button>
+          {isTea && (
+            <button onClick={c.downloadMap} disabled={!c.result?.mapSvg || bad} title="Unwrapped wall map (mm), solid = black, holes = white"
+              className="flex items-center gap-1.5 px-2.5 py-2 rounded-lg bg-sky-500/20 border border-sky-500/40 text-sky-200 hover:bg-sky-500/30 disabled:opacity-40">
+              <Download className="w-3.5 h-3.5" />SVG
+            </button>
+          )}
         </div>
       </div>
     </div>
