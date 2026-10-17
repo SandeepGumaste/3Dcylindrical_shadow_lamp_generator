@@ -218,9 +218,9 @@ export default function App() {
   };
 
   return (
-    <div className="flex h-screen w-screen bg-slate-950 text-slate-100 overflow-hidden font-sans antialiased">
+    <div className="flex flex-col lg:flex-row min-h-dvh w-full lg:h-dvh lg:w-screen bg-slate-950 text-slate-100 lg:overflow-hidden font-sans antialiased">
       {/* Left Sidebar: mode switch + controls */}
-      <div className="w-[380px] xl:w-[420px] h-full shrink-0 flex flex-col z-20 shadow-2xl bg-slate-900">
+      <div className="order-2 lg:order-1 w-full lg:w-[380px] xl:w-[420px] lg:h-full shrink-0 flex flex-col z-20 shadow-2xl bg-slate-900">
         {MODES.length > 1 && <div className="shrink-0 p-2 border-b border-slate-800 bg-slate-950/60 grid grid-cols-3 gap-1" role="tablist" aria-label="Lamp mode">
           {MODES.map((m) => (
             <button
@@ -236,7 +236,7 @@ export default function App() {
             </button>
           ))}
         </div>}
-        <div className="flex-1 min-h-0 [&>*]:h-full">
+        <div className="flex-1 min-h-0 lg:[&>*]:h-full">
           {appMode === 'cylinder' ? (
           <ControlsPanel
             lamp={lamp}
@@ -263,8 +263,8 @@ export default function App() {
       </div>
 
       {appMode !== 'cylinder' ? (
-        <div className="flex-1 h-full flex flex-col overflow-y-auto custom-scrollbar p-4 lg:p-6 gap-5 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
-          <div className="w-full h-[56vh] min-h-[380px] shrink-0">
+        <div className="max-lg:contents lg:order-2 lg:flex-1 lg:h-full flex flex-col overflow-y-auto custom-scrollbar lg:p-6 gap-5 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
+          <div className="order-1 sticky top-0 z-30 w-full h-[40dvh] min-h-[240px] p-2 bg-slate-950 lg:static lg:z-auto lg:p-0 lg:bg-transparent lg:h-[56vh] lg:min-h-[380px] shrink-0">
             <TealightViewport
               positions={tea.result?.positions ?? null}
               indices={tea.result?.indices ?? null}
@@ -275,7 +275,7 @@ export default function App() {
               busy={tea.busy}
             />
           </div>
-          {appMode === 'tealight' && <TableInset comparison={tea.result?.comparison ?? null} />}
+          {appMode === 'tealight' && <div className="order-3 p-3 lg:p-0"><TableInset comparison={tea.result?.comparison ?? null} /></div>}
           {appMode === 'bowl' && (
             <p className="text-xs text-slate-400 px-1">
               The bowl has no holes: the rim height changes with angle so the rim&apos;s shadow edge follows the silhouette. Orbit the lit

@@ -127,15 +127,14 @@ export const TealightViewport: React.FC<Props> = ({ positions, indices, lightZ, 
   }, [positions, indices]);
 
   return (
-    <div className="relative w-full h-full min-h-[380px] bg-slate-950 rounded-xl overflow-hidden border border-slate-800 shadow-2xl">
+    <div className="relative w-full h-full lg:min-h-[380px] bg-slate-950 rounded-xl overflow-hidden border border-slate-800 shadow-2xl">
       <div ref={host} className="absolute inset-0 cursor-grab active:cursor-grabbing" />
-      <div className="absolute top-3 left-3 bg-slate-900/85 backdrop-blur-md px-3 py-1.5 rounded-lg border border-slate-700/60 text-xs text-slate-300 pointer-events-none">
-        lit preview · orbit to inspect
-        <span className="text-slate-500"> | </span>
+      <div className="absolute top-2 left-2 lg:top-3 lg:left-3 max-w-[70%] bg-slate-900/85 backdrop-blur-md px-2.5 py-1 lg:px-3 lg:py-1.5 rounded-lg border border-slate-700/60 text-[11px] lg:text-xs text-slate-300 pointer-events-none">
+        <span className="max-lg:hidden">lit preview · orbit to inspect<span className="text-slate-500"> | </span></span>
         <span className="text-slate-400">{triangleCount > 0 ? `${triangleCount.toLocaleString()} triangles` : 'awaiting generation'}</span>
       </div>
       {busy && (
-        <div className="absolute top-3 right-3 flex items-center gap-2 bg-slate-900/85 px-3 py-1.5 rounded-lg border border-slate-700/60 text-xs text-amber-300">
+        <div className="absolute top-2 right-2 lg:top-3 lg:right-3 flex items-center gap-2 bg-slate-900/85 px-3 py-1.5 rounded-lg border border-slate-700/60 text-xs text-amber-300">
           <span className="w-3 h-3 border-2 border-amber-400/30 border-t-amber-400 rounded-full animate-spin" /> generating…
         </div>
       )}

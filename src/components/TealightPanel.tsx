@@ -4,8 +4,8 @@ import { BUNDLED_IMAGES } from '../hooks/useTealightGenerator';
 import type { TealightController } from '../hooks/useTealightGenerator';
 
 const Group: React.FC<{ title: string; children: React.ReactNode }> = ({ title, children }) => (
-  <section className="px-4 py-3 border-b border-slate-800">
-    <h3 className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-2">{title}</h3>
+  <section className="px-4 py-4 lg:py-3 border-b border-slate-800">
+    <h3 className="text-[11px] lg:text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-2">{title}</h3>
     <div className="flex flex-col gap-2.5">{children}</div>
   </section>
 );
@@ -20,19 +20,19 @@ const Num: React.FC<{
         <input
           type="number" value={value} min={min} max={max} step={step} disabled={disabled}
           onChange={(e) => { const v = parseFloat(e.target.value); if (!Number.isNaN(v)) onChange(v); }}
-          className="w-16 bg-slate-950 border border-slate-700 rounded px-1.5 py-0.5 text-right text-slate-100"
+          className="w-20 lg:w-16 min-h-9 lg:min-h-0 bg-slate-950 border border-slate-700 rounded px-1.5 py-0.5 text-right text-base lg:text-xs text-slate-100"
         />
         {unit && <span className="text-slate-500 w-6">{unit}</span>}
       </span>
     </span>
     <input type="range" value={Math.min(max, Math.max(min, value))} min={min} max={max} step={step} disabled={disabled}
-      onChange={(e) => onChange(parseFloat(e.target.value))} className="accent-amber-400" />
+      onChange={(e) => onChange(parseFloat(e.target.value))} className="accent-amber-400 h-8 lg:h-auto" />
   </label>
 );
 
 const Check: React.FC<{ label: string; value: boolean; onChange: (v: boolean) => void; hint?: string }> = ({ label, value, onChange, hint }) => (
-  <label className="flex items-start gap-2 text-slate-300 cursor-pointer">
-    <input type="checkbox" checked={value} onChange={(e) => onChange(e.target.checked)} className="mt-0.5 accent-amber-400" />
+  <label className="flex items-start gap-3 lg:gap-2 py-1 lg:py-0 text-slate-300 cursor-pointer">
+    <input type="checkbox" checked={value} onChange={(e) => onChange(e.target.checked)} className="mt-0.5 size-5 lg:size-auto accent-amber-400" />
     <span>{label}{hint && <span className="block text-[10px] text-slate-500">{hint}</span>}</span>
   </label>
 );
@@ -46,17 +46,17 @@ export const TealightPanel: React.FC<{ c: TealightController }> = ({ c }) => {
   const bad = c.errors.length > 0;
 
   return (
-    <div className="w-full h-full flex flex-col bg-slate-900 overflow-y-auto custom-scrollbar select-none text-slate-300 text-xs">
+    <div className="w-full lg:h-full flex flex-col bg-slate-900 lg:overflow-y-auto custom-scrollbar select-none text-slate-300 text-sm lg:text-xs">
       <Group title="Image">
         <div className="grid grid-cols-3 gap-1.5">
           {BUNDLED_IMAGES.map((s) => (
             <button key={s.id} onClick={() => c.selectSample(s.id)}
-              className={`px-2 py-1.5 rounded-md border text-center ${c.sampleId === s.id ? 'border-amber-500/60 bg-amber-500/15 text-amber-200' : 'border-slate-700 hover:bg-slate-800'}`}>
+              className={`px-2 py-2.5 lg:py-1.5 rounded-md border text-center ${c.sampleId === s.id ? 'border-amber-500/60 bg-amber-500/15 text-amber-200' : 'border-slate-700 hover:bg-slate-800'}`}>
               {s.name}
             </button>
           ))}
         </div>
-        <button onClick={() => file.current?.click()} className="flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-md border border-slate-700 hover:bg-slate-800">
+        <button onClick={() => file.current?.click()} className="flex items-center justify-center gap-1.5 px-2 py-2.5 lg:py-1.5 rounded-md border border-slate-700 hover:bg-slate-800">
           <Upload className="w-3.5 h-3.5" /> Upload image{c.sampleId === 'upload' ? ` (${c.imageName})` : ''}
         </button>
         <input ref={file} type="file" accept="image/*,.svg" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) c.upload(f); e.target.value = ''; }} />
@@ -132,7 +132,7 @@ export const TealightPanel: React.FC<{ c: TealightController }> = ({ c }) => {
         </ul>
       </Group>
 
-      <div className="sticky bottom-0 mt-auto p-3 bg-slate-950/90 backdrop-blur border-t border-slate-800 flex flex-col gap-2">
+      <div className="sticky bottom-0 z-10 mt-auto p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] bg-slate-950/95 backdrop-blur border-t border-slate-800 flex flex-col gap-2">
         {c.errors.map((e) => (
           <p key={e} className="flex gap-1.5 text-red-300 text-[11px]"><AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />{e}</p>
         ))}
@@ -145,7 +145,7 @@ export const TealightPanel: React.FC<{ c: TealightController }> = ({ c }) => {
           </p>
         )}
         {!bad && c.result?.warnings.map((w) => <p key={w} className="text-amber-300/90 text-[11px]">⚠ {w}</p>)}
-        <div className="flex gap-2">
+        <div className="flex gap-2 [&_button]:min-h-11 lg:[&_button]:min-h-0">
           <button onClick={c.reset} className="flex items-center gap-1 px-2.5 py-2 rounded-lg border border-slate-700 hover:bg-slate-800"><RotateCcw className="w-3.5 h-3.5" />Reset</button>
           <button onClick={c.generate} disabled={bad || c.busy} className="flex-1 flex items-center justify-center gap-1.5 px-2.5 py-2 rounded-lg bg-amber-500/20 border border-amber-500/40 text-amber-200 hover:bg-amber-500/30 disabled:opacity-40">
             <Play className="w-3.5 h-3.5" />{c.busy ? 'Generating…' : 'Generate 3D Model'}

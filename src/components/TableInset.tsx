@@ -42,15 +42,15 @@ export const TableInset: React.FC<{ comparison: ShadowComparison | null }> = ({ 
 
   return (
     <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-3">
-      <div className="flex items-center justify-between mb-2">
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-0.5 mb-2">
         <h3 className="text-xs font-semibold text-slate-200">Table shadow check</h3>
         <span className="text-[11px] text-slate-400">
           {comparison ? `IoU ${(comparison.iou * 100).toFixed(1)}% (annulus, ribs excluded)` : 'no data'}
         </span>
       </div>
-      <div className="grid grid-cols-3 gap-3">
-        {cell(0, 'thresholded input')}
-        {cell(1, 'forward-projected shade')}
+      <div className="grid grid-cols-3 gap-2 sm:gap-3">
+        {cell(0, 'input')}
+        {cell(1, 'projected')}
         {cell(2, 'difference')}
       </div>
     </div>
