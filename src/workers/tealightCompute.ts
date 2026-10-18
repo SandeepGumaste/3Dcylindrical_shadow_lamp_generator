@@ -1,5 +1,5 @@
 import type { GrayImage } from '../types';
-import { TealightParams, generateTealightShade, generateTealightMapSvg, compareShadow, ShadowComparison, FieldReport } from '../geometry/tealightShade';
+import { TealightParams, generateTealightShade, generateTealightMapSvg, suggestRibs, RibSuggestion, compareShadow, ShadowComparison, FieldReport } from '../geometry/tealightShade';
 import { BowlParams, generateShadowBowl } from '../geometry/shadowBowl';
 import { indexedMeshToBinarySTL } from '../geometry/stl';
 import type { MeshCheck } from '../geometry/meshCheck';
@@ -25,14 +25,20 @@ export interface TealightOutput {
   mapSvg?: string;
   fieldReport?: FieldReport & { effectiveShadowRadius: number };
   comparison?: ShadowComparison;
+  /** Present when ribs were chosen automatically. */
+  ribSuggestion?: RibSuggestion;
 }
 
 /** Pure compute shared by the worker and the main-thread fallback. */
 export function runTealightRequest(req: TealightRequest): TealightOutput {
   if (req.kind === 'tealight') {
-    const res = generateTealightShade(req.image, req.params);
-    const floor = req.params.closeBottom ? req.params.floorThickness : 0;
-    const comparison = compareShadow(req.image, req.params, res, 256);
+    const ribSuggestion = req.params.autoRibs ? suggestRibs(req.image, req.params) : undefined;
+    const params = ribSuggestion ? { ...req.params, ribs: ribSuggestion.ribs, ribAngles: ribSuggestion.angles } : req.params;
+    const res = generateTealightShade(req.image, params);
+    const floor = params.closeBottom ? params.floorThickness : 0;
+    const comparison = compareShadow(req.image, params, res, 256);
+    if (ribSuggestion && !ribSuggestion.achievable)
+      res.report.warnings.push(`Even ${ribSuggestion.ribs} ribs leave a ${ribSuggestion.worstSpan.toFixed(1)} mm wide hole with a flat roof; raise Max bridge span or simplify the image.`);
     return {
       kind: 'tealight',
       positions: res.positions,
@@ -43,11 +49,12 @@ export function runTealightRequest(req: TealightRequest): TealightOutput {
       warnings: res.report.warnings,
       ms: res.report.ms,
       lightZ: res.geometry.hf + floor,
-      topZ: floor + req.params.height + (req.params.useLed ? res.geometry.lipT + req.params.bodyHeight : 0),
-      groundRadius: req.params.shadowRadius,
-      mapSvg: generateTealightMapSvg(res, req.params),
+      topZ: floor + params.height + (params.useLed ? res.geometry.lipT + params.bodyHeight : 0),
+      groundRadius: params.shadowRadius,
+      mapSvg: generateTealightMapSvg(res, params),
       fieldReport: res.report,
       comparison,
+      ribSuggestion,
     };
   }
   const res = generateShadowBowl(req.image, req.params);

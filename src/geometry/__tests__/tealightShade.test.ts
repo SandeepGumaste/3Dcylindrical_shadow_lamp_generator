@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   DEFAULT_TEALIGHT_PARAMS, TealightParams, deriveGeometry, tableRadiusAt, wallHeightForTableRadius,
   zMaxFormula, tableToPixel, pixelToTable, labelComponents, generateTealightShade, compareShadow,
-  validateTealightParams, buildTealightField, ribBump, generateTealightMapSvg,
+  validateTealightParams, buildTealightField, suggestRibs, ribBump, generateTealightMapSvg,
 } from '../tealightShade';
 import { TEALIGHT_SAMPLES, asymmetricTestImage } from '../../image/tealightSamples';
 
@@ -225,5 +225,55 @@ describe('unwrapped map svg', () => {
     const svg = generateTealightMapSvg(res, p);
     expect(svg).toMatch(/<svg[^>]+width="[\d.]+mm" height="70mm"/);
     expect((svg.match(/<rect /g) ?? []).length).toBeGreaterThan(50);
+  });
+});
+
+describe('rib optimizer', () => {
+  // one wide open band around the whole shade (a ring-shaped hole)
+  const n = 256;
+  const pixels = new Float32Array(n * n).fill(1);
+  for (let py = 0; py < n; py++) for (let px = 0; px < n; px++) {
+    const r = Math.hypot(((px + 0.5) / n - 0.5) * 2, ((py + 0.5) / n - 0.5) * 2);
+    if (r > 0.45 && r < 0.6) pixels[py * n + px] = 0;
+  }
+  const ring = { width: n, height: n, pixels };
+
+  it('places ribs only where needed and fewer when more bridging is allowed', () => {
+    const tight = suggestRibs(ring, P({ maxBridge: 6 }));
+    const loose = suggestRibs(ring, P({ maxBridge: 20 }));
+    expect(tight.spanWithoutRibs).toBeGreaterThan(20);
+    expect(tight.achievable).toBe(true);
+    expect(tight.worstSpan).toBe(0);
+    expect(tight.angles).toHaveLength(tight.ribs);
+    expect(loose.achievable).toBe(true);
+    expect(loose.ribs).toBeLessThan(tight.ribs);
+  });
+
+  it('suggests no ribs for an image with no wide flat-roofed holes', () => {
+    const blank = { width: 64, height: 64, pixels: new Float32Array(64 * 64).fill(1) };
+    const r = suggestRibs(blank, P());
+    expect(r.ribs).toBe(0);
+    expect(r.achievable).toBe(true);
+  });
+
+  it('treats both invert settings the same: a flat-roofed band needs ribs either way', () => {
+    for (const invert of [false, true]) {
+      const r = suggestRibs(ring, P({ maxBridge: 6, invert }));
+      expect(r.spanWithoutRibs).toBeGreaterThan(6);
+      expect(r.ribs).toBeGreaterThan(0);
+      expect(r.achievable).toBe(true);
+    }
+  });
+
+  it('is not achievable when the limit is tiny', () => {
+    const r = suggestRibs(ring, P({ maxBridge: 0.5 }));
+    expect(r.achievable).toBe(false);
+    expect(r.ribs).toBe(48);
+  });
+
+  it('meshes with explicit rib angles and stays watertight', () => {
+    const r = suggestRibs(ring, P({ maxBridge: 12 }));
+    const res = generateTealightShade(ring, P({ ribs: r.ribs, ribAngles: r.angles }));
+    expect(res.report.check.watertight).toBe(true);
   });
 });
