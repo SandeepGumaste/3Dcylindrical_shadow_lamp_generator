@@ -25,6 +25,9 @@ export interface TealightParams {
   imageScale: number;       // % of the shadow disk the image's shorter side spans (100 = fills it)
   ribs: number;             // 0 = off
   ribWidth: number;         // mm
+  autoRibs: boolean;        // choose the rib count automatically so no roof spans more than maxBridge
+  maxBridge: number;        // mm, longest unsupported horizontal span the printer can bridge
+  ribAngles?: number[];     // explicit rib positions (rad); set by the optimizer, overrides even spacing of `ribs`
   vents: number;            // 0 = off
   closeBottom: boolean;     // solid floor plate under the shade (needs vents = 0)
   floorThickness: number;   // mm, floor plate thickness when closeBottom is on
@@ -53,6 +56,8 @@ export const DEFAULT_TEALIGHT_PARAMS: TealightParams = {
   imageOffsetY: 0,
   ribs: 6,
   ribWidth: 2,
+  autoRibs: true,
+  maxBridge: 8,
   vents: 0,
   closeBottom: true,
   floorThickness: 0.4,
@@ -115,12 +120,18 @@ export function outerHeight(g: TealightGeometry, z: number): number {
  * (height = ribWidth * sqrt(3) / 2). The ribs sit inside the forced-solid strips, so they never
  * clip a light ray (the triangle narrows toward the axis faster than the light sector does); they fade out above the pattern band so the top rim stays clean.
  */
+/** Rib centre angles: explicit positions if given, else `ribs` evenly spaced from angle 0. */
+export function ribAngleList(p: Pick<TealightParams, 'ribs' | 'ribAngles'>): number[] {
+  if (p.ribAngles) return p.ribAngles;
+  return Array.from({ length: Math.max(0, p.ribs) }, (_, n) => (2 * Math.PI * n) / p.ribs);
+}
+
 export function ribBump(g: TealightGeometry, p: TealightParams, theta: number, z: number, radius: number): number {
   if (p.ribs <= 0 || p.ribWidth <= 0) return 0;
   const taper = z <= g.zmax ? 1 : Math.max(0, (g.H - z) / (g.H - g.zmax));
   if (taper === 0) return 0;
-  const step = (2 * Math.PI) / p.ribs;
-  const arc = Math.abs(angDiff(theta, Math.round(theta / step) * step)) * radius;
+  let arc = Infinity;
+  for (const a of ribAngleList(p)) arc = Math.min(arc, Math.abs(angDiff(theta, a)) * radius);
   const half = p.ribWidth / 2;
   if (arc >= half) return 0;
   return taper * ((p.ribWidth * Math.sqrt(3)) / 2) * (1 - arc / half);
@@ -177,6 +188,7 @@ export function validateTealightParams(p: TealightParams): string[] {
   if (!(p.imageScale >= 10 && p.imageScale <= 300)) e.push('Image Size must be between 10 % and 300 %.');
   if (Math.abs(p.imageOffsetX) > p.shadowRadius || Math.abs(p.imageOffsetY) > p.shadowRadius) e.push('Image offset cannot exceed the Shadow Size radius.');
   if (p.ribs < 0 || p.vents < 0) e.push('Ribs and vents cannot be negative.');
+  if (!(p.maxBridge > 0)) e.push('Max bridge span must be positive.');
   if (p.closeBottom && !(p.floorThickness >= 0.2)) e.push('Floor Thickness must be at least 0.2 mm.');
   if (p.closeBottom && p.vents > 0) e.push('Base vents need an open bottom; turn off Close Bottom or set vents to 0.');
   if (p.vents > 0 && p.vents * (p.ventSize + 2) > Math.PI * p.innerDiameter)
@@ -381,12 +393,13 @@ export function buildTealightField(img: GrayImage, p: TealightParams): TealightF
 
   // 2. Support ribs: vertical strips forced solid across the pattern band.
   if (p.ribs > 0) {
+    const angles = ribAngleList(p);
     for (let j = g.bandStart; j <= g.bandEnd; j++) {
       const half = p.ribWidth / (2 * R(zs[j]));
       for (let i = 0; i < C; i++) {
         const th = (2 * Math.PI * i) / C;
-        for (let n = 0; n < p.ribs; n++) {
-          if (Math.abs(angDiff(th, (2 * Math.PI * n) / p.ribs)) <= half + 1e-9) { flip(i + C * j, true); break; }
+        for (const a of angles) {
+          if (Math.abs(angDiff(th, a)) <= half + 1e-9) { flip(i + C * j, true); break; }
         }
       }
     }
@@ -481,6 +494,108 @@ export function buildTealightField(img: GrayImage, p: TealightParams): TealightF
   }
 
   return { geometry: g, field, report };
+}
+
+export interface RibSuggestion {
+  ribs: number;
+  /** Rib centre angles (rad), placed where the generated wall pattern has wide flat-roofed holes. */
+  angles: number[];
+  /** Widest hole (mm) still too wide to bridge and too flat to self-support with these ribs; 0 = none. */
+  worstSpan: number;
+  /** The same measure on the pattern with no ribs. */
+  spanWithoutRibs: number;
+  /** Number of wide flat-roofed holes (rows merged) in the unribbed pattern, for reporting. */
+  problemRows: number;
+  /** False when MAX_AUTO_RIBS ribs cannot bring every hole under maxBridge. */
+  achievable: boolean;
+}
+
+export const MAX_AUTO_RIBS = 48;
+
+interface HoleRun { j: number; start: number; cols: number; mm: number; full: boolean }
+
+/**
+ * Analyses the generated wall pattern and places ribs only where it needs them.
+ * A hole needs support when its cross-section is wider than p.maxBridge (too wide to bridge) and
+ * its roof is shallower than ~45 degrees (too flat to self-support). Ribs are forced solid, so a
+ * rib through such a hole cuts it into narrower ones. Ribs are added to split the widest offender
+ * evenly, repeated until no hole is left, then any rib that turns out redundant is dropped.
+ */
+export function suggestRibs(img: GrayImage, p: TealightParams): RibSuggestion {
+  const { geometry: g, field } = buildTealightField(img, { ...p, ribs: 0, ribAngles: undefined });
+  const C = g.cols;
+  const rowsN = g.zs.length;
+  const TWO_PI = 2 * Math.PI;
+
+  /** Every offending hole cross-section in the pattern given rib angles. */
+  const findRuns = (angles: number[]): HoleRun[] => {
+    const out: HoleRun[] = [];
+    const ribCol = new Uint8Array(C);
+    const roof = new Uint8Array(C);
+    for (let j = g.bandStart; j <= g.bandEnd; j++) {
+      const R = coneRadius(g.Rb, g.k, g.zs[j]);
+      const colMm = (TWO_PI * R) / C;
+      ribCol.fill(0);
+      const half = p.ribWidth / (2 * R);
+      for (const a of angles) {
+        const c0 = Math.ceil(((a - half) / TWO_PI) * C - 1e-9), c1 = Math.floor(((a + half) / TWO_PI) * C + 1e-9);
+        for (let c = c0; c <= c1; c++) ribCol[((c % C) + C) % C] = 1;
+      }
+      const solidAt = (i: number, row: number) => row >= rowsN || field[i + C * row] > 0 || (row <= g.bandEnd && ribCol[i] === 1);
+      let any = 0;
+      for (let i = 0; i < C; i++) { roof[i] = !solidAt(i, j) && solidAt(i, j + 1) ? 1 : 0; any |= roof[i]; }
+      if (!any) continue;
+      // A roof that steps out by at most ~45 degrees per layer prints without support.
+      const dz = j + 1 < rowsN ? g.zs[j + 1] - g.zs[j] : colMm;
+      const steepLimit = 1.5 * Math.max(dz, colMm);
+      let start = 0;
+      while (start < C && !solidAt(start, j)) start++;
+      const full = start === C;
+      if (full) start = 0;
+      let width = 0, runStart = start, roofRun = 0, roofMax = 0;
+      const close = () => {
+        if (width * colMm > p.maxBridge && roofMax * colMm > steepLimit) out.push({ j, start: runStart, cols: width, mm: full ? Infinity : width * colMm, full });
+        width = 0; roofRun = 0; roofMax = 0;
+      };
+      for (let k = 0; k < C; k++) {
+        const i = (start + k) % C;
+        if (solidAt(i, j)) { if (width) close(); continue; }
+        if (width === 0) runStart = i;
+        width++;
+        roofRun = roof[i] ? roofRun + 1 : 0;
+        roofMax = Math.max(roofMax, roofRun);
+      }
+      if (width) close();
+    }
+    return out;
+  };
+  const widest = (runs: HoleRun[]) => runs.reduce((m, r) => Math.max(m, r.mm), 0);
+
+  const base = findRuns([]);
+  const spanWithoutRibs = widest(base);
+  let angles: number[] = [];
+  let runs = base;
+  while (runs.length && angles.length < MAX_AUTO_RIBS) {
+    const w = runs.reduce((a, r) => (r.mm > a.mm ? r : a));
+    const R = coneRadius(g.Rb, g.k, g.zs[w.j]);
+    const pieces = Math.max(2, Math.ceil(((w.full ? TWO_PI * R : w.mm) + p.ribWidth) / (p.maxBridge + p.ribWidth)));
+    const add: number[] = [];
+    if (w.full) for (let k = 0; k < pieces; k++) add.push((k / pieces) * TWO_PI);
+    else for (let k = 1; k < pieces; k++) add.push((((w.start + (w.cols * k) / pieces) % C) / C) * TWO_PI);
+    angles = angles.concat(add).slice(0, MAX_AUTO_RIBS);
+    runs = findRuns(angles);
+  }
+  let achievable = runs.length === 0;
+  if (achievable) {
+    // drop ribs that turned out redundant (later ribs often make earlier ones unnecessary)
+    for (let n = angles.length - 1; n >= 0; n--) {
+      const without = angles.filter((_, k) => k !== n);
+      if (findRuns(without).length === 0) angles = without;
+    }
+  }
+  angles.sort((a, b) => a - b);
+  const problemRows = new Set(base.map((r) => r.j)).size;
+  return { ribs: angles.length, angles, worstSpan: widest(runs), spanWithoutRibs, problemRows, achievable };
 }
 
 // ---- meshing ---------------------------------------------------------------------------------
@@ -728,7 +843,7 @@ export function compareShadow(img: GrayImage, p: TealightParams, res: Pick<Teali
       projected[idx] = fieldAt(res, th, z) <= 0 ? 1 : 0;
       let skip = false;
       if (ribHalf > 0) {
-        for (let n = 0; n < p.ribs && !skip; n++) if (Math.abs(angDiff(th, (2 * Math.PI * n) / p.ribs)) <= ribHalf) skip = true;
+        for (const a of ribAngleList(p)) if (Math.abs(angDiff(th, a)) <= ribHalf) { skip = true; break; }
       }
       if (skip) continue;
       valid[idx] = 1;

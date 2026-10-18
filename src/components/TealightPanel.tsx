@@ -44,6 +44,8 @@ export const TealightPanel: React.FC<{ c: TealightController }> = ({ c }) => {
   const pattern = isTea ? t : b;
   const setPattern = (patch: { threshold?: number; invert?: boolean }) => (isTea ? c.setTealight(patch) : c.setBowl(patch));
   const bad = c.errors.length > 0;
+  const rs = isTea && t.autoRibs ? c.result?.ribSuggestion : undefined;
+  const ribs = rs ? rs.ribs : t.ribs;
 
   return (
     <div className="w-full lg:h-full flex flex-col bg-slate-900 lg:overflow-y-auto custom-scrollbar select-none text-slate-300 text-sm lg:text-xs">
@@ -85,8 +87,17 @@ export const TealightPanel: React.FC<{ c: TealightController }> = ({ c }) => {
             <Num label="Image Size in shadow" unit="%" value={t.imageScale} min={20} max={200} step={5} onChange={(v) => c.setTealight({ imageScale: v })} />
             <Num label="Image Offset X (light → image)" unit="mm" value={t.imageOffsetX} min={-t.shadowRadius} max={t.shadowRadius} step={1} onChange={(v) => c.setTealight({ imageOffsetX: v })} />
             <Num label="Image Offset Y" unit="mm" value={t.imageOffsetY} min={-t.shadowRadius} max={t.shadowRadius} step={1} onChange={(v) => c.setTealight({ imageOffsetY: v })} />
-            <Num label="Support Ribs" value={t.ribs} min={0} max={24} onChange={(v) => c.setTealight({ ribs: v })} />
-            <Num label="Rib Width" unit="mm" value={t.ribWidth} min={0.8} max={6} step={0.2} disabled={t.ribs === 0} onChange={(v) => c.setTealight({ ribWidth: v })} />
+            <Check label="Optimize ribs for printing" value={t.autoRibs}
+              onChange={(v) => c.setTealight(v ? { autoRibs: true } : { autoRibs: false, ribs })}
+              hint={rs ? (rs.achievable
+                ? (rs.ribs > 0
+                  ? `Placed ${rs.ribs} rib${rs.ribs === 1 ? '' : 's'} at the wide holes in this pattern (widest was ${Number.isFinite(rs.spanWithoutRibs) ? rs.spanWithoutRibs.toFixed(0) + ' mm' : 'a full ring'}; now all within ${t.maxBridge} mm or steep).`
+                  : 'This pattern needs no ribs for printing.')
+                : `${rs.ribs} ribs is the most allowed and still leaves a ${rs.worstSpan.toFixed(1)} mm flat-roofed hole.`)
+                : 'Analyses the generated pattern and adds ribs only where it has wide flat-roofed holes. Editing Support Ribs turns this off.'} />
+            <Num label="Max bridge span" unit="mm" value={t.maxBridge} min={2} max={20} step={0.5} disabled={!t.autoRibs} onChange={(v) => c.setTealight({ maxBridge: v })} />
+            <Num label="Support Ribs" value={ribs} min={0} max={48} onChange={(v) => c.setTealight({ ribs: v, autoRibs: false })} />
+            <Num label="Rib Width" unit="mm" value={t.ribWidth} min={0.8} max={6} step={0.2} disabled={ribs === 0} onChange={(v) => c.setTealight({ ribWidth: v })} />
             <Check label="Close bottom (floor plate)" value={t.closeBottom} onChange={(v) => c.setTealight({ closeBottom: v, ...(v ? { vents: 0 } : {}) })}
               hint="The tealight then sits on the plate; flame height is measured from its top." />
             <Num label="Floor Thickness" unit="mm" value={t.floorThickness} min={0.2} max={3} step={0.2} disabled={!t.closeBottom} onChange={(v) => c.setTealight({ floorThickness: v })} />
