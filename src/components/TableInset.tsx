@@ -1,4 +1,5 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import { ChevronDown } from 'lucide-react';
 import type { ShadowComparison } from '../geometry/tealightShade';
 
 /**
@@ -6,6 +7,7 @@ import type { ShadowComparison } from '../geometry/tealightShade';
  * the table, next to the thresholded input. Third pane shows disagreement.
  */
 export const TableInset: React.FC<{ comparison: ShadowComparison | null }> = ({ comparison }) => {
+  const [open, setOpen] = useState(false);
   const refs = [useRef<HTMLCanvasElement>(null), useRef<HTMLCanvasElement>(null), useRef<HTMLCanvasElement>(null)];
 
   useEffect(() => {
@@ -31,7 +33,7 @@ export const TableInset: React.FC<{ comparison: ShadowComparison | null }> = ({ 
       if (projected[i] === target[i]) return [30, 60, 40];
       return projected[i] ? [90, 160, 255] : [255, 90, 90]; // blue: extra light, red: missing light
     });
-  }, [comparison]);
+  }, [comparison, open]);
 
   const cell = (i: number, label: string) => (
     <figure className="flex flex-col gap-1 items-center min-w-0">
@@ -41,18 +43,26 @@ export const TableInset: React.FC<{ comparison: ShadowComparison | null }> = ({ 
   );
 
   return (
-    <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-3">
-      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-0.5 mb-2">
-        <h3 className="text-xs font-semibold text-slate-200">Table shadow check</h3>
+    <div className="rounded-xl border border-slate-800 bg-slate-900/60">
+      <button
+        type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open}
+        className="w-full flex flex-wrap items-center justify-between gap-x-3 gap-y-0.5 p-3 text-left"
+      >
+        <span className="flex items-center gap-1.5">
+          <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${open ? '' : '-rotate-90'}`} />
+          <h3 className="text-xs font-semibold text-slate-200">Table shadow check</h3>
+        </span>
         <span className="text-[11px] text-slate-400">
           {comparison ? `IoU ${(comparison.iou * 100).toFixed(1)}% (annulus, ribs excluded)` : 'no data'}
         </span>
-      </div>
-      <div className="grid grid-cols-3 gap-2 sm:gap-3">
-        {cell(0, 'input')}
-        {cell(1, 'projected')}
-        {cell(2, 'difference')}
-      </div>
+      </button>
+      {open && (
+        <div className="grid grid-cols-3 gap-2 sm:gap-3 px-3 pb-3">
+          {cell(0, 'input')}
+          {cell(1, 'projected')}
+          {cell(2, 'difference')}
+        </div>
+      )}
     </div>
   );
 };
