@@ -80,4 +80,14 @@ describe('checkPage', () => {
     const body = '<h1>a</h1><script type="application/ld+json">{bad</script>';
     expect(checkPage(page({ body }), ctx)).toContain('JSON-LD block is not valid JSON');
   });
+  it('flags an unclosed script', () => {
+    expect(checkPage(page({ body: '<h1>a</h1><script src="/a.js">' }), ctx)).toContain(
+      'disallowed <script> (only application/ld+json is permitted)',
+    );
+  });
+  it('flags a self-closed script', () => {
+    expect(checkPage(page({ body: '<h1>a</h1><script src="/a.js" />' }), ctx)).toContain(
+      'disallowed <script> (only application/ld+json is permitted)',
+    );
+  });
 });

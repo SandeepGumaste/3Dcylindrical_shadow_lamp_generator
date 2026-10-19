@@ -23,4 +23,15 @@ describe('applyPartials', () => {
   it('throws on unknown var, naming it', () => {
     expect(() => applyPartials('{{missing}}', {}, {})).toThrow(/missing/);
   });
+  it('expands nested includes', () => {
+    expect(applyPartials('<!-- @include a -->', { a: '[<!-- @include b -->]', b: '{{v}}' }, { v: 'x' })).toBe('[x]');
+  });
+  it('throws on an include cycle, naming the chain', () => {
+    expect(() =>
+      applyPartials('<!-- @include a -->', { a: '<!-- @include b -->', b: '<!-- @include a -->' }, {}),
+    ).toThrow(/a.*b.*a/);
+  });
+  it('throws on an unknown nested include', () => {
+    expect(() => applyPartials('<!-- @include a -->', { a: '<!-- @include nope -->' }, {})).toThrow(/nope/);
+  });
 });

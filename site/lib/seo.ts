@@ -45,11 +45,15 @@ export function checkPage(html: string, ctx: { route: string; siteUrl: string })
   else if (!/^https?:\/\/[^\s/]+/i.test(ogImage)) problems.push('og:image must be an absolute http(s) URL');
   if (findMeta(html, 'name', 'twitter:card') === undefined) problems.push('missing twitter:card');
 
+  const BAD_SCRIPT = 'disallowed <script> (only application/ld+json is permitted)';
+  let validBlocks = 0;
+  let badScript = false;
   for (const m of html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script\s*>/gi)) {
     const type = attr(m[1], 'type')?.trim().toLowerCase();
-    if (type !== 'application/ld+json' || /\bsrc\s*=/i.test(m[1])) {
-      problems.push('disallowed <script> (only application/ld+json is permitted)');
+    if (type !== 'application/ld+json' || /\bsrc\s*=/i.test(m[1]) || /\/\s*$/.test(m[1]) || /<script\b/i.test(m[2])) {
+      badScript = true;
     } else {
+      validBlocks++;
       try {
         JSON.parse(m[2]);
       } catch {
@@ -57,5 +61,7 @@ export function checkPage(html: string, ctx: { route: string; siteUrl: string })
       }
     }
   }
+  // Fail safe: any opening tag not accounted for by a valid complete block is a problem.
+  if (badScript || (html.match(/<script\b/gi) ?? []).length !== validBlocks) problems.push(BAD_SCRIPT);
   return problems;
 }
