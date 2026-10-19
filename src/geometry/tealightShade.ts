@@ -114,10 +114,31 @@ export function outerHeight(g: TealightGeometry, z: number): number {
   return z + w * (g.s - 1) * (z - g.hf);
 }
 
+/**
+ * Radial height of the support rib at (theta, z). Each rib is a right-triangle (sawtooth) in plan
+ * view, centred on its angle: a flat radial face at the -ribWidth/2 edge standing the full height
+ * (ribWidth * sqrt(3) / 2), sloping back to a sharp tip on the wall at the +ribWidth/2 edge, so the
+ * tip lies along the circumference. The ribs sit inside the forced-solid strips, so they never clip
+ * a light ray; they fade out above the pattern band so the top rim stays clean.
+ */
 /** Rib centre angles: explicit positions if given, else `ribs` evenly spaced from angle 0. */
 export function ribAngleList(p: Pick<TealightParams, 'ribs' | 'ribAngles'>): number[] {
   if (p.ribAngles) return p.ribAngles;
   return Array.from({ length: Math.max(0, p.ribs) }, (_, n) => (2 * Math.PI * n) / p.ribs);
+}
+
+export function ribBump(g: TealightGeometry, p: TealightParams, theta: number, z: number, radius: number): number {
+  if (p.ribs <= 0 || p.ribWidth <= 0) return 0;
+  const taper = z <= g.zmax ? 1 : Math.max(0, (g.H - z) / (g.H - g.zmax));
+  if (taper === 0) return 0;
+  let d = Infinity; // signed arc offset (mm) from the nearest rib centre
+  for (const a of ribAngleList(p)) {
+    const o = angDiff(theta, a) * radius;
+    if (Math.abs(o) < Math.abs(d)) d = o;
+  }
+  const half = p.ribWidth / 2;
+  if (d < -half || d >= half) return 0;
+  return taper * ((p.ribWidth * Math.sqrt(3)) / 2) * ((half - d) / p.ribWidth);
 }
 
 export function deriveGeometry(p: TealightParams): TealightGeometry {
@@ -602,7 +623,8 @@ export function generateTealightShade(img: GrayImage, p: TealightParams, runChec
   const mb = new MeshBuilder();
 
   const innerMap = (th: number, z: number): [number, number, number] => {
-    const r = coneRadius(g.Rb, g.k, z);
+    const r0 = coneRadius(g.Rb, g.k, z);
+    const r = r0 - ribBump(g, p, th, z, r0);
     return [r * Math.cos(th), r * Math.sin(th), z];
   };
   const outerMap = (th: number, z: number): [number, number, number] => {

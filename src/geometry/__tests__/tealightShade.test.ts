@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   DEFAULT_TEALIGHT_PARAMS, TealightParams, deriveGeometry, tableRadiusAt, wallHeightForTableRadius,
   zMaxFormula, tableToPixel, pixelToTable, labelComponents, generateTealightShade, compareShadow,
-  validateTealightParams, buildTealightField, suggestRibs, generateTealightMapSvg,
+  validateTealightParams, buildTealightField, suggestRibs, ribBump, generateTealightMapSvg,
 } from '../tealightShade';
 import { TEALIGHT_SAMPLES, asymmetricTestImage } from '../../image/tealightSamples';
 
@@ -151,25 +151,21 @@ describe('LED socket + vents + ribs', () => {
   });
 });
 
-describe('ribs', () => {
-  it('keep the inner wall flat: nothing protrudes inward from the wall', () => {
-    const img = TEALIGHT_SAMPLES[0].make(512);
-    // Wall vertices at the rib centre line (angle 0) in the pattern band, away from the socket and floor.
-    const minRadius = (positions: Float32Array, g: ReturnType<typeof deriveGeometry>) => {
-      let m = Infinity;
-      for (let i = 0; i < positions.length; i += 3) {
-        const x = positions[i], y = positions[i + 1], z = positions[i + 2];
-        if (x > 0 && Math.abs(y) < 0.3 && z > g.baseBand + 2 && z < g.zmax - 2) m = Math.min(m, Math.hypot(x, y));
-      }
-      return m;
-    };
-    const pr = P({ ribs: 6, autoRibs: false });
-    const g = deriveGeometry(pr);
-    const withRibs = generateTealightShade(img, pr, false);
-    const without = generateTealightShade(img, P({ ribs: 0, autoRibs: false }), false);
-    const a = minRadius(withRibs.positions, g), b = minRadius(without.positions, g);
-    expect(Number.isFinite(a)).toBe(true);
-    expect(a).toBeGreaterThanOrEqual(b - 1e-6);
+describe('sawtooth ribs', () => {
+  // Plan-view triangle with a flat radial face on one side and a slope back to the wall on the
+  // other; its sharp tip lies on the wall, pointing along the circumference.
+  it('has a radial face of full height at one edge and a tip on the wall at the other', () => {
+    const p = P({ ribs: 6, ribWidth: 2 });
+    const g = deriveGeometry(p);
+    const z = g.baseBand + 1, r = 30;
+    const h = Math.sqrt(3);
+    expect(ribBump(g, p, -0.999 / r, z, r)).toBeCloseTo(h, 1);                   // radial face
+    expect(ribBump(g, p, 0, z, r)).toBeCloseTo(h / 2, 6);                        // half way along the slope
+    expect(ribBump(g, p, 0.999 / r, z, r)).toBeCloseTo(0, 1);                    // sharp tip on the wall
+    expect(ribBump(g, p, -1.2 / r, z, r)).toBe(0);                               // beyond the face: wall
+    expect(ribBump(g, p, 1.2 / r, z, r)).toBe(0);                                // beyond the tip: wall
+    expect(ribBump(g, p, Math.PI / 6, z, r)).toBe(0);                            // between ribs
+    expect(ribBump(g, p, 0, g.H, r)).toBe(0);                                    // faded out at the rim
   });
   it('stays watertight with ribs on', () => {
     const res = generateTealightShade(TEALIGHT_SAMPLES[0].make(512), P({ ribs: 6 }));
