@@ -11,7 +11,7 @@ export type WallId = 'w1' | 'w2' | 'w3' | 'w4';
 export const WALL_IDS: WallId[] = ['w1', 'w2', 'w3', 'w4'];
 
 export interface Feature {
-  kind: 'tab' | 'peg';
+  kind: 'tab';
   x0: number; x1: number;
   y0: number; y1: number;
   z0: number; z1: number;
@@ -57,7 +57,6 @@ export const KIT = {
       features: [
         { kind: 'tab', x0: 52.9, x1: 65.4, y0: 32, y1: 34, ...TAB_Z },
         { kind: 'tab', x0: 52.9, x1: 65.4, y0: 112, y1: 114, ...TAB_Z },
-        { kind: 'peg', x0: 3.5, x1: 4.8, y0: 0, y1: 3, z0: 3, z1: 9.7 },
       ],
     },
     w3: {
@@ -66,7 +65,6 @@ export const KIT = {
       features: [
         { kind: 'tab', x0: 52.9, x1: 65.4, y0: 23, y1: 25, ...TAB_Z },
         { kind: 'tab', x0: 52.9, x1: 65.4, y0: 118, y1: 120, ...TAB_Z },
-        { kind: 'peg', x0: 3.8, x1: 5.3, y0: 144, y1: 147, z0: 3, z1: 9.6 },
       ],
     },
     w4: {
