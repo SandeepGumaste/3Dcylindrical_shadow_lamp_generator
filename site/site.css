@@ -11,3 +11,36 @@ h1{line-height:1.2}
 .site-footer{border-top:1px solid var(--line);color:var(--muted)}
 .brand{font-weight:700;text-decoration:none;color:var(--fg)}
 nav{display:flex;flex-wrap:wrap;gap:.5rem 1.25rem}
+.landing-page .site-header,.landing-page .site-footer{max-width:68rem}
+.landing{max-width:none;padding:0}
+.landing h1,.landing h2,.landing h3{font-family:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;font-weight:700;line-height:1.15;margin:0 0 .75rem}
+.landing p{max-width:60ch}
+.hero{background:#1b182c;color:#f3ece0;display:grid;gap:2rem;align-items:center;padding:3rem 1rem}
+.hero>*{max-width:68rem;margin-inline:auto;width:100%}
+.hero h1{font-size:clamp(2rem,6vw,3.5rem);letter-spacing:-.01em}
+.lede{font-size:1.2rem}
+.hero .note{color:#cdbfa8;font-size:.95rem}
+.hero-art{display:block;width:100%;height:auto;border-radius:.75rem}
+.button{display:inline-block;background:#ffc463;color:#1b182c;font-weight:700;text-decoration:none;padding:.8rem 1.4rem;border-radius:.5rem}
+.button:hover{background:#ffd48a}
+.button:focus-visible{outline:3px solid currentColor;outline-offset:3px}
+.hero .button:focus-visible{outline-color:#fff}
+.band,.cta{max-width:68rem;margin:0 auto;padding:2.5rem 1rem}
+.band h2,.cta h2{font-size:1.75rem}
+.band+.band{border-top:1px solid var(--line)}
+.steps{list-style:none;margin:1.5rem 0 0;padding:0;display:grid;gap:1.5rem;counter-reset:step}
+.steps li{counter-increment:step;padding-left:3.25rem;position:relative}
+.steps li::before{content:counter(step);position:absolute;left:0;top:0;width:2.25rem;height:2.25rem;border-radius:50%;background:#ffc463;color:#1b182c;font:700 1.1rem/2.25rem Georgia,serif;text-align:center}
+.steps h3{font-size:1.2rem}
+.steps p{margin:0}
+.makes{padding-left:1.25rem;margin:1rem 0 0}
+.makes li{margin:.4rem 0}
+.cta{border-top:1px solid var(--line);text-align:left}
+.cta .button{background:var(--fg);color:var(--bg)}
+@media (min-width:48em){
+  .hero{grid-template-columns:1fr 1fr;padding:4.5rem 1.5rem;gap:3rem}
+  .hero>*{margin-inline:0}
+  .hero{padding-inline:max(1.5rem,calc((100% - 68rem)/2))}
+  .steps{grid-template-columns:repeat(3,1fr)}
+  .band,.cta{padding-inline:1.5rem}
+}

@@ -1,4 +1,4 @@
-import {readdirSync, readFileSync} from 'node:fs';
+import {existsSync, readdirSync, readFileSync} from 'node:fs';
 import path from 'node:path';
 import type {Plugin} from 'vite';
 import {findPlaceholders} from '../site/lib/placeholders';
@@ -8,6 +8,7 @@ import {renderRobots} from '../site/lib/robots';
 import {renderSitemap} from '../site/lib/sitemap';
 
 const DEV_URL = 'http://localhost:5173';
+const assetsDir = path.resolve(__dirname, '../site/assets');
 const partialsDir = path.resolve(__dirname, '../site/partials');
 
 export interface SitePagesOptions {
@@ -88,6 +89,12 @@ export function sitePages(options: SitePagesOptions = {}): Plugin {
           throw new Error(
             `Placeholders must be replaced before a production deploy: ${[...found].join(', ')}`,
           );
+        }
+      }
+      // Share images are referenced only from meta tags, so Vite would not bundle them.
+      if (existsSync(assetsDir)) {
+        for (const f of readdirSync(assetsDir)) {
+          this.emitFile({type: 'asset', fileName: `site/assets/${f}`, source: readFileSync(path.join(assetsDir, f))});
         }
       }
       this.emitFile({type: 'asset', fileName: 'sitemap.xml', source: renderSitemap(siteUrl, staticRoutes())});

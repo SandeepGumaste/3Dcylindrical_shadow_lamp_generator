@@ -10,20 +10,90 @@
     <meta property="og:title" content="Odd Shadows - 3D printable shadow lamps" />
     <meta property="og:description" content="Turn a picture into a 3D printable lamp shade that casts its image as a shadow. Free to try in your browser." />
     <meta property="og:url" content="{{siteUrl}}{{route}}" />
-    <meta property="og:image" content="{{siteUrl}}/favicon.svg" />
-    <meta name="twitter:card" content="summary" />
+    <meta property="og:image" content="{{siteUrl}}/site/assets/og.png" />
+    <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="Odd Shadows - 3D printable shadow lamps" />
     <meta name="twitter:description" content="Turn a picture into a 3D printable lamp shade that casts its image as a shadow. Free to try in your browser." />
+    <meta name="twitter:image" content="{{siteUrl}}/site/assets/og.png" />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="/site/site.css" />
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebApplication",
+  "name": "Odd Shadows",
+  "description": "Turn a picture into a 3D printable lamp shade that casts its image as a shadow. Free to try in your browser.",
+  "url": "{{siteUrl}}/",
+  "applicationCategory": "DesignApplication",
+  "operatingSystem": "Any modern web browser",
+  "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"}
+}
+    </script>
   </head>
-  <body>
+  <body class="landing-page">
     <!-- @include header -->
-    <main>
-      <h1>Odd Shadows</h1>
-      <p>Turn a picture into a 3D printable lamp shade that casts the picture as a shadow when a light shines inside.</p>
-      <p><a href="/app">Open the app</a></p>
-      <p>New here? Read the <a href="/faq">questions and answers</a>.</p>
+    <main class="landing">
+      <section class="hero">
+        <div class="hero-copy">
+          <h1>Print a lamp that draws with light</h1>
+          <p class="lede">Pick a picture. Odd Shadows turns it into a tealight shade you can print at home. Light the candle and the picture appears on the wall as a shadow.</p>
+          <p><a class="button" href="/app">Start making a shade</a></p>
+          <p class="note">Free to try in your browser. No account needed to look around.</p>
+        </div>
+        <svg class="hero-art" viewBox="0 0 640 400" role="img" aria-label="A glowing lamp shade with small holes beside the shadow it casts on the wall: a crescent moon and stars." width="640" height="400">
+          <defs>
+            <radialGradient id="glow" cx="30%" cy="50%" r="70%"><stop offset="0" stop-color="#7a5230" stop-opacity=".7"/><stop offset="1" stop-color="#7a5230" stop-opacity="0"/></radialGradient>
+            <linearGradient id="barrel" x1="0" x2="1"><stop offset="0" stop-color="#241d30"/><stop offset=".4" stop-color="#3a3048"/><stop offset="1" stop-color="#1e1829"/></linearGradient>
+            <pattern id="holes" width="22" height="22" patternUnits="userSpaceOnUse"><circle cx="11" cy="11" r="3.2" fill="#ffc463"/></pattern>
+          </defs>
+          <rect width="640" height="400" fill="#1b182c"/>
+          <rect width="640" height="400" fill="url(#glow)"/>
+          <rect x="0" y="352" width="640" height="48" fill="#0a0912"/>
+          <rect x="60" y="92" width="150" height="260" rx="16" fill="url(#barrel)"/>
+          <rect x="60" y="92" width="150" height="260" rx="16" fill="url(#holes)" opacity=".9"/>
+          <path fill="#ffc463" fill-rule="evenodd" d="M440 100a115 115 0 1 0 0 230a115 115 0 0 0 0-230zM470 118a96 96 0 0 1 0 194a96 96 0 0 0 0-194z"/>
+          <path fill="#ffc463" d="M400 290l5 12 12 5-12 5-5 12-5-12-12-5 12-5zM560 240l4 9 9 4-9 4-4 9-4-9-9-4 9-4z"/>
+        </svg>
+      </section>
+
+      <section class="band" aria-labelledby="how">
+        <h2 id="how">How it works</h2>
+        <ol class="steps">
+          <li>
+            <h3>Upload a picture</h3>
+            <p>A photo, a drawing or a logo. Simple shapes with strong contrast cast the cleanest shadows.</p>
+          </li>
+          <li>
+            <h3>Tune the shade and preview the shadow</h3>
+            <p>Set the size, wall thickness and flame height. The preview lights the shade so you can see the shadow before you print anything.</p>
+          </li>
+          <li>
+            <h3>Download the STL and print</h3>
+            <p>Send the file to your slicer and print the shade on any 3D printer. Put a tealight inside.</p>
+          </li>
+        </ol>
+      </section>
+
+      <section class="band" aria-labelledby="make">
+        <h2 id="make">What you can make</h2>
+        <p>Right now Odd Shadows makes one thing, and aims to make it well: a tealight shade, a printed sleeve that stands over a small candle.</p>
+        <ul class="makes">
+          <li>A portrait of a pet that glows on the bedroom wall.</li>
+          <li>A family crest or a club logo for the shelf.</li>
+          <li>A skyline, a mountain or a favourite constellation.</li>
+          <li>A gift with a photo only the light can show.</li>
+        </ul>
+      </section>
+
+      <section class="band" aria-labelledby="faq">
+        <h2 id="faq">Questions you might have</h2>
+        <p>What printer and material to use, whether you need to log in, what is stored and how to use a lamp safely: <a href="/faq">the FAQ answers these</a>.</p>
+      </section>
+
+      <section class="cta" aria-labelledby="go">
+        <h2 id="go">Ready to see your picture in light?</h2>
+        <p><a class="button" href="/app">Open the app</a></p>
+      </section>
     </main>
     <!-- @include footer -->
   </body>

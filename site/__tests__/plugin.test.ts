@@ -64,6 +64,14 @@ describe('sitePages plugin', () => {
     expect(files['robots.txt']).toContain('Sitemap: https://example.com/sitemap.xml');
   });
 
+  it('emits the share image into the build', () => {
+    const p = sitePages({siteUrl: 'https://example.com'});
+    resolve(p, 'build', 'production');
+    const files: Record<string, any> = {};
+    (p.generateBundle as any).call({emitFile: (f: any) => (files[f.fileName] = f.source)});
+    expect(Buffer.from(files['site/assets/og.png']).subarray(1, 4).toString()).toBe('PNG');
+  });
+
   it('transformIndexHtml uses order pre', () => {
     const p = sitePages({siteUrl: 'https://example.com'});
     expect((p.transformIndexHtml as any).order).toBe('pre');

@@ -1,4 +1,4 @@
-import {readFileSync} from 'node:fs';
+import {readFileSync, readdirSync, statSync} from 'node:fs';
 import path from 'node:path';
 import {describe, expect, it} from 'vitest';
 import {transformPage} from '../../vite-plugins/sitePages';
@@ -89,6 +89,64 @@ describe('internal links', () => {
         if (/^(mailto:|https?:|#)/.test(href)) continue;
         expect(routes, `${f}: ${href}`).toContain(href.split('#')[0]);
       }
+    }
+  });
+});
+
+describe('landing page', () => {
+  const src = read('index.html');
+  const html = built('/');
+
+  it('has one h1 and passes checkPage', () => {
+    expect((src.match(/<h1\b/gi) ?? []).length).toBe(1);
+    expect(checkPage(html, {route: '/', siteUrl})).toEqual([]);
+  });
+  it('has no script src and no JavaScript other than JSON-LD', () => {
+    expect(src).not.toMatch(/<script\b[^>]*\bsrc\s*=/i);
+    const scripts = [...src.matchAll(/<script\b[^>]*>/gi)];
+    expect(scripts.length).toBe(1);
+    expect(scripts[0][0]).toMatch(/application\/ld\+json/);
+    expect(src).not.toMatch(/\son[a-z]+\s*=/i);
+  });
+  it('links to /app and /faq', () => {
+    expect(src).toMatch(/<a\b[^>]*href="\/app"/);
+    expect(src).toMatch(/<a\b[^>]*href="\/faq"/);
+  });
+  it('has WebApplication JSON-LD with name, description and the site URL', () => {
+    const ld = JSON.parse(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/.exec(html)![1]);
+    expect(ld['@type']).toBe('WebApplication');
+    expect(ld.name).toBe('Odd Shadows');
+    expect(ld.description).toBeTruthy();
+    expect(ld.url).toBe(siteUrl + '/');
+  });
+  it('gives every img alt, width and height', () => {
+    for (const m of src.matchAll(/<img\b[^>]*>/gi)) {
+      expect(m[0]).toMatch(/\balt="/);
+      expect(m[0]).toMatch(/\bwidth="\d+"/);
+      expect(m[0]).toMatch(/\bheight="\d+"/);
+    }
+  });
+  it('keeps HTML plus CSS under 60 KB and each image under 150 KB', () => {
+    const bytes = (f: string) => statSync(path.join(root, f)).size;
+    expect(bytes('index.html') + bytes('site/site.css')).toBeLessThan(60 * 1024);
+    for (const f of readdirSync(path.join(root, 'site/assets'))) {
+      expect(bytes('site/assets/' + f), f).toBeLessThan(150 * 1024);
+    }
+  });
+  it('mentions only the tealight shade, not box mode', () => {
+    expect(src).not.toMatch(/box mode/i);
+  });
+});
+
+describe('share image', () => {
+  it('is 1200 by 630 and every static page points at it with an absolute URL', () => {
+    const png = readFileSync(path.join(root, 'site/assets/og.png'));
+    expect(png.subarray(1, 4).toString()).toBe('PNG');
+    expect([png.readUInt32BE(16), png.readUInt32BE(20)]).toEqual([1200, 630]);
+    for (const route of staticRoutes) {
+      const h = built(route);
+      expect(h, route).toContain(`<meta property="og:image" content="${siteUrl}/site/assets/og.png"`);
+      expect(h, route).toContain(`<meta name="twitter:image" content="${siteUrl}/site/assets/og.png"`);
     }
   });
 });

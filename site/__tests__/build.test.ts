@@ -37,8 +37,9 @@ describe('site page map', () => {
     expect(src).toContain('rollupOptions');
   });
 
-  it('static root page loads no script', () => {
-    expect(readFileSync(path.join(root, 'index.html'), 'utf8')).not.toMatch(/<script/i);
+  it('static root page has no script other than JSON-LD', () => {
+    const html = readFileSync(path.join(root, 'index.html'), 'utf8');
+    for (const m of html.matchAll(/<script\b[^>]*>/gi)) expect(m[0]).toMatch(/application\/ld\+json/);
   });
 });
 
