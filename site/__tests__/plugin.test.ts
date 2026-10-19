@@ -1,0 +1,70 @@
+import {readFileSync} from 'node:fs';
+import path from 'node:path';
+import {describe, expect, it} from 'vitest';
+import {sitePages, transformPage} from '../../vite-plugins/sitePages';
+
+const root = path.resolve(__dirname, '../..');
+const partials = {header: '<header>HEAD</header>', footer: '<footer>FOOT</footer>'};
+const opts = {siteUrl: 'https://example.com', partials};
+
+describe('transformPage', () => {
+  it('leaves the app page untouched', () => {
+    const html = readFileSync(path.join(root, 'app/index.html'), 'utf8');
+    expect(transformPage(html, '/app', opts)).toBe(html);
+  });
+
+  it('adds header, footer and vars to a static page', () => {
+    const out = transformPage(
+      '<body><!-- @include header --><a href="{{siteUrl}}{{route}}">x</a><!-- @include footer --></body>',
+      '/faq',
+      opts,
+    );
+    expect(out).toContain('<header>HEAD</header>');
+    expect(out).toContain('<footer>FOOT</footer>');
+    expect(out).toContain('href="https://example.com/faq"');
+  });
+
+  it('every real static page includes header and footer', () => {
+    for (const f of ['index', 'privacy/index', 'legal/index', 'faq/index', 'terms/index']) {
+      const html = readFileSync(path.join(root, f + '.html'), 'utf8');
+      expect(html, f).toContain('@include header');
+      expect(html, f).toContain('@include footer');
+      expect(html, f).not.toContain('<script');
+    }
+  });
+});
+
+describe('sitePages plugin', () => {
+  const resolve = (p: any, command: string, mode: string) =>
+    (p.configResolved as any)({command, mode});
+
+  it('throws in a production build without a site URL', () => {
+    const p = sitePages({siteUrl: ''});
+    expect(() => resolve(p, 'build', 'production')).toThrow(/VITE_SITE_URL/);
+  });
+
+  it('falls back to localhost in dev', () => {
+    const p = sitePages({siteUrl: ''});
+    expect(() => resolve(p, 'serve', 'development')).not.toThrow();
+  });
+
+  it('emits sitemap and robots with the five static routes and no /app', () => {
+    const p = sitePages({siteUrl: 'https://example.com'});
+    resolve(p, 'build', 'production');
+    const files: Record<string, string> = {};
+    (p.generateBundle as any).call({
+      emitFile: (f: any) => (files[f.fileName] = f.source),
+    });
+    const locs = [...files['sitemap.xml'].matchAll(/<loc>(.*?)<\/loc>/g)].map((m) => m[1]);
+    expect(locs.sort()).toEqual(
+      ['/', '/faq', '/legal', '/privacy', '/terms'].map((r) => 'https://example.com' + r).sort(),
+    );
+    expect(files['sitemap.xml']).not.toContain('/app');
+    expect(files['robots.txt']).toContain('Sitemap: https://example.com/sitemap.xml');
+  });
+
+  it('transformIndexHtml uses order pre', () => {
+    const p = sitePages({siteUrl: 'https://example.com'});
+    expect((p.transformIndexHtml as any).order).toBe('pre');
+  });
+});
