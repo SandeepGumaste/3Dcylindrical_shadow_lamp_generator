@@ -102,6 +102,22 @@ describe('rim profile from the silhouette image', () => {
     expect(Math.max(...small.heights.w1)).toBeLessThanOrEqual(Math.max(...buildRimProfile(disc(120), P()).heights.w1));
   });
 
+  it('exposes the shadow mask in wall-plane millimetres', () => {
+    const prof = buildRimProfile(disc(100), P());
+    expect(prof.darkAt(0, 0)).toBe(true);
+    expect(prof.darkAt(60, -60)).toBe(true);
+    expect(prof.darkAt(160, 0)).toBe(false);
+    expect(prof.darkAt(0, 400)).toBe(false);
+  });
+
+  it('exposes the heights before spike and notch processing, laid out like the processed ones', () => {
+    const prof = buildRimProfile(disc(200), P());
+    for (const id of WALL_IDS) {
+      expect(prof.rawHeights[id].length).toBe(prof.heights[id].length);
+      for (let i = 0; i < prof.heights[id].length; i++) expect(Math.abs(prof.rawHeights[id][i] - prof.heights[id][i])).toBeLessThan(0.3 + 1e-6);
+    }
+  });
+
   it('always says only one-reach-per-direction shapes are reproduced', () => {
     expect(buildRimProfile(disc(100), P()).warnings.join(' ')).toMatch(/one reach per direction/);
   });

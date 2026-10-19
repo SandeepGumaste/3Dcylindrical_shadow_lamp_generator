@@ -5,10 +5,10 @@ import { KIT, WALL_IDS, type WallId } from '../kitSpec';
 import { wallSpan } from '../shadowModel';
 import { checkMesh } from '../../meshCheck';
 
-const flat = (h: number): RimProfile => ({
-  heights: Object.fromEntries(WALL_IDS.map((id) => [id, new Float32Array(Math.round(wallSpan(id) / PROFILE_STEP) + 1).fill(h)])) as RimProfile['heights'],
-  step: PROFILE_STEP, warnings: [], clamped: false,
-});
+const flat = (h: number): RimProfile => {
+  const heights = Object.fromEntries(WALL_IDS.map((id) => [id, new Float32Array(Math.round(wallSpan(id) / PROFILE_STEP) + 1).fill(h)])) as RimProfile['heights'];
+  return { heights, rawHeights: heights, darkAt: () => true, step: PROFILE_STEP, warnings: [], clamped: false };
+};
 const bbox = (p: Float32Array) => {
   const mn = [Infinity, Infinity, Infinity], mx = [-Infinity, -Infinity, -Infinity];
   for (let i = 0; i < p.length; i += 3) for (let k = 0; k < 3; k++) { mn[k] = Math.min(mn[k], p[i + k]); mx[k] = Math.max(mx[k], p[i + k]); }

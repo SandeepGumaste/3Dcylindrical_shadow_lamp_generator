@@ -47,6 +47,10 @@ export const SPECK_AREA_MM2 = 25;
 export interface RimProfile {
   /** Top-edge height above the panel plane at s = 0, step, 2 step ... span, for each wall. */
   heights: Record<WallId, Float32Array>;
+  /** The same heights before spike widening and notch filling. */
+  rawHeights: Record<WallId, Float32Array>;
+  /** Whether the despeckled shadow image is dark at a point of the wall plane, in mm from the light axis (y up). */
+  darkAt: (X: number, Y: number) => boolean;
   step: number;
   warnings: string[];
   /** Some of the shape needed a taller wall than the light height or the part allows. */
@@ -147,15 +151,20 @@ export function buildRimProfile(img: GrayImage, p: BoxParams): RimProfile {
   const final = new Float64Array(n);
   for (let i = 0; i < n; i++) final[i] = Math.min(Math.max(closed[i], MIN_RIM_HEIGHT), maxHeightOf(ring[i].id, L));
 
-  const heights = {} as Record<WallId, Float32Array>;
-  for (const id of WALL_IDS) {
-    const m = Math.round(wallSpan(id) / PROFILE_STEP);
-    const out = new Float32Array(m + 1);
-    const reversed = RING.find((q) => q.id === id)!.reversed;
-    for (let j = reversed ? 1 : 0; j < (reversed ? m + 1 : m); j++) out[j] = final[indexOf[id][j]];
-    out[reversed ? 0 : m] = final[cornerIndex[id]];
-    heights[id] = out;
-  }
+  const toWalls = (values: Float64Array) => {
+    const out = {} as Record<WallId, Float32Array>;
+    for (const id of WALL_IDS) {
+      const m = Math.round(wallSpan(id) / PROFILE_STEP);
+      const arr = new Float32Array(m + 1);
+      const reversed = RING.find((q) => q.id === id)!.reversed;
+      for (let j = reversed ? 1 : 0; j < (reversed ? m + 1 : m); j++) arr[j] = values[indexOf[id][j]];
+      arr[reversed ? 0 : m] = values[cornerIndex[id]];
+      out[id] = arr;
+    }
+    return out;
+  };
+  const heights = toWalls(final);
+  const rawHeights = toWalls(raw);
 
   const warnings: string[] = [];
   if (!anyDark) warnings.push('The shadow image has no dark shape inside the frame, so every wall stays at its minimum height.');
@@ -168,7 +177,7 @@ export function buildRimProfile(img: GrayImage, p: BoxParams): RimProfile {
   if (w > 0) warnings.push(`${w} spike${w === 1 ? '' : 's'} narrower than ${p.minSpike} mm ${w === 1 ? 'was' : 'were'} widened so they print.`);
   if (g > 0) warnings.push(`${g} notch${g === 1 ? '' : 'es'} narrower than ${p.minGap} mm ${g === 1 ? 'was' : 'were'} filled so they print.`);
   warnings.push('Only shapes with one reach per direction from the light can be reproduced; anything else is simplified.');
-  return { heights, step: PROFILE_STEP, warnings, clamped };
+  return { heights, rawHeights, darkAt, step: PROFILE_STEP, warnings, clamped };
 }
 
 /** Messages for settings the kit cannot be built with; empty when the parameters are usable. */
