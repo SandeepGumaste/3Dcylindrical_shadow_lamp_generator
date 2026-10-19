@@ -1,6 +1,7 @@
 import {readdirSync, readFileSync} from 'node:fs';
 import path from 'node:path';
 import type {Plugin} from 'vite';
+import {findPlaceholders} from '../site/lib/placeholders';
 import {PAGES} from '../site/lib/pages';
 import {applyPartials} from '../site/lib/partials';
 import {renderRobots} from '../site/lib/robots';
@@ -49,9 +50,12 @@ const staticRoutes = () => Object.keys(PAGES).filter((r) => r !== '/app');
 
 export function sitePages(options: SitePagesOptions = {}): Plugin {
   let siteUrl = options.siteUrl ?? '';
+  let guardPlaceholders = false;
   return {
     name: 'site-pages',
     configResolved(config) {
+      guardPlaceholders =
+        config.command === 'build' && config.mode === 'production' && process.env.VERCEL_ENV === 'production';
       if (siteUrl) return;
       if (config.command === 'build' && config.mode === 'production') {
         throw new Error(
@@ -72,7 +76,20 @@ export function sitePages(options: SitePagesOptions = {}): Plugin {
         });
       },
     },
-    generateBundle() {
+    generateBundle(_outputOptions, bundle) {
+      if (guardPlaceholders) {
+        const found = new Set<string>();
+        for (const item of Object.values(bundle ?? {}) as any[]) {
+          if (item.type === 'asset' && String(item.fileName).endsWith('.html')) {
+            for (const p of findPlaceholders(String(item.source))) found.add(p);
+          }
+        }
+        if (found.size > 0) {
+          throw new Error(
+            `Placeholders must be replaced before a production deploy: ${[...found].join(', ')}`,
+          );
+        }
+      }
       this.emitFile({type: 'asset', fileName: 'sitemap.xml', source: renderSitemap(siteUrl, staticRoutes())});
       this.emitFile({type: 'asset', fileName: 'robots.txt', source: renderRobots(siteUrl)});
     },

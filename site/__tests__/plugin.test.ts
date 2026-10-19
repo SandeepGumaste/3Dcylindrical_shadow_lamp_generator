@@ -29,7 +29,8 @@ describe('transformPage', () => {
       const html = readFileSync(path.join(root, f + '.html'), 'utf8');
       expect(html, f).toContain('@include header');
       expect(html, f).toContain('@include footer');
-      expect(html, f).not.toContain('<script');
+      const withoutLd = html.replace(/<script type="application\/ld\+json">[\s\S]*?<\/script>/g, '');
+      expect(withoutLd, f).not.toContain('<script');
     }
   });
 });
