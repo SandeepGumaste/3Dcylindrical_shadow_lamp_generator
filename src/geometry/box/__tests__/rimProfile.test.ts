@@ -61,7 +61,7 @@ describe('rim profile from the silhouette image', () => {
     const rnd = () => ((seed = (seed * 1664525 + 1013904223) >>> 0) / 4294967296);
     const speckled = raster((x, y) => Math.hypot(x, y) < 90);
     for (let k = 0; k < 40; k++) speckled.pixels[Math.floor(rnd() * 450) * 450 + Math.floor(rnd() * 450)] = 0;
-    const clean = buildRimProfile(disc(90), P()), noisy = buildRimProfile(speckled, P());
+    const clean = buildRimProfile(disc(90), P({ edgeRounding: 0 })), noisy = buildRimProfile(speckled, P({ edgeRounding: 0 }));
     for (const id of WALL_IDS) {
       for (let i = 0; i < clean.heights[id].length; i++) expect(Math.abs(noisy.heights[id][i] - clean.heights[id][i])).toBeLessThan(0.5);
     }
@@ -116,6 +116,31 @@ describe('rim profile from the silhouette image', () => {
       expect(prof.rawHeights[id].length).toBe(prof.heights[id].length);
       for (let i = 0; i < prof.heights[id].length; i++) expect(Math.abs(prof.rawHeights[id][i] - prof.heights[id][i])).toBeLessThan(0.3 + 1e-6);
     }
+  });
+
+  it('rounds jagged edges: more edge rounding gives a smoother wall top (before spike and notch cleanup)', () => {
+    // a disc with a ragged edge (radius wobbling by up to 4 mm from direction to direction)
+    const ragged = raster((x, y) => Math.hypot(x, y) < 160 + 4 * Math.sin(Math.floor(Math.atan2(y, x) * 80) * 12.9898));
+    const roughness = (prof: ReturnType<typeof buildRimProfile>) => {
+      let tv = 0;
+      for (const id of WALL_IDS) { const h = prof.rawHeights[id]; for (let i = 1; i < h.length; i++) tv += Math.abs(h[i] - h[i - 1]); }
+      return tv;
+    };
+    const sharp = roughness(buildRimProfile(ragged, P({ edgeRounding: 0 })));
+    const rounded = roughness(buildRimProfile(ragged, P({ edgeRounding: 40 })));
+    expect(rounded).toBeLessThan(sharp * 0.85); // the disc itself contributes a baseline, so this is a clear but not total reduction
+  });
+
+  it('also ignores single stray pixels with the default edge rounding', () => {
+    const speckled = raster((x, y) => Math.hypot(x, y) < 90 || (Math.abs(x - 170) < 0.6 && Math.abs(y - 40) < 0.6));
+    const prof = buildRimProfile(speckled, P());
+    expect(prof.darkAt(170, 40)).toBe(false);
+  });
+
+  it('leaves a sharp image alone when edge rounding is 0', () => {
+    const prof = buildRimProfile(disc(150), P({ edgeRounding: 0 }));
+    expect(prof.darkAt(149, 0)).toBe(true);
+    expect(prof.darkAt(152, 0)).toBe(false);
   });
 
   it('says only one-reach-per-direction shapes are reproduced when inner details are off', () => {

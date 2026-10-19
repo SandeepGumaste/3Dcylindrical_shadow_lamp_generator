@@ -13,6 +13,8 @@ export interface BoxParams {
   tray: TrayId;
   /** 0..255; pixels darker than this are shadow (lighter when `invert`). */
   threshold: number;
+  /** Blur applied to the image before the threshold, 0 to 40; the blur radius is this divided by 10 image pixels, as in Tealight. */
+  edgeRounding: number;
   invert: boolean;
   /** Cut openings in the walls so lit areas inside the dark shape show. Off keeps solid-outline walls. */
   innerDetails: boolean;
@@ -30,6 +32,7 @@ export const DEFAULT_BOX_PARAMS: BoxParams = {
   lightHeight: 45,
   tray: '2AA',
   threshold: 128,
+  edgeRounding: 10,
   invert: false,
   innerDetails: true,
   minSpike: 1.2,
@@ -89,7 +92,7 @@ export function buildRimProfile(img: GrayImage, p: BoxParams): RimProfile {
   const size = p.shadowSize * (p.imageScale / 100); // width of the image on the wall, mm
   const k = size / Math.max(img.width, img.height); // mm per image pixel
   const t = p.threshold / 255;
-  const { mask, specks, edgeDark } = darkMask(img, p.invert, t, SPECK_AREA_MM2 / (k * k));
+  const { mask, specks, edgeDark } = darkMask(img, p.invert, t, SPECK_AREA_MM2 / (k * k), p.edgeRounding / 10);
   const darkAt = (X: number, Y: number) => {
     const ix = Math.floor(img.width / 2 + X / k), iy = Math.floor(img.height / 2 - Y / k);
     if (ix < 0 || iy < 0 || ix >= img.width || iy >= img.height) return false;
@@ -192,14 +195,16 @@ export function validateBoxParams(p: BoxParams): string[] {
   if (!(p.lightHeight >= lo && p.lightHeight <= hi)) e.push(`Light height must be between ${lo} and ${hi} mm (the post is ${KIT.post.length} mm long).`);
   if (!(p.shadowSize > 0)) e.push('Shadow size must be above 0 mm.');
   if (!(p.imageScale >= 10 && p.imageScale <= 400)) e.push('Image size must be between 10 % and 400 %.');
+  if (!(p.edgeRounding >= 0 && p.edgeRounding <= 40)) e.push('Edge rounding must be between 0 and 40.');
   if (!(p.minSpike >= 0)) e.push('Minimum spike width cannot be negative.');
   if (!(p.minGap >= 0)) e.push('Minimum gap width cannot be negative.');
   return e;
 }
 
 /** Dark pixels as a mask with tiny dark blobs removed, how many were removed, and how much of the image edge is dark. */
-function darkMask(img: GrayImage, invert: boolean, t: number, minPixels: number) {
-  const { width: W, height: H, pixels } = img;
+function darkMask(img: GrayImage, invert: boolean, t: number, minPixels: number, sigma: number) {
+  const { width: W, height: H } = img;
+  const pixels = gaussianBlur(img.pixels, W, H, sigma);
   const mask = new Uint8Array(W * H);
   for (let i = 0; i < mask.length; i++) mask[i] = (invert ? pixels[i] >= t : pixels[i] < t) ? 1 : 0;
   const seen = new Uint8Array(W * H), queue = new Int32Array(W * H);
@@ -223,4 +228,26 @@ function darkMask(img: GrayImage, invert: boolean, t: number, minPixels: number)
   for (let x = 0; x < W; x++) for (const y of [0, H - 1]) { edge++; dark += mask[y * W + x]; }
   for (let y = 1; y < H - 1; y++) for (const x of [0, W - 1]) { edge++; dark += mask[y * W + x]; }
   return { mask, specks, edgeDark: edge ? dark / edge : 0 };
+}
+
+/** Separable Gaussian blur with clamped edges; sigma in pixels (below 0.05 the image is returned as is). */
+function gaussianBlur(src: Float32Array, W: number, H: number, sigma: number): Float32Array {
+  if (sigma < 0.05) return src;
+  const rad = Math.max(1, Math.ceil(3 * sigma));
+  const ker = new Float32Array(2 * rad + 1);
+  let sum = 0;
+  for (let d = -rad; d <= rad; d++) { const v = Math.exp(-(d * d) / (2 * sigma * sigma)); ker[d + rad] = v; sum += v; }
+  for (let d = 0; d < ker.length; d++) ker[d] /= sum;
+  const tmp = new Float32Array(src.length), out = new Float32Array(src.length);
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    let a = 0;
+    for (let d = -rad; d <= rad; d++) a += ker[d + rad] * src[y * W + Math.min(W - 1, Math.max(0, x + d))];
+    tmp[y * W + x] = a;
+  }
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    let a = 0;
+    for (let d = -rad; d <= rad; d++) a += ker[d + rad] * tmp[Math.min(H - 1, Math.max(0, y + d)) * W + x];
+    out[y * W + x] = a;
+  }
+  return out;
 }

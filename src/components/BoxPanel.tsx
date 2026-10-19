@@ -59,6 +59,7 @@ export const BoxPanel: React.FC<{ c: BoxController }> = ({ c }) => {
         <Picker label="Upload shadow image" name={c.shadowName} onFile={c.selectShadow} />
         <p className="text-[10px] text-slate-500">Dark = shadow on the wall. With Inner details on, lit areas inside the shape become openings in the walls; with it off, only the outline is reproduced.</p>
         <Num label="Threshold" value={p.threshold} min={0} max={255} onChange={(v) => c.setParams({ threshold: v })} />
+        <Num label="Edge rounding" value={p.edgeRounding} min={0} max={40} onChange={(v) => c.setParams({ edgeRounding: v })} />
         <Check label="Invert" value={p.invert} onChange={(v) => c.setParams({ invert: v })} />
         <Check label="Inner details" value={p.innerDetails} onChange={(v) => c.setParams({ innerDetails: v })}
           hint="Cuts openings in the walls so lit areas inside the shape show. Thin strokes are thickened and floating pieces joined with small bridges." />

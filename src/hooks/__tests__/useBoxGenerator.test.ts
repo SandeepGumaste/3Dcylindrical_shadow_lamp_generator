@@ -40,6 +40,10 @@ describe('parameter validation', () => {
     expect(validateBoxParams({ ...DEFAULT_BOX_PARAMS, imageScale: 5 }).join(' ')).toMatch(/Image size/);
     expect(validateBoxParams({ ...DEFAULT_BOX_PARAMS, imageScale: 500 }).join(' ')).toMatch(/Image size/);
   });
+  it('rejects edge rounding outside 0 to 40', () => {
+    expect(validateBoxParams({ ...DEFAULT_BOX_PARAMS, edgeRounding: -1 }).join(' ')).toMatch(/Edge rounding/);
+    expect(validateBoxParams({ ...DEFAULT_BOX_PARAMS, edgeRounding: 41 }).join(' ')).toMatch(/Edge rounding/);
+  });
   it('rejects a shadow size of zero and negative widths', () => {
     expect(validateBoxParams({ ...DEFAULT_BOX_PARAMS, shadowSize: 0 }).join(' ')).toMatch(/Shadow size/);
     expect(validateBoxParams({ ...DEFAULT_BOX_PARAMS, minSpike: -1 }).join(' ')).toMatch(/Minimum spike/);
