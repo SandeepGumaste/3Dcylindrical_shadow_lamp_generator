@@ -44,7 +44,23 @@ describe('sitePages plugin', () => {
     expect(() => resolve(p, 'build', 'production')).toThrow(/VITE_SITE_URL/);
   });
 
-  it('falls back to localhost in dev', () => {
+  it('rejects an invalid site URL', () => {
+    expect(() => resolve(sitePages({siteUrl: 'not a url'}), 'build', 'production')).toThrow(/VITE_SITE_URL/);
+  });
+
+  it('requires https in production', () => {
+    expect(() => resolve(sitePages({siteUrl: 'http://example.com'}), 'build', 'production')).toThrow(/https/);
+  });
+
+  it('uses only the origin of the site URL', () => {
+    const p = sitePages({siteUrl: 'https://example.com/some/path/'});
+    resolve(p, 'build', 'production');
+    const files: Record<string, string> = {};
+    (p.generateBundle as any).handler.call({emitFile: (f: any) => (files[f.fileName] = f.source)}, {}, {});
+    expect(files['robots.txt']).toContain('Sitemap: https://example.com/sitemap.xml');
+  });
+
+  it('falls back to localhost:3000 in dev', () => {
     const p = sitePages({siteUrl: ''});
     expect(() => resolve(p, 'serve', 'development')).not.toThrow();
   });
@@ -53,7 +69,7 @@ describe('sitePages plugin', () => {
     const p = sitePages({siteUrl: 'https://example.com'});
     resolve(p, 'build', 'production');
     const files: Record<string, string> = {};
-    (p.generateBundle as any).call({
+    (p.generateBundle as any).handler.call({
       emitFile: (f: any) => (files[f.fileName] = f.source),
     });
     const locs = [...files['sitemap.xml'].matchAll(/<loc>(.*?)<\/loc>/g)].map((m) => m[1]);
@@ -68,7 +84,7 @@ describe('sitePages plugin', () => {
     const p = sitePages({siteUrl: 'https://example.com'});
     resolve(p, 'build', 'production');
     const files: Record<string, any> = {};
-    (p.generateBundle as any).call({emitFile: (f: any) => (files[f.fileName] = f.source)});
+    (p.generateBundle as any).handler.call({emitFile: (f: any) => (files[f.fileName] = f.source)});
     expect(Buffer.from(files['site/assets/og.png']).subarray(1, 4).toString()).toBe('PNG');
   });
 

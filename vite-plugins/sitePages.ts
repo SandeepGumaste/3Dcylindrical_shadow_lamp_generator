@@ -7,7 +7,7 @@ import {applyPartials} from '../site/lib/partials';
 import {renderRobots} from '../site/lib/robots';
 import {renderSitemap} from '../site/lib/sitemap';
 
-const DEV_URL = 'http://localhost:5173';
+const DEV_URL = 'http://localhost:3000';
 const assetsDir = path.resolve(__dirname, '../site/assets');
 const partialsDir = path.resolve(__dirname, '../site/partials');
 
@@ -49,6 +49,22 @@ function routeFor(requestPath: string): string | undefined {
 
 const staticRoutes = () => Object.keys(PAGES).filter((r) => r !== '/app');
 
+function normalizeSiteUrl(raw: string, production: boolean): string {
+  let url: URL;
+  try {
+    url = new URL(raw);
+  } catch {
+    throw new Error(`VITE_SITE_URL is not a valid URL: "${raw}" (expected e.g. https://example.com)`);
+  }
+  if (url.protocol !== 'https:' && url.protocol !== 'http:') {
+    throw new Error(`VITE_SITE_URL must be an http(s) URL, got "${raw}"`);
+  }
+  if (production && url.protocol !== 'https:') {
+    throw new Error(`VITE_SITE_URL must use https in a production build, got "${raw}"`);
+  }
+  return url.origin;
+}
+
 export function sitePages(options: SitePagesOptions = {}): Plugin {
   let siteUrl = options.siteUrl ?? '';
   let guardPlaceholders = false;
@@ -57,8 +73,12 @@ export function sitePages(options: SitePagesOptions = {}): Plugin {
     configResolved(config) {
       guardPlaceholders =
         config.command === 'build' && config.mode === 'production' && process.env.VERCEL_ENV === 'production';
-      if (siteUrl) return;
-      if (config.command === 'build' && config.mode === 'production') {
+      const production = config.command === 'build' && config.mode === 'production';
+      if (siteUrl) {
+        siteUrl = normalizeSiteUrl(siteUrl, production);
+        return;
+      }
+      if (production) {
         throw new Error(
           'VITE_SITE_URL is required for a production build (e.g. VITE_SITE_URL=https://example.com). ' +
             'It is used for canonical URLs, the sitemap and robots.txt.',
@@ -77,7 +97,9 @@ export function sitePages(options: SitePagesOptions = {}): Plugin {
         });
       },
     },
-    generateBundle(_outputOptions, bundle) {
+    generateBundle: {
+     order: 'post',
+     handler(_outputOptions, bundle) {
       if (guardPlaceholders) {
         const found = new Set<string>();
         for (const item of Object.values(bundle ?? {}) as any[]) {
@@ -101,6 +123,7 @@ export function sitePages(options: SitePagesOptions = {}): Plugin {
       }
       this.emitFile({type: 'asset', fileName: 'sitemap.xml', source: renderSitemap(siteUrl, staticRoutes())});
       this.emitFile({type: 'asset', fileName: 'robots.txt', source: renderRobots(siteUrl)});
+     },
     },
   };
 }

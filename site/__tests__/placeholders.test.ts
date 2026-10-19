@@ -24,7 +24,7 @@ describe('production placeholder guard', () => {
       const p = sitePages({siteUrl: 'https://example.com'});
       (p.configResolved as any)({command: 'build', mode});
       const ctx = {emitFile: () => {}};
-      (p.generateBundle as any).call(ctx, {}, {
+      (p.generateBundle as any).handler.call(ctx, {}, {
         'legal/index.html': {type: 'asset', fileName: 'legal/index.html', source: html},
         'assets/x.js': {type: 'chunk', fileName: 'assets/x.js', code: '[[OWNER_NAME]]'},
       });
