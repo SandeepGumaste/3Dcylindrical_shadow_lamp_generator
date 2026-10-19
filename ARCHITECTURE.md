@@ -1,4 +1,4 @@
-# 3D Cylindrical Shadow Lamp Generator
+# Odd Shadows (3D shadow lamp generator)
 
 ## What this is
 
@@ -90,6 +90,7 @@ src/image/tealightSamples.ts    procedural sample patterns (mandala, crest, cat 
 src/assets/                     bundled default images (Hanuman, Cat), each with its own default image size
 src/workers/tealight*.ts        shared compute, worker and runner (main-thread fallback)
 src/hooks/useTealightGenerator.ts  state, bundled images, validation, manual generate + stale tracking, STL/map download
+src/components/Brand.tsx          Odd Shadows header (logo mark + wordmark); favicon is public/favicon.svg
 src/components/Tealight*.tsx, TableInset.tsx   panel, lit three.js preview, collapsible forward-projection inset
 ```
 

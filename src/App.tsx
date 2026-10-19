@@ -18,6 +18,7 @@ import { CheckCircle2, Download, Flame, HelpCircle } from 'lucide-react';
 import { useTealightGenerator } from './hooks/useTealightGenerator';
 import { TealightPanel } from './components/TealightPanel';
 import { TealightViewport } from './components/TealightViewport';
+import { Brand } from './components/Brand';
 import { TableInset } from './components/TableInset';
 
 type AppMode = 'cylinder' | 'tealight' | 'bowl';
@@ -219,8 +220,9 @@ export default function App() {
 
   return (
     <div className="flex flex-col lg:flex-row min-h-dvh w-full lg:h-dvh lg:w-screen bg-slate-950 text-slate-100 lg:overflow-hidden font-sans antialiased">
-      {/* Left Sidebar: mode switch + controls */}
+      {/* Left Sidebar: brand + mode switch + controls */}
       <div className="order-2 lg:order-1 w-full lg:w-[380px] xl:w-[420px] lg:h-full shrink-0 flex flex-col z-20 shadow-2xl bg-slate-900">
+        <Brand />
         {MODES.length > 1 && <div className="shrink-0 p-2 border-b border-slate-800 bg-slate-950/60 grid grid-cols-3 gap-1" role="tablist" aria-label="Lamp mode">
           {MODES.map((m) => (
             <button
