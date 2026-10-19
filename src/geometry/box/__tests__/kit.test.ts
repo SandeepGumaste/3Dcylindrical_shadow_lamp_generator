@@ -1,6 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { buildKit, type PartLoader } from '../kit';
+import { buildKit, placeWall, type PartLoader } from '../kit';
+import { generateWall } from '../wallMesh';
+import { buildRimProfile } from '../rimProfile';
+import { WALL_IDS } from '../kitSpec';
+import { checkMesh } from '../../meshCheck';
 import { DEFAULT_BOX_PARAMS, type BoxParams } from '../rimProfile';
 import { KIT } from '../kitSpec';
 import type { GrayImage } from '../../../types';
@@ -63,5 +67,13 @@ describe('kit builder', () => {
     expect(Math.abs(mx[0] - mn[0] - 120)).toBeLessThanOrEqual(1.01);
     expect(Math.abs(mx[1] - mn[1] - 150)).toBeLessThanOrEqual(1.01);
     expect(kit.light.z).toBeCloseTo(KIT.T + 40, 6);
+  });
+
+  it('places every wall without mirroring it (outward faces stay outward)', () => {
+    const prof = buildRimProfile(disc, P());
+    for (const id of WALL_IDS) {
+      const placed = placeWall(id, generateWall(id, prof));
+      expect(checkMesh(placed.positions, placed.indices).signedVolume, id).toBeGreaterThan(0);
+    }
   });
 });

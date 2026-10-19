@@ -35,7 +35,7 @@ describe.each(WALL_IDS)('wall %s', (id: WallId) => {
   it('puts a flat top at the requested height above the panel plane', () => {
     const { mn, mx } = bbox(mesh.positions);
     const extent = mx[0] - mn[0];
-    expect(extent).toBeCloseTo(spec.attachAtMax ? spec.maxHeight - (spec.maxHeight - 30) : 30, 1);
+    expect(extent).toBeCloseTo(KIT.panelPlaneX + 30, 1);
     expect(spec.attachAtMax ? mx[0] : mn[0]).toBeCloseTo(spec.attachAtMax ? spec.maxHeight : 0, 1);
   });
 

@@ -10,7 +10,7 @@ const TAB_EMBED = 0.5;
 /**
  * One wall plate in the original part's frame: x is the height direction (the seating edge is at
  * x = 0, or at x = maxHeight for the long walls), y the length, z the 3 mm thickness. The top edge
- * follows the rim profile; the tabs are boxes on the +z face. Closed and outward-facing.
+ * follows the rim profile (heights are above the panel plane, which is `panelPlaneX` above the seat); the tabs are boxes on the +z face. Closed and outward-facing.
  */
 export function generateWall(id: WallId, profile: RimProfile): IndexedMesh {
   const spec = KIT.walls[id];
@@ -28,7 +28,7 @@ export function generateWall(id: WallId, profile: RimProfile): IndexedMesh {
   const A: number[][] = [], P: number[][] = []; // [bottom, top] vertex ids at the attach edge and along the profile
   for (let j = 0; j <= N; j++) {
     const y = j * PROFILE_STEP;
-    const h = Math.min(heightAt(y), spec.maxHeight);
+    const h = Math.min(KIT.panelPlaneX + heightAt(y), spec.maxHeight);
     const xt = spec.attachAtMax ? spec.maxHeight - h : h;
     A.push([mb.vertex(xa, y, 0), mb.vertex(xa, y, T)]);
     P.push([mb.vertex(xt, y, 0), mb.vertex(xt, y, T)]);

@@ -33,8 +33,11 @@ const WALL_LABEL: Record<WallId, string> = { w1: 'Wall 1 (top)', w2: 'Wall 2 (ri
 const HEADER = 'Odd Shadows box kit';
 const wallPartId = (id: WallId) => `wall-${id.slice(1)}`;
 
-/** Wall plate (x height, y length, z thickness) to the tray frame; the plate's +z face looks into the box. */
-function placeWall(id: WallId, m: IndexedMesh): IndexedMesh {
+/**
+ * Wall plate (x height, y length, z thickness) to the tray frame; the plate's +z face looks into the box.
+ * Every wall's map has a determinant of +1 (checked in the kit spec), so the part is placed as printed, never mirrored.
+ */
+export function placeWall(id: WallId, m: IndexedMesh): IndexedMesh {
   const spec = KIT.walls[id];
   const { fixed, at, from, dir } = spec.plan;
   const inward = at === 0 ? 1 : -1;
@@ -44,24 +47,9 @@ function placeWall(id: WallId, m: IndexedMesh): IndexedMesh {
     const s = from + dir * y, depth = at + inward * z;
     out[i] = fixed === 'y' ? s : depth;
     out[i + 1] = fixed === 'y' ? depth : s;
-    out[i + 2] = KIT.T + KIT.panelPlaneX + (spec.attachAtMax ? spec.maxHeight - x : x);
+    out[i + 2] = KIT.wallSeatZ + (spec.attachAtMax ? spec.maxHeight - x : x);
   }
-  return { positions: out, indices: mirrorIfNeeded(out, m.indices) };
-}
-
-/** An affine map with a negative determinant turns triangles inside out; flip them back. */
-function mirrorIfNeeded(positions: Float32Array, indices: Uint32Array): Uint32Array {
-  let vol = 0;
-  for (let t = 0; t < indices.length; t += 3) {
-    const a = indices[t] * 3, b = indices[t + 1] * 3, c = indices[t + 2] * 3;
-    vol += positions[a] * (positions[b + 1] * positions[c + 2] - positions[b + 2] * positions[c + 1])
-      - positions[a + 1] * (positions[b] * positions[c + 2] - positions[b + 2] * positions[c])
-      + positions[a + 2] * (positions[b] * positions[c + 1] - positions[b + 1] * positions[c]);
-  }
-  if (vol >= 0) return indices;
-  const flipped = indices.slice();
-  for (let t = 0; t < flipped.length; t += 3) [flipped[t + 1], flipped[t + 2]] = [flipped[t + 2], flipped[t + 1]];
-  return flipped;
+  return { positions: out, indices: m.indices };
 }
 
 function translate(m: IndexedMesh, dx: number, dy: number, dz: number): IndexedMesh {

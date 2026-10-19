@@ -56,6 +56,24 @@ describe('picture panel', () => {
     expect(c.watertight).toBe(true);
   });
 
+  it('leaves a 10.4 mm hole for the post at the panel centre, and stays closed', () => {
+    const { mesh } = generatePanel(img(50, 50, () => 0), P());
+    const c = checkMesh(mesh.positions, mesh.indices);
+    expect(c.watertight).toBe(true);
+    expect(c.signedVolume).toBeGreaterThan(0);
+    const p = mesh.positions, ix = mesh.indices, cx = 113.9 / 2, cy = 143.9 / 2;
+    let facesInHole = 0, wallVerts = 0;
+    for (let t = 0; t < ix.length; t += 3) {
+      const a = ix[t] * 3, b = ix[t + 1] * 3, d = ix[t + 2] * 3;
+      const mx = (p[a] + p[b] + p[d]) / 3, my = (p[a + 1] + p[b + 1] + p[d + 1]) / 3;
+      const nz = (p[b] - p[a]) * (p[d + 1] - p[a + 1]) - (p[b + 1] - p[a + 1]) * (p[d] - p[a]);
+      if (Math.hypot(mx - cx, my - cy) < 4 && Math.abs(nz) > 1e-6) facesInHole++;
+    }
+    for (let i = 0; i < p.length; i += 3) if (Math.abs(Math.hypot(p[i] - cx, p[i + 1] - cy) - 5.2) < 0.6) wallVerts++;
+    expect(facesInHole).toBe(0);
+    expect(wallVerts).toBeGreaterThan(20);
+  });
+
   it('keeps a one-pixel checkerboard watertight', () => {
     const board = img(64, 80, (x, y) => (x + y) % 2);
     const c = checkMesh(...(() => { const m = generatePanel(board, P()).mesh; return [m.positions, m.indices] as const; })());

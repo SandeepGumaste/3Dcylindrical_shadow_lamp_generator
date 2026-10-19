@@ -22,7 +22,7 @@ export interface BoxParams {
 
 export const DEFAULT_BOX_PARAMS: BoxParams = {
   shadowSize: 450,
-  lightHeight: 40,
+  lightHeight: 45,
   tray: '2AA',
   threshold: 128,
   invert: false,
@@ -34,8 +34,12 @@ export const DEFAULT_BOX_PARAMS: BoxParams = {
 
 /** Samples along each wall, mm apart. */
 export const PROFILE_STEP = 0.5;
-/** A wall never drops below this, so it can still carry its tabs (the tallest is 14.2 mm). */
+/** A wall is never shorter than this from its seat, so it can still carry its tabs (the tallest reaches 14.2 mm). */
 export const MIN_WALL_HEIGHT = 15;
+/** The same limit as a height above the panel plane, which is where profile heights are measured. */
+export const MIN_RIM_HEIGHT = MIN_WALL_HEIGHT - KIT.panelPlaneX;
+/** Dark blobs smaller than this on the wall are treated as stray pixels, not shape. */
+export const SPECK_AREA_MM2 = 25;
 
 export interface RimProfile {
   /** Top-edge height above the panel plane at s = 0, step, 2 step ... span, for each wall. */
@@ -46,7 +50,7 @@ export interface RimProfile {
   clamped: boolean;
 }
 
-const maxHeightOf = (id: WallId, L: number) => Math.min(KIT.walls[id].maxHeight, L - 1);
+const maxHeightOf = (id: WallId, L: number) => Math.min(KIT.walls[id].maxHeight - KIT.panelPlaneX, L - 1);
 
 /** Order of the walls around the box and whether each is walked from its far end. */
 const RING: { id: WallId; reversed: boolean }[] = [
@@ -74,11 +78,11 @@ export function buildRimProfile(img: GrayImage, p: BoxParams): RimProfile {
   const L = p.lightHeight, T = KIT.T;
   const k = p.shadowSize / Math.max(img.width, img.height); // mm per image pixel
   const t = p.threshold / 255;
+  const { mask, specks, edgeDark } = darkMask(img, p.invert, t, SPECK_AREA_MM2 / (k * k));
   const darkAt = (X: number, Y: number) => {
     const ix = Math.floor(img.width / 2 + X / k), iy = Math.floor(img.height / 2 - Y / k);
     if (ix < 0 || iy < 0 || ix >= img.width || iy >= img.height) return false;
-    const lum = img.pixels[iy * img.width + ix];
-    return p.invert ? lum >= t : lum < t;
+    return mask[iy * img.width + ix] === 1;
   };
   /** Distance to the outermost dark pixel along a direction from the light axis (0 if none). */
   const reachAt = (angle: number) => {
@@ -108,33 +112,36 @@ export function buildRimProfile(img: GrayImage, p: BoxParams): RimProfile {
     w3: indexOf.w4[0],
   };
 
-  let clamped = false, anyDark = false;
+  let clamped = false, anyDark = false, tooSmall = 0, shaped = 0, rMinLo = Infinity, rMinHi = 0;
   const raw = new Float64Array(n);
   for (let i = 0; i < n; i++) {
     const { id, s } = ring[i];
     const { d, angle } = rimPoint(id, s);
     const reach = reachAt(angle);
-    if (reach > 0) anyDark = true;
+    const rMin = (d * (L + T)) / (L - MIN_RIM_HEIGHT); // the smallest shadow the box can cast in this direction
+    rMinLo = Math.min(rMinLo, rMin); rMinHi = Math.max(rMinHi, rMin);
+    if (reach > 0) { anyDark = true; shaped++; if (reach < rMin) tooSmall++; }
     const h = reach > 0 ? heightForReach(reach, d, L, T) : -Infinity;
     if (h > maxHeightOf(id, L) + 1e-9) clamped = true;
-    raw[i] = Math.min(Math.max(h, MIN_WALL_HEIGHT), maxHeightOf(id, L));
+    raw[i] = Math.min(Math.max(h, MIN_RIM_HEIGHT), maxHeightOf(id, L));
   }
 
   // Keep every spike at least minSpike wide: lift only the peaks that an opening would remove.
-  const rS = Math.floor(Math.ceil(p.minSpike / PROFILE_STEP) / 2);
+  const MIN_CHANGE = 0.3; // mm: smaller differences are smoothing, not a feature
+  const rS = Math.ceil(p.minSpike / (2 * PROFILE_STEP));
   const opened = dilate(erode(raw, rS), rS);
   const narrow = new Float64Array(n).fill(-Infinity);
   const widenedMask: boolean[] = [];
-  for (let i = 0; i < n; i++) { const isNarrow = raw[i] > opened[i] + 0.01; if (isNarrow) narrow[i] = raw[i]; widenedMask.push(isNarrow); }
+  for (let i = 0; i < n; i++) { const isNarrow = raw[i] > opened[i] + MIN_CHANGE; if (isNarrow) narrow[i] = raw[i]; widenedMask.push(isNarrow); }
   const widened = dilate(narrow, rS);
   const spiked = new Float64Array(n);
   for (let i = 0; i < n; i++) spiked[i] = Math.max(opened[i], widened[i], widenedMask[i] ? raw[i] : -Infinity);
   // Fill notches narrower than minGap.
-  const rG = Math.floor(Math.ceil(p.minGap / PROFILE_STEP) / 2);
+  const rG = Math.ceil(p.minGap / (2 * PROFILE_STEP));
   const closed = erode(dilate(spiked, rG), rG);
-  const filledMask = Array.from({ length: n }, (_, i) => closed[i] > spiked[i] + 0.01);
+  const filledMask = Array.from({ length: n }, (_, i) => closed[i] > spiked[i] + MIN_CHANGE);
   const final = new Float64Array(n);
-  for (let i = 0; i < n; i++) final[i] = Math.min(Math.max(closed[i], MIN_WALL_HEIGHT), maxHeightOf(ring[i].id, L));
+  for (let i = 0; i < n; i++) final[i] = Math.min(Math.max(closed[i], MIN_RIM_HEIGHT), maxHeightOf(ring[i].id, L));
 
   const heights = {} as Record<WallId, Float32Array>;
   for (const id of WALL_IDS) {
@@ -148,6 +155,10 @@ export function buildRimProfile(img: GrayImage, p: BoxParams): RimProfile {
 
   const warnings: string[] = [];
   if (!anyDark) warnings.push('The shadow image has no dark shape inside the frame, so every wall stays at its minimum height.');
+  if (edgeDark >= 0.9) warnings.push('The shadow image is dark all the way to its edges, so the shadow runs off the frame. Check the threshold or turn on Invert.');
+  if (shaped > 0 && tooSmall / shaped > 0.1)
+    warnings.push(`Parts of the shape are smaller than the smallest shadow this box can cast (${Math.round(rMinLo)} to ${Math.round(rMinHi)} mm from the light, depending on direction), so the walls stay at their minimum height there. Increase the shadow size or lower the light.`);
+  if (specks > 0) warnings.push(`${specks} stray speck${specks === 1 ? '' : 's'} (under ${SPECK_AREA_MM2} mm² on the wall) ${specks === 1 ? 'was' : 'were'} ignored.`);
   if (clamped) warnings.push(`The light height limits the shadow: parts that need walls taller than ${L - 1} mm are shortened. Raise the light height or reduce the shadow size.`);
   const w = countRuns(widenedMask), g = countRuns(filledMask);
   if (w > 0) warnings.push(`${w} spike${w === 1 ? '' : 's'} narrower than ${p.minSpike} mm ${w === 1 ? 'was' : 'were'} widened so they print.`);
@@ -165,4 +176,32 @@ export function validateBoxParams(p: BoxParams): string[] {
   if (!(p.minSpike >= 0)) e.push('Minimum spike width cannot be negative.');
   if (!(p.minGap >= 0)) e.push('Minimum gap width cannot be negative.');
   return e;
+}
+
+/** Dark pixels as a mask with tiny dark blobs removed, how many were removed, and how much of the image edge is dark. */
+function darkMask(img: GrayImage, invert: boolean, t: number, minPixels: number) {
+  const { width: W, height: H, pixels } = img;
+  const mask = new Uint8Array(W * H);
+  for (let i = 0; i < mask.length; i++) mask[i] = (invert ? pixels[i] >= t : pixels[i] < t) ? 1 : 0;
+  const seen = new Uint8Array(W * H), queue = new Int32Array(W * H);
+  let specks = 0;
+  for (let start = 0; start < mask.length; start++) {
+    if (!mask[start] || seen[start]) continue;
+    let head = 0, tail = 0;
+    queue[tail++] = start; seen[start] = 1;
+    while (head < tail) {
+      const c = queue[head++], x = c % W, y = (c - x) / W;
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) {
+        const nx = x + dx, ny = y + dy;
+        if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue;
+        const q = ny * W + nx;
+        if (mask[q] && !seen[q]) { seen[q] = 1; queue[tail++] = q; }
+      }
+    }
+    if (tail < minPixels) { for (let i = 0; i < tail; i++) mask[queue[i]] = 0; specks++; }
+  }
+  let edge = 0, dark = 0;
+  for (let x = 0; x < W; x++) for (const y of [0, H - 1]) { edge++; dark += mask[y * W + x]; }
+  for (let y = 1; y < H - 1; y++) for (const x of [0, W - 1]) { edge++; dark += mask[y * W + x]; }
+  return { mask, specks, edgeDark: edge ? dark / edge : 0 };
 }

@@ -4,19 +4,20 @@ import { KIT } from './kitSpec';
 import type { BoxParams } from './rimProfile';
 import type { IndexedMesh } from './stlParse';
 
-/** Top heights by level: 0 = underside, 1 = plain border, 2 = light picture, 3 = dark picture. */
+/** Top heights by level: 0 = no material (the post hole, or outside), 1 = plain border, 2 = light picture, 3 = dark picture. */
 const Z = [0, KIT.panel.plate, KIT.panel.lightTop, KIT.panel.darkTop];
 const TRIANGLE_BUDGET = 480_000;
 
 /**
  * The picture panel: a 3 mm plate with the picture raised to 3.5 mm (light) or 4.0 mm (dark)
- * inside a plain border, as a stepped heightfield on a grid sized to keep the worst case under
- * the triangle budget. Dark tones are the highest step, so they print as the black layers.
+ * inside a plain border, with a 10.4 mm hole at the centre for the lamp post. A stepped heightfield
+ * on a grid sized to keep the worst case under the triangle budget. Dark tones are the highest
+ * step, so they print as the black layers.
  */
 export function generatePanel(img: GrayImage, p: BoxParams): { mesh: IndexedMesh; triangleCount: number; warnings: string[] } {
   const { w: W, h: H, border } = KIT.panel;
-  // worst case is about six triangles per cell (two on top, up to four on the sides)
-  const pitch = Math.max(0.35, Math.sqrt((W * H * 6) / TRIANGLE_BUDGET));
+  // worst case is about eight triangles per cell (two on top, two underneath, up to four on the sides)
+  const pitch = Math.max(0.35, Math.sqrt((W * H * 8) / TRIANGLE_BUDGET));
   const Nx = Math.round(W / pitch), Ny = Math.round(H / pitch);
   const cx = W / Nx, cy = H / Ny;
   const bx = Math.max(1, Math.round(border / cx)), by = Math.max(1, Math.round(border / cy));
@@ -40,16 +41,26 @@ export function generatePanel(img: GrayImage, p: BoxParams): { mesh: IndexedMesh
       level[j * Nx + i] = dark >= 2 ? 3 : 2;
     }
   }
-  // A 2 x 2 block of alternating light and dark would share a vertical edge between four faces.
-  // Raise the light cell of any such block: it can only add a dark cell, so this ends.
+  // Cells under the post hole have no material at all.
+  const holeR = KIT.panel.holeDiameter / 2;
+  for (let j = 0; j < Ny; j++) for (let i = 0; i < Nx; i++) if (Math.hypot((i + 0.5) * cx - W / 2, (j + 0.5) * cy - H / 2) < holeR) level[j * Nx + i] = 0;
+  // Around a grid corner the four cells' steps must cross each 0.5 mm interval 0 or 2 times. Four
+  // crossings (a light/dark checkerboard, or a dark-light-dark run beside the post hole) would put
+  // four faces on one vertical edge. Raising a light cell to dark in such a block fixes it, and it
+  // only ever adds dark cells, so the loop ends.
   for (let changed = true; changed;) {
     changed = false;
-    for (let j = by; j < Ny - by - 1; j++) {
-      for (let i = bx; i < Nx - bx - 1; i++) {
-        const a = j * Nx + i, b = a + 1, c = a + Nx, d = c + 1;
-        if (level[a] === level[d] && level[b] === level[c] && level[a] !== level[b]) {
-          const light = level[a] === 2 ? [a, d] : [b, c];
-          level[light[0]] = 3; changed = true;
+    for (let j = 0; j < Ny - 1; j++) {
+      for (let i = 0; i < Nx - 1; i++) {
+        const block = [j * Nx + i, j * Nx + i + 1, (j + 1) * Nx + i + 1, (j + 1) * Nx + i]; // around the corner, in order
+        let crossings = 0;
+        for (let k = 0; k < 4; k++) {
+          const lo = Math.min(level[block[k]], level[block[(k + 1) % 4]]), hi = Math.max(level[block[k]], level[block[(k + 1) % 4]]);
+          if (lo <= 2 && hi >= 3) crossings++; // straddles the 3.5 to 4.0 step
+        }
+        if (crossings === 4) {
+          const light = block.find((q) => level[q] === 2);
+          if (light !== undefined) { level[light] = 3; changed = true; }
         }
       }
     }
@@ -68,7 +79,10 @@ export function generatePanel(img: GrayImage, p: BoxParams): { mesh: IndexedMesh
   for (let j = 0; j < Ny; j++) {
     for (let i = 0; i < Nx; i++) {
       const l = at(i, j);
-      mb.quad(v(i, j, l), v(i + 1, j, l), v(i + 1, j + 1, l), v(i, j + 1, l)); // top, +z
+      if (l > 0) {
+        mb.quad(v(i, j, l), v(i + 1, j, l), v(i + 1, j + 1, l), v(i, j + 1, l)); // top, +z
+        mb.quad(v(i, j, 0), v(i, j + 1, 0), v(i + 1, j + 1, 0), v(i + 1, j, 0)); // underside, -z
+      }
       // wall towards the +x neighbour, or the outer side at the border
       const lo = i + 1 < Nx ? at(i + 1, j) : 0;
       stepWall(l, lo, (z) => v(i + 1, j, z), (z) => v(i + 1, j + 1, z));
@@ -90,15 +104,6 @@ export function generatePanel(img: GrayImage, p: BoxParams): { mesh: IndexedMesh
       else mb.quad(p1(lv), p0(lv), p0(lv + 1), p1(lv + 1));
     }
   }
-
-  // Underside: a fan from the centre over the perimeter, so no triangle is degenerate.
-  const centre = mb.vertex(W / 2, H / 2, 0);
-  const ring: number[] = [];
-  for (let i = 0; i < Nx; i++) ring.push(v(i, 0, 0));
-  for (let j = 0; j < Ny; j++) ring.push(v(Nx, j, 0));
-  for (let i = Nx; i > 0; i--) ring.push(v(i, Ny, 0));
-  for (let j = Ny; j > 0; j--) ring.push(v(0, j, 0));
-  for (let k = 0; k < ring.length; k++) mb.tri(centre, ring[(k + 1) % ring.length], ring[k]);
 
   const mesh = mb.toArrays();
   return { mesh, triangleCount: mesh.indices.length / 3, warnings: [] };

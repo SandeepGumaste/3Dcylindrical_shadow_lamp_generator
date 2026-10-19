@@ -13,6 +13,10 @@ const NEUTRAL = { invert: false, brightness: 0, contrast: 1, gamma: 1, threshold
 /** True once the inputs have changed since the model on screen was generated. */
 export const isStale = (currentKey: string, generatedKey: string | null, hasResult: boolean) => hasResult && generatedKey !== currentKey;
 
+/** Generate on its own the first time both images are loaded and whenever either one changes, never for settings or for returning to the mode. */
+export const shouldGenerate = (last: [number, number] | null, shadowId: number, panelId: number) =>
+  last === null || last[0] !== shadowId || last[1] !== panelId;
+
 /** Identifies the inputs of a build: every setting plus which shadow and panel image (by load id). */
 export const inputKey = (params: BoxParams, shadowId: number, panelId: number) => JSON.stringify([params, shadowId, panelId]);
 
@@ -64,8 +68,11 @@ export function useBoxGenerator(active: boolean) {
   // Generate when the mode is first shown and whenever an image changes; settings wait for the button.
   const generateRef = useRef(generate);
   generateRef.current = generate;
+  const lastIds = useRef<[number, number] | null>(null);
   useEffect(() => {
-    if (active && shadow && panel) generateRef.current();
+    if (!active || !shadow || !panel || !shouldGenerate(lastIds.current, shadow.id, panel.id)) return;
+    lastIds.current = [shadow.id, panel.id];
+    generateRef.current();
   }, [active, shadow?.id, panel?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const date = () => new Date().toISOString().slice(0, 10);

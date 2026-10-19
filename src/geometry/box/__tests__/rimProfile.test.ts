@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildRimProfile, DEFAULT_BOX_PARAMS, MIN_WALL_HEIGHT, PROFILE_STEP, type BoxParams } from '../rimProfile';
+import { buildRimProfile, DEFAULT_BOX_PARAMS, MIN_RIM_HEIGHT, PROFILE_STEP, type BoxParams } from '../rimProfile';
 import { heightForReach, rimPoint } from '../shadowModel';
 import { KIT, WALL_IDS } from '../kitSpec';
 import type { GrayImage } from '../../../types';
@@ -12,7 +12,7 @@ const raster = (dark: (x: number, y: number) => boolean, n = 450): GrayImage => 
   return { width: n, height: n, pixels };
 };
 const disc = (R: number) => raster((x, y) => Math.hypot(x, y) < R);
-const maxAllowed = (id: (typeof WALL_IDS)[number], p: BoxParams) => Math.min(KIT.walls[id].maxHeight, p.lightHeight - 1);
+const maxAllowed = (id: (typeof WALL_IDS)[number], p: BoxParams) => Math.min(KIT.walls[id].maxHeight - KIT.panelPlaneX, p.lightHeight - 1);
 
 describe('rim profile from the silhouette image', () => {
   it('puts the wall top where the formula says for a disc shadow', () => {
@@ -35,12 +35,12 @@ describe('rim profile from the silhouette image', () => {
 
   it('keeps a blank image at the minimum wall height and says the shadow is empty', () => {
     const prof = buildRimProfile(raster(() => false), P());
-    for (const id of WALL_IDS) expect(Math.max(...prof.heights[id])).toBeCloseTo(MIN_WALL_HEIGHT, 6);
+    for (const id of WALL_IDS) expect(Math.max(...prof.heights[id])).toBeCloseTo(MIN_RIM_HEIGHT, 6);
     expect(prof.warnings.join(' ')).toMatch(/no dark shape/i);
   });
 
   it('clamps and warns when the light height cannot reach the requested shadow size', () => {
-    const prof = buildRimProfile(disc(220), P({ lightHeight: 21, shadowSize: 3000 }));
+    const prof = buildRimProfile(disc(220), P({ lightHeight: 21, shadowSize: 6000 }));
     expect(prof.clamped).toBe(true);
     expect(prof.warnings.join(' ')).toMatch(/light height/i);
     for (const id of WALL_IDS) expect(Math.max(...prof.heights[id])).toBeLessThanOrEqual(maxAllowed(id, P({ lightHeight: 21 })) + 1e-6);
@@ -52,22 +52,46 @@ describe('rim profile from the silhouette image', () => {
     for (const id of WALL_IDS) for (const v of prof.heights[id]) {
       expect(Number.isNaN(v)).toBe(false);
       expect(v).toBeLessThanOrEqual(maxAllowed(id, p) + 1e-6);
-      expect(v).toBeGreaterThanOrEqual(MIN_WALL_HEIGHT - 1e-6);
+      expect(v).toBeGreaterThanOrEqual(MIN_RIM_HEIGHT - 1e-6);
     }
   });
 
-  it('widens single-pixel noise to the minimum spike width', () => {
-    const pts = [[170, 40], [-120, 130], [60, -190], [-200, -60]];
-    const prof = buildRimProfile(raster((x, y) => pts.some(([a, b]) => Math.abs(x - a) < 1 && Math.abs(y - b) < 1)), P());
+  it('ignores stray single pixels instead of printing them as spikes', () => {
+    let seed = 7;
+    const rnd = () => ((seed = (seed * 1664525 + 1013904223) >>> 0) / 4294967296);
+    const speckled = raster((x, y) => Math.hypot(x, y) < 90);
+    for (let k = 0; k < 40; k++) speckled.pixels[Math.floor(rnd() * 450) * 450 + Math.floor(rnd() * 450)] = 0;
+    const clean = buildRimProfile(disc(90), P()), noisy = buildRimProfile(speckled, P());
+    for (const id of WALL_IDS) {
+      for (let i = 0; i < clean.heights[id].length; i++) expect(Math.abs(noisy.heights[id][i] - clean.heights[id][i])).toBeLessThan(0.5);
+    }
+    expect(noisy.warnings.join(' ')).toMatch(/specks/i);
+  });
+
+  it('widens a thin real feature to the minimum spike width', () => {
+    // a 1 mm wide, 180 mm long line pointing up: real, but too thin to print
+    const prof = buildRimProfile(raster((x, y) => Math.abs(x) < 0.6 && y > 20 && y < 200), P());
+    let widest = 0;
     for (const id of WALL_IDS) {
       const h = prof.heights[id];
       let run = 0;
       for (let i = 0; i <= h.length; i++) {
-        if (i < h.length && h[i] > MIN_WALL_HEIGHT + 0.5) run++;
-        else { if (run > 0 && i - run > 0 && i < h.length) expect(run * PROFILE_STEP).toBeGreaterThanOrEqual(1.2 - PROFILE_STEP); run = 0; }
+        if (i < h.length && h[i] > MIN_RIM_HEIGHT + 0.5) run++;
+        else { widest = Math.max(widest, run * PROFILE_STEP); run = 0; }
       }
     }
+    expect(widest).toBeGreaterThanOrEqual(1.2 - PROFILE_STEP);
     expect(prof.warnings.join(' ')).toMatch(/narrower than 1\.2 mm/);
+  });
+
+  it('warns when the shape is smaller than the smallest shadow the box can cast', () => {
+    const prof = buildRimProfile(disc(30), P());
+    expect(prof.warnings.join(' ')).toMatch(/smallest shadow/i);
+  });
+
+  it('warns that an all-dark image runs off the frame', () => {
+    const prof = buildRimProfile(raster(() => true), P());
+    expect(prof.warnings.join(' ')).toMatch(/dark all the way/i);
   });
 
   it('always says only one-reach-per-direction shapes are reproduced', () => {

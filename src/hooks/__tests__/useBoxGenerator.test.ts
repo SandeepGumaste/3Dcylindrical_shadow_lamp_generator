@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { isStale, inputKey } from '../useBoxGenerator';
+import { isStale, inputKey, shouldGenerate } from '../useBoxGenerator';
 import { DEFAULT_BOX_PARAMS, validateBoxParams } from '../../geometry/box/rimProfile';
 
 describe('out-of-date rule', () => {
@@ -38,5 +38,18 @@ describe('parameter validation', () => {
   it('rejects a shadow size of zero and negative widths', () => {
     expect(validateBoxParams({ ...DEFAULT_BOX_PARAMS, shadowSize: 0 }).join(' ')).toMatch(/Shadow size/);
     expect(validateBoxParams({ ...DEFAULT_BOX_PARAMS, minSpike: -1 }).join(' ')).toMatch(/Minimum spike/);
+  });
+});
+
+describe('when to generate on its own', () => {
+  it('generates the first time both images are there', () => {
+    expect(shouldGenerate(null, 1, 1)).toBe(true);
+  });
+  it('does not generate again when the mode is shown again with the same images', () => {
+    expect(shouldGenerate([1, 1], 1, 1)).toBe(false);
+  });
+  it('generates when either image changed', () => {
+    expect(shouldGenerate([1, 1], 2, 1)).toBe(true);
+    expect(shouldGenerate([1, 1], 1, 2)).toBe(true);
   });
 });
