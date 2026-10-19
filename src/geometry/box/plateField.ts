@@ -16,7 +16,7 @@ export interface PlateField {
     openings: number;
     /** Thin dark strokes that were thickened. */
     thickened: number;
-    /** Floating pieces joined to the wall with a bridge, and pieces dropped because nothing was in reach. */
+    /** Small bridges added to hold floating pieces to the wall (long pieces get several), and pieces dropped because nothing was in reach. */
     bridged: number;
     dropped: number;
   };
@@ -34,19 +34,23 @@ export function buildPlateField(id: WallId, profile: RimProfile, p: BoxParams): 
   const rows = Math.ceil(spec.maxHeight / PLATE_CELL);
   const L = p.lightHeight, T = KIT.T, span = wallSpan(id);
   const solid = new Uint8Array(cols * rows);
+  const topOf = new Float64Array(cols); // processed rim height from the seat at each column
+  // the mesh stretches the grid to the plate's exact size, so the field samples with the same pitches
+  const pitchY = spec.length / cols, pitchH = spec.maxHeight / rows;
 
   const along = (arr: Float32Array, s: number) => {
     const f = s / PROFILE_STEP, i = Math.min(Math.floor(f), arr.length - 2);
     return arr[i] + (arr[i + 1] - arr[i]) * (f - i);
   };
   for (let c = 0; c < cols; c++) {
-    const s = Math.min(Math.max(spec.plan.from + spec.plan.dir * (c + 0.5) * PLATE_CELL, 0), span);
+    const s = Math.min(Math.max(spec.plan.from + spec.plan.dir * (c + 0.5) * pitchY, 0), span);
     const { d, angle } = rimPoint(id, s);
     const top = KIT.panelPlaneX + along(profile.heights[id], s);
+    topOf[c] = top;
     const rawTop = KIT.panelPlaneX + along(profile.rawHeights[id], s);
     const cos = Math.cos(angle), sin = Math.sin(angle);
     for (let r = 0; r < rows; r++) {
-      const hs = (r + 0.5) * PLATE_CELL;
+      const hs = (r + 0.5) * pitchH;
       let on = false;
       if (hs <= MIN_WALL_HEIGHT) on = true;
       else if (hs > top) on = false;
@@ -61,63 +65,81 @@ export function buildPlateField(id: WallId, profile: RimProfile, p: BoxParams): 
   }
 
   const report = { openings: 0, thickened: 0, bridged: 0, dropped: 0 };
-  const foot = Math.ceil(MIN_WALL_HEIGHT / PLATE_CELL);
+  const foot = Math.ceil(MIN_WALL_HEIGHT / pitchH);
 
   // Thicken strokes thinner than the minimum spike width.
   const mS = Math.max(1, Math.ceil(p.minSpike / PLATE_CELL));
-  const opened = open(solid, cols, rows, mS, 0);
+  const opened = open(solid, cols, rows, mS, 1); // the plate edge is not a thin stroke
   const thin = new Uint8Array(solid.length);
   for (let i = 0; i < thin.length; i++) thin[i] = solid[i] && !opened[i] ? 1 : 0;
-  report.thickened = labelComponents(thin, cols, rows, 1).count;
+  const thinParts = labelComponents(thin, cols, rows, 1);
+  const thinSize = new Int32Array(thinParts.count);
+  for (let i = 0; i < thinParts.labels.length; i++) if (thinParts.labels[i] >= 0) thinSize[thinParts.labels[i]]++;
+  report.thickened = thinSize.filter((n) => n >= 8).length; // corners and tips of ordinary shapes are not strokes
   const fat = dilate(thin, cols, rows, mS, 0);
   for (let i = 0; i < solid.length; i++) if (fat[i]) solid[i] = 1;
 
   // Fill openings narrower than the minimum notch width.
   const mG = Math.max(1, Math.ceil(p.minGap / PLATE_CELL));
-  const openCells = new Uint8Array(solid.length);
-  for (let i = 0; i < openCells.length; i++) openCells[i] = solid[i] ? 0 : 1;
-  const wide = open(openCells, cols, rows, mG, 1);
-  for (let i = 0; i < solid.length; i++) if (openCells[i] && !wide[i]) solid[i] = 1;
+  const fillNarrowOpenings = () => {
+    const openCells = new Uint8Array(solid.length);
+    for (let i = 0; i < openCells.length; i++) openCells[i] = solid[i] ? 0 : 1;
+    const wide = open(openCells, cols, rows, mG, 1);
+    for (let i = 0; i < solid.length; i++) if (openCells[i] && !wide[i]) solid[i] = 1;
+  };
+  fillNarrowOpenings();
 
-  // Floating pieces: join to the nearest piece connected to the foot, or drop.
+  // Floating pieces: hold each to the wall with bridges, one every ~24 mm of its length, or drop it.
   const strip = mS;
-  for (let pass = 0; pass < 4; pass++) {
+  const MAX_REACH = 80, SPACING = 60; // cells
+  for (let pass = 0; pass < 8; pass++) {
     const { labels, count } = labelComponents(solid, cols, rows, 1);
     const anchored = new Uint8Array(count);
     for (let c = 0; c < cols; c++) if (labels[c] >= 0) anchored[labels[c]] = 1;
-    const islands = [] as number[];
-    for (let l = 0; l < count; l++) if (!anchored[l]) islands.push(l);
-    if (!islands.length) break;
     const cellsOf = new Map<number, number[]>();
-    for (const l of islands) cellsOf.set(l, []);
+    for (let l = 0; l < count; l++) if (!anchored[l]) cellsOf.set(l, []);
     for (let i = 0; i < labels.length; i++) if (labels[i] >= 0 && !anchored[labels[i]]) cellsOf.get(labels[i])!.push(i);
+    if (!cellsOf.size) break;
     let progress = false;
-    for (const l of islands) {
-      let best: { dist: number; i: number; dx: number; dy: number } | null = null;
-      for (const i of cellsOf.get(l)!) {
+    for (const [l, cells] of cellsOf) {
+      const found: { dist: number; i: number; dx: number; dy: number }[] = [];
+      for (const i of cells) {
         const x0 = i % cols, y0 = (i - x0) / cols;
         for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) {
-          for (let m = 1; ; m++) {
+          for (let m = 1; m <= MAX_REACH; m++) {
             const x = x0 + dx * m, y = y0 + dy * m;
             if (x < 0 || y < 0 || x >= cols || y >= rows) break;
             const q = y * cols + x;
             if (labels[q] === l) continue;
-            if (solid[q] && labels[q] >= 0 && labels[q] !== l) { if (anchored[labels[q]] && (!best || m < best.dist)) best = { dist: m, i, dx, dy }; break; }
+            if (solid[q] && labels[q] >= 0) { if (anchored[labels[q]]) found.push({ dist: m, i, dx, dy }); break; }
           }
         }
       }
-      if (!best) continue;
-      const x0 = best.i % cols, y0 = (best.i - x0) / cols;
-      for (let m = 1; m < best.dist; m++) {
-        for (let w = -Math.floor((strip - 1) / 2); w <= Math.ceil((strip - 1) / 2); w++) {
-          const x = x0 + best.dx * m + (best.dx === 0 ? w : 0), y = y0 + best.dy * m + (best.dy === 0 ? w : 0);
-          if (x >= 0 && y >= 0 && x < cols && y < rows) solid[y * cols + x] = 1;
-        }
+      if (!found.length) continue;
+      found.sort((a, b) => a.dist - b.dist);
+      const nearest = found[0].dist, chosen: typeof found = [];
+      for (const cand of found) {
+        if (cand.dist > nearest * 2 + 5) break;
+        const cx = cand.i % cols, cy = (cand.i - cx) / cols;
+        if (chosen.every((o) => Math.hypot(cx - (o.i % cols), cy - Math.floor(o.i / cols)) >= SPACING)) chosen.push(cand);
       }
-      report.bridged++; progress = true;
+      for (const best of chosen) {
+        const x0 = best.i % cols, y0 = (best.i - x0) / cols;
+        for (let m = 1; m < best.dist; m++) {
+          for (let w = -Math.floor((strip - 1) / 2); w <= Math.ceil((strip - 1) / 2); w++) {
+            const x = x0 + best.dx * m + (best.dx === 0 ? w : 0), y = y0 + best.dy * m + (best.dy === 0 ? w : 0);
+            if (x >= 0 && y >= 0 && x < cols && y < rows) solid[y * cols + x] = 1;
+          }
+        }
+        report.bridged++;
+      }
+      progress = true;
     }
     if (!progress) break;
   }
+  fillNarrowOpenings(); // bridges can leave one-cell pockets in corners
+  // The rim profile is a ceiling: cleanup may widen things but never lift the top edge, so walls still meet at the corners.
+  for (let c = 0; c < cols; c++) for (let r = 0; r < rows; r++) if ((r + 0.5) * pitchH > topOf[c]) solid[r * cols + c] = 0;
   {
     const { labels, count } = labelComponents(solid, cols, rows, 1);
     const anchored = new Uint8Array(count);

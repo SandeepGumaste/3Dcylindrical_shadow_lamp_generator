@@ -57,7 +57,7 @@ export const BoxPanel: React.FC<{ c: BoxController }> = ({ c }) => {
     <div className="w-full lg:h-full flex flex-col bg-slate-900 lg:overflow-y-auto custom-scrollbar select-none text-slate-300 text-sm lg:text-xs">
       <Group title="Shadow image">
         <Picker label="Upload shadow image" name={c.shadowName} onFile={c.selectShadow} />
-        <p className="text-[10px] text-slate-500">Dark = shadow on the wall. Only shapes with one reach per direction from the light are reproduced; anything else is simplified.</p>
+        <p className="text-[10px] text-slate-500">Dark = shadow on the wall. With Inner details on, lit areas inside the shape become openings in the walls; with it off, only the outline is reproduced.</p>
         <Num label="Threshold" value={p.threshold} min={0} max={255} onChange={(v) => c.setParams({ threshold: v })} />
         <Check label="Invert" value={p.invert} onChange={(v) => c.setParams({ invert: v })} />
         <Check label="Inner details" value={p.innerDetails} onChange={(v) => c.setParams({ innerDetails: v })}

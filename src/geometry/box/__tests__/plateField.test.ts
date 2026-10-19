@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { buildPlateField, PLATE_CELL, type PlateField } from '../plateField';
-import { buildRimProfile, DEFAULT_BOX_PARAMS, MIN_WALL_HEIGHT, type BoxParams } from '../rimProfile';
-import { KIT } from '../kitSpec';
+import { buildRimProfile, DEFAULT_BOX_PARAMS, MIN_WALL_HEIGHT, PROFILE_STEP, type BoxParams } from '../rimProfile';
+import { KIT, WALL_IDS, type WallId } from '../kitSpec';
+import { wallSpan } from '../shadowModel';
 import type { GrayImage } from '../../../types';
 
 const P = (o: Partial<BoxParams> = {}): BoxParams => ({ ...DEFAULT_BOX_PARAMS, ...o });
@@ -91,5 +92,45 @@ describe('plate field', () => {
     const f = field(raster((x, y) => Math.hypot(x, y) < 250 && !(Math.abs(x) < 0.3 && y > 170 && y < 230)));
     expect(f.report.openings).toBe(0);
     expect(at(f, colOf(60), rowOf(hFor(200)))).toBe(1);
+  });
+
+  describe('top edge', () => {
+    const star = raster((x, y) => Math.hypot(x, y) < 160 + 50 * Math.cos(9 * Math.atan2(y, x)));
+    const disc = raster((x, y) => Math.hypot(x, y) < 200);
+    /** How far the plate's top rises above the rim profile at most, over the columns where `include(c, cols)` is true. Openings may lower it. */
+    const topError = (id: WallId, img: GrayImage, include: (c: number, cols: number) => boolean = () => true) => {
+      const p = P(), profile = buildRimProfile(img, p), f = buildPlateField(id, profile, p);
+      const spec = KIT.walls[id], span = wallSpan(id);
+      const pitchY = spec.length / f.cols, pitchH = spec.maxHeight / f.rows;
+      let worst = 0;
+      for (let c = 0; c < f.cols; c++) {
+        if (!include(c, f.cols)) continue;
+        let top = -1;
+        for (let r = 0; r < f.rows; r++) if (f.solid[r * f.cols + c]) top = r;
+        const s = Math.min(Math.max(spec.plan.from + spec.plan.dir * (c + 0.5) * pitchY, 0), span);
+        const i = Math.min(Math.floor(s / PROFILE_STEP), profile.heights[id].length - 2), k = s / PROFILE_STEP - i;
+        const expected = KIT.panelPlaneX + profile.heights[id][i] * (1 - k) + profile.heights[id][i + 1] * k;
+        worst = Math.max(worst, (top + 1) * pitchH - expected);
+      }
+      return worst;
+    };
+    it.each(WALL_IDS)('never rises more than one cell above the rim profile on %s, ends included', (id) => {
+      expect(topError(id, disc)).toBeLessThanOrEqual(PLATE_CELL + 0.02);
+      // thin lobe tips are thickened on purpose, so for the star only the plate ends are compared
+      expect(topError(id, star, (c, cols) => c < 4 || c >= cols - 4)).toBeLessThanOrEqual(PLATE_CELL + 0.02);
+    });
+  });
+
+  it('joins a long floating piece with several bridges, not one', () => {
+    // a lit band across the whole wall leaves everything above it hanging
+    const f = field(raster((x, y) => { const r = Math.hypot(x, y); return r < 225 && !(r > 160 && r < 175); }));
+    expect(f.report.bridged).toBeGreaterThanOrEqual(3);
+    const reached = new Set<number>();
+    for (let c = 0; c < f.cols; c++) for (const i of region(f, c, 0, 1)) reached.add(i);
+    for (let i = 0; i < f.solid.length; i++) if (f.solid[i] === 1) expect(reached.has(i)).toBe(true);
+  });
+
+  it('does not report ordinary corners and tips as thin strokes', () => {
+    expect(field(raster((x, y) => Math.hypot(x, y) < 200)).report.thickened).toBeLessThanOrEqual(2);
   });
 });

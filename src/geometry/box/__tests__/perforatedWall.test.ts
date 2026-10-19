@@ -87,4 +87,10 @@ describe.each(WALL_IDS)('perforated wall %s', (id: WallId) => {
     const vf = checkMesh(full.positions, full.indices).signedVolume, vp = checkMesh(plain.positions, plain.indices).signedVolume;
     expect(Math.abs(vf - vp) / vp).toBeLessThan(0.03);
   });
+
+  it('triangulates a plate without openings quickly', () => {
+    const t0 = Date.now();
+    generatePerforatedWall(id, plate(id, 44));
+    expect(Date.now() - t0).toBeLessThan(300);
+  });
 });

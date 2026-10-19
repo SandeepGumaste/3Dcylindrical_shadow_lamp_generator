@@ -179,7 +179,9 @@ export function buildRimProfile(img: GrayImage, p: BoxParams): RimProfile {
   const w = countRuns(widenedMask), g = countRuns(filledMask);
   if (w > 0) warnings.push(`${w} spike${w === 1 ? '' : 's'} narrower than ${p.minSpike} mm ${w === 1 ? 'was' : 'were'} widened so they print.`);
   if (g > 0) warnings.push(`${g} notch${g === 1 ? '' : 'es'} narrower than ${p.minGap} mm ${g === 1 ? 'was' : 'were'} filled so they print.`);
-  warnings.push('Only shapes with one reach per direction from the light can be reproduced; anything else is simplified.');
+  warnings.push(p.innerDetails
+    ? 'Details smaller than the minimum feature size, or closer to the light than the box\'s own shadow, are not reproduced.'
+    : 'Only shapes with one reach per direction from the light can be reproduced; anything else is simplified.');
   return { heights, rawHeights, darkAt, step: PROFILE_STEP, warnings, clamped };
 }
 

@@ -29,14 +29,15 @@ export function generatePerforatedWall(id: WallId, field: PlateField): IndexedMe
   };
 
   for (const shape of groupShapes(extractSmoothLoops(solid, cols, rows))) {
-    const pts: [number, number][] = [];
+    const grid: [number, number][] = []; // triangulated in cell units: far faster than in millimetres, whose float pitches defeat the exact-arithmetic shortcuts
     const edges: [number, number][] = [];
     for (const loop of [shape.outer, ...shape.holes]) {
-      const first = pts.length;
-      for (const [c, r] of loop) pts.push(toPlate(c, r));
+      const first = grid.length;
+      for (const [c, r] of loop) grid.push([c, r]);
       for (let i = 0; i < loop.length; i++) edges.push([first + i, first + ((i + 1) % loop.length)]);
     }
-    const tris = cdt2d(pts, edges, { exterior: false });
+    const pts = grid.map(([c, r]) => toPlate(c, r));
+    const tris = cdt2d(grid, edges, { exterior: false });
     const top = pts.map(([x, y]) => mb.vertex(x, y, T));
     const bottom = pts.map(([x, y]) => mb.vertex(x, y, 0));
     const directed = new Set<number>();

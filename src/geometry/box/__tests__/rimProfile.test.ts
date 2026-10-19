@@ -118,7 +118,13 @@ describe('rim profile from the silhouette image', () => {
     }
   });
 
-  it('always says only one-reach-per-direction shapes are reproduced', () => {
-    expect(buildRimProfile(disc(100), P()).warnings.join(' ')).toMatch(/one reach per direction/);
+  it('says only one-reach-per-direction shapes are reproduced when inner details are off', () => {
+    expect(buildRimProfile(disc(100), P({ innerDetails: false })).warnings.join(' ')).toMatch(/one reach per direction/);
+  });
+
+  it('says what is not reproduced instead when inner details are on', () => {
+    const w = buildRimProfile(disc(100), P({ innerDetails: true })).warnings.join(' ');
+    expect(w).not.toMatch(/one reach per direction/);
+    expect(w).toMatch(/smaller than the minimum feature/i);
   });
 });

@@ -93,7 +93,7 @@ export async function buildKit(shadow: GrayImage, panelImg: GrayImage, p: BoxPar
   const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
   if (totals.openings > 0) warnings.push(`${plural(totals.openings, 'opening was', 'openings were')} cut in the walls for lit areas inside the shape.`);
   if (totals.thickened > 0) warnings.push(`${plural(totals.thickened, 'thin stroke was', 'thin strokes were')} thickened so they print.`);
-  if (totals.bridged > 0) warnings.push(`${plural(totals.bridged, 'floating piece was', 'floating pieces were')} joined to the wall with a small bridge.`);
+  if (totals.bridged > 0) warnings.push(`${plural(totals.bridged, 'small bridge was', 'small bridges were')} added to hold floating pieces to the wall.`);
   if (totals.dropped > 0) warnings.push(`${plural(totals.dropped, 'floating piece', 'floating pieces')} with nothing to join to ${totals.dropped === 1 ? 'was' : 'were'} left out.`);
   push('panel', 'Picture panel', true, moveToOrigin(panel.mesh));
   const fixed: Record<string, IndexedMesh> = {};
