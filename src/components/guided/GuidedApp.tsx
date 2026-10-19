@@ -10,11 +10,13 @@ import './guided.css';
 const systemTheme = (): GuidedTheme => (typeof matchMedia !== 'undefined' && matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
 
 /** The Guided steps view of Tealight shade mode: the same controller as the advanced panel, one step at a time. */
-export const GuidedApp: React.FC<{ c: TealightController; onSwitch: () => void }> = ({ c, onSwitch }) => {
-  const [step, setStep] = useState(0);
+export const GuidedApp: React.FC<{ c: TealightController; onSwitch: () => void; startStep?: number }> = ({ c, onSwitch, startStep = 0 }) => {
+  const [step, setStep] = useState(startStep);
   const [theme, setTheme] = useState<GuidedTheme>(() => readGuidedTheme() ?? systemTheme());
   const fileInput = useRef<HTMLInputElement>(null);
   const cardRef = useRef<HTMLElement>(null);
+  const headingRef = useRef<HTMLHeadingElement>(null);
+  const moved = useRef(false);
   const t = c.tParams;
   const rs = t.autoRibs ? c.result?.ribSuggestion : undefined;
   const ribs = rs ? rs.ribs : t.ribs;
@@ -22,7 +24,14 @@ export const GuidedApp: React.FC<{ c: TealightController; onSwitch: () => void }
   const current = GUIDED_STEPS[step];
   const last = step === GUIDED_STEPS.length - 1;
 
-  const go = (i: number) => { setStep(i); cardRef.current?.scrollTo?.({ top: 0 }); };
+  const go = (i: number) => { moved.current = true; setStep(i); };
+  // After a step change, bring the new step's heading into view (below the pinned preview on a phone) and give it focus.
+  useEffect(() => {
+    if (!moved.current) return;
+    cardRef.current?.scrollTo?.({ top: 0 });
+    cardRef.current?.scrollIntoView?.({ block: 'start' });
+    headingRef.current?.focus({ preventScroll: true });
+  }, [step]);
   const toggleTheme = () => { const next: GuidedTheme = theme === 'dark' ? 'light' : 'dark'; setTheme(next); saveGuidedTheme(next); };
   const change = (key: Parameters<typeof applyChange>[0], value: number | boolean) => c.setTealight(applyChange(key, value, t, ribs));
 
@@ -95,11 +104,11 @@ export const GuidedApp: React.FC<{ c: TealightController; onSwitch: () => void }
             Odd Shadows
           </div>
           <span className="sp" />
-          <button type="button" className="ibtn" onClick={onSwitch} title="Show every setting at once">Advanced view</button>
+          <button type="button" className="ibtn" onClick={onSwitch} title="Show every setting at once"><span className="long">Advanced view</span><span className="short">Advanced</span></button>
           <button type="button" className="ibtn" onClick={toggleTheme} aria-label="Switch between light and dark mode">
             <svg className="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" /></svg>
             <svg className="moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z" /></svg>
-            {theme === 'dark' ? 'Light' : 'Dark'}
+            <span className="label">{theme === 'dark' ? 'Light' : 'Dark'}</span>
           </button>
         </header>
 
@@ -126,11 +135,9 @@ export const GuidedApp: React.FC<{ c: TealightController; onSwitch: () => void }
             />
           </section>
 
-          <section className="card" ref={cardRef} aria-live="polite">
-            <h2>{current.title}</h2>
+          <section className="card" ref={cardRef}>
+            <h2 ref={headingRef} tabIndex={-1}>{current.title}</h2>
             <p className="sub">{current.intro}</p>
-            {bad && <ul className="errors" role="alert">{c.errors.map((e) => <li key={e}>{e}</li>)}</ul>}
-            {c.runError && <ul className="errors"><li>{c.runError}</li></ul>}
 
             {current.groups.map((g, gi) => (
               <div className="group" key={gi}>
@@ -142,14 +149,16 @@ export const GuidedApp: React.FC<{ c: TealightController; onSwitch: () => void }
 
             {current.export && (
               <>
-                {result
-                  ? watertight
-                    ? <div className="stat ok"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><path d="m8 12 3 3 5-6" /></svg><span>Watertight · {result.triangleCount.toLocaleString()} triangles · {Math.round(result.ms)} ms</span></div>
-                    : <div className="stat bad"><span>Not watertight: {result.check.errors.join(' ')}</span></div>
-                  : <div className="note">Nothing generated yet.</div>}
-                {c.stale && <div className="note">Settings changed since the model on the left was generated. Generate again to update it and to turn the downloads back on.</div>}
+                {!result
+                  ? <div className="note">Nothing generated yet.</div>
+                  : bad
+                    ? null
+                    : watertight
+                      ? <div className="stat ok"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><path d="m8 12 3 3 5-6" /></svg><span>Watertight · {result.triangleCount.toLocaleString()} triangles · {Math.round(result.ms)} ms{c.stale ? ' (previous model)' : ''}</span></div>
+                      : <div className="stat bad"><span>Not watertight: {result.check.errors.join(' ')}</span></div>}
+                {c.stale && <div className="note">Settings changed since the model in the preview was generated. Generate again to update it and to turn the downloads back on.</div>}
                 {!bad && result && result.warnings.length > 0 && <ul className="warns">{result.warnings.map((w) => <li key={w}>{w}</li>)}</ul>}
-                <button type="button" className="big" onClick={c.generate} disabled={bad || c.busy}>{c.busy ? 'Generating…' : c.stale ? 'Regenerate 3D model' : 'Generate 3D model'}</button>
+                <button type="button" className={`big${c.busy ? ' busy' : ''}`} onClick={c.generate} disabled={bad || c.busy}>{c.busy ? 'Generating…' : c.stale ? 'Regenerate 3D model' : 'Generate 3D model'}</button>
                 <div className="exports">
                   <button type="button" onClick={c.download} disabled={!result || c.stale || bad || !result.check.watertight}>Download STL</button>
                   <button type="button" onClick={c.downloadMap} disabled={!result?.mapSvg || c.stale || bad} title="Unwrapped wall map (mm), solid = black, holes = white">Download SVG map</button>
@@ -164,11 +173,19 @@ export const GuidedApp: React.FC<{ c: TealightController; onSwitch: () => void }
               </>
             )}
 
-            <div className="nav">
-              <button type="button" className="back" onClick={() => go(step - 1)} disabled={step === 0}>Back</button>
-              {last
-                ? <button type="button" className="next" onClick={c.generate} disabled={bad || c.busy}>{c.busy ? 'Generating…' : c.stale || !result ? 'Generate 3D model' : 'Generated'}</button>
-                : <button type="button" className="next" onClick={() => go(step + 1)}>Next: {GUIDED_STEPS[step + 1].title.toLowerCase()}</button>}
+            <div className="foot">
+              {(bad || c.runError) && (
+                <ul className="errors" role="alert">
+                  {c.errors.map((e) => <li key={e}>{e}</li>)}
+                  {c.runError && <li>{c.runError}</li>}
+                </ul>
+              )}
+              <div className="nav">
+                <button type="button" className="back" onClick={() => go(step - 1)} disabled={step === 0}>Back</button>
+                {last
+                  ? <button type="button" className="next" onClick={c.generate} disabled={bad || c.busy || (!!result && !c.stale)}>{c.busy ? 'Generating…' : c.stale ? 'Regenerate 3D model' : !result ? 'Generate 3D model' : 'Generated'}</button>
+                  : <button type="button" className="next" onClick={() => go(step + 1)}>Next: {GUIDED_STEPS[step + 1].title.toLowerCase()}</button>}
+              </div>
             </div>
           </section>
         </div>
@@ -206,7 +223,7 @@ const ShadowCheck: React.FC<{ comparison: ShadowComparison | null }> = ({ compar
   }, [comparison, open]);
   return (
     <details className="check" open={open} onToggle={(e) => setOpen((e.target as HTMLDetailsElement).open)}>
-      <summary>Table shadow check <span>{comparison ? `IoU ${(comparison.iou * 100).toFixed(1)}% (ribs excluded)` : 'no data'}</span></summary>
+      <summary><b>Table shadow check</b><span>{comparison ? `IoU ${(comparison.iou * 100).toFixed(1)}% (ribs excluded)` : 'no data'}</span></summary>
       <div className="panes">
         <figure><canvas ref={refs[0]} />input</figure>
         <figure><canvas ref={refs[1]} />projected</figure>

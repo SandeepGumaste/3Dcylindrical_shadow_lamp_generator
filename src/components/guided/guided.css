@@ -1,7 +1,7 @@
 /* Guided steps view. Everything is scoped under .guided so the existing UI is not affected. */
 .guided-shell {
-  --bg:#f3f6fb;--card:#ffffff;--ink:#14213d;--dim:#5a6784;--line:#dbe2ee;--teal:#0fa89a;--yel:#ffc93c;--pink:#ff4f8b;--on-acc:#14213d;
-  --ok:#0b8f6a;--warn:#8a5a00;--warn-bg:#fff4d6;--warn-line:#e7c067;--err:#b3261e;--err-bg:#fdecea;
+  --bg:#f3f6fb;--card:#ffffff;--ink:#14213d;--dim:#5a6784;--line:#dbe2ee;--teal:#0b857a;--yel:#ffc93c;--pink:#ff4f8b;--on-acc:#14213d;
+  --ok:#0a7556;--warn:#8a5a00;--warn-bg:#fff4d6;--warn-line:#e7c067;--err:#b3261e;--err-bg:#fdecea;
   color-scheme: light;
   min-height:100dvh;background:var(--bg);color:var(--ink);
 }
@@ -16,7 +16,8 @@
 .guided button{font:inherit;color:inherit;cursor:pointer}
 .guided button:focus-visible,.guided input:focus-visible,.guided summary:focus-visible{outline:2px solid var(--teal);outline-offset:2px}
 
-.guided .hd{display:flex;align-items:center;gap:10px;padding:14px 28px}
+.guided .hd{display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding:14px 28px}
+.guided .ibtn .short{display:none}
 .guided .brand{display:flex;align-items:center;gap:10px;font:700 21px 'Familjen Grotesk',system-ui,sans-serif;letter-spacing:-.01em}
 .guided .brand svg{width:34px;height:34px}
 .guided .sp{flex:1}
@@ -63,7 +64,7 @@
 .guided .seg button span.name{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .guided .note{margin-top:12px;color:var(--dim);font-size:13px;background:var(--bg);border-radius:12px;padding:10px 12px}
 
-.guided .errors{margin:14px 0 0;padding:0;list-style:none;display:flex;flex-direction:column;gap:8px}
+.guided .errors{margin:0 0 10px;padding:0;list-style:none;display:flex;flex-direction:column;gap:8px}
 .guided .errors li{background:var(--err-bg);color:var(--err);border:2px solid var(--err);border-radius:12px;padding:8px 12px;font-size:13px;font-weight:600}
 .guided .stat{display:flex;gap:10px;align-items:center;margin-top:16px;padding:12px 14px;border-radius:14px;border:2px solid var(--line);font-weight:600}
 .guided .stat.ok{border-color:color-mix(in srgb,var(--ok) 50%,transparent);color:var(--ok)}
@@ -75,18 +76,23 @@
 .guided .exports button{border:2px solid var(--line);background:transparent;border-radius:12px;padding:12px;font-weight:700}
 .guided .exports button:disabled{opacity:.4;cursor:not-allowed}
 .guided .big{width:100%;background:var(--yel);color:var(--on-acc);border:0;border-radius:12px;padding:12px;font:800 16px 'Figtree',system-ui,sans-serif;margin-top:18px;box-shadow:0 4px 0 rgba(0,0,0,.18)}
-.guided .big:disabled{opacity:.55;cursor:progress}
+.guided .big:disabled{opacity:.55;cursor:not-allowed}
+.guided .big.busy{cursor:progress}
 .guided details.check{margin-top:18px;border:2px solid var(--line);border-radius:14px}
 .guided details.check summary{list-style:none;padding:12px 14px;font-weight:700;cursor:pointer;display:flex;justify-content:space-between;gap:8px}
 .guided details.check summary::-webkit-details-marker{display:none}
+.guided details.check summary::before{content:'›';font-size:20px;line-height:1;margin-right:2px;transition:transform .15s}
+.guided details.check[open] summary::before{transform:rotate(90deg)}
+.guided details.check summary b{flex:1}
 .guided details.check summary span{color:var(--dim);font-weight:500;font-size:13px}
 .guided details.check .panes{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:0 14px 14px}
 .guided details.check figure{margin:0;text-align:center;font-size:12px;color:var(--dim)}
 .guided details.check canvas{width:100%;aspect-ratio:1;border-radius:10px;border:2px solid var(--line);background:#12141c;image-rendering:pixelated}
 .guided .linkbtn{border:0;background:transparent;color:var(--dim);text-decoration:underline;font-weight:600;padding:8px 0}
-.guided .tips{margin:14px 0 0;padding-left:18px;color:var(--dim);font-size:13px}
+.guided .tips{margin:14px 0 0;padding-left:18px;color:var(--dim);font-size:13px;list-style:disc}
 
-.guided .nav{margin-top:auto;padding-top:20px;display:flex;gap:10px;position:sticky;bottom:-24px;background:linear-gradient(transparent,var(--card) 24%)}
+.guided .foot{margin-top:auto;padding-top:20px;position:sticky;bottom:-24px;background:linear-gradient(transparent,var(--card) 24%)}
+.guided .nav{display:flex;gap:10px}
 .guided .nav .back{border:2px solid var(--line);background:var(--card);border-radius:12px;padding:12px 18px;font-weight:700}
 .guided .nav .next{flex:1;border:0;background:var(--yel);color:var(--on-acc);border-radius:12px;padding:12px 18px;font-weight:800;font-size:15px;box-shadow:0 4px 0 rgba(0,0,0,.18)}
 .guided .nav button:disabled{opacity:.4;cursor:default}
@@ -101,5 +107,12 @@
   .guided .view{position:sticky;top:0;z-index:5;height:38dvh;min-height:240px}
   .guided .card{max-height:none;overflow:visible;padding:18px}
   .guided .card h2{font-size:23px}
-  .guided .nav{bottom:0;padding-bottom:max(10px,env(safe-area-inset-bottom));margin:0 -18px -18px;padding-left:18px;padding-right:18px}
+  .guided .card{scroll-margin-top:calc(38dvh + 10px)}
+  .guided .foot{bottom:0;padding-bottom:max(10px,env(safe-area-inset-bottom));margin:0 -18px -18px;padding-left:18px;padding-right:18px;background:linear-gradient(transparent,var(--card) 18%)}
+}
+@media (max-width:420px){
+  .guided .hd{gap:6px;padding:10px 12px}
+  .guided .brand{font-size:16px}.guided .brand svg{width:28px;height:28px}
+  .guided .ibtn{padding:6px 10px}
+  .guided .ibtn .label,.guided .ibtn .long{display:none}.guided .ibtn .short{display:inline}
 }
