@@ -151,21 +151,40 @@ describe('LED socket + vents + ribs', () => {
   });
 });
 
-describe('sawtooth ribs', () => {
-  // Plan-view triangle with a flat radial face on one side and a slope back to the wall on the
-  // other; its sharp tip lies on the wall, pointing along the circumference.
-  it('has a radial face of full height at one edge and a tip on the wall at the other', () => {
-    const p = P({ ribs: 6, ribWidth: 2 });
+describe('trapezoid ribs', () => {
+  // Plan-view trapezoid: base = ribWidth on the wall, flat inner face = ribTopWidth, standing ribHeight.
+  const base = { ribs: 6, ribWidth: 2, ribHeight: 1.5, ribTopWidth: 0.6 };
+  it('has a flat top of ribHeight, straight flanks and base ribWidth on the wall', () => {
+    const p = P(base);
     const g = deriveGeometry(p);
     const z = g.baseBand + 1, r = 30;
-    const h = Math.sqrt(3);
-    expect(ribBump(g, p, -0.999 / r, z, r)).toBeCloseTo(h, 1);                   // radial face
-    expect(ribBump(g, p, 0, z, r)).toBeCloseTo(h / 2, 6);                        // half way along the slope
-    expect(ribBump(g, p, 0.999 / r, z, r)).toBeCloseTo(0, 1);                    // sharp tip on the wall
-    expect(ribBump(g, p, -1.2 / r, z, r)).toBe(0);                               // beyond the face: wall
-    expect(ribBump(g, p, 1.2 / r, z, r)).toBe(0);                                // beyond the tip: wall
+    expect(ribBump(g, p, 0, z, r)).toBeCloseTo(1.5, 6);                          // flat top, centre
+    expect(ribBump(g, p, 0.3 / r, z, r)).toBeCloseTo(1.5, 6);                    // flat top, edge
+    expect(ribBump(g, p, 0.65 / r, z, r)).toBeCloseTo(1.5 * 0.5, 6);             // half way down the flank
+    expect(ribBump(g, p, -0.65 / r, z, r)).toBeCloseTo(1.5 * 0.5, 6);            // symmetric
+    expect(ribBump(g, p, 1 / r, z, r)).toBeCloseTo(0, 6);                        // base edge at the wall
     expect(ribBump(g, p, Math.PI / 6, z, r)).toBe(0);                            // between ribs
     expect(ribBump(g, p, 0, g.H, r)).toBe(0);                                    // faded out at the rim
+  });
+  it('is a triangle when the top width is 0', () => {
+    const p = P({ ...base, ribTopWidth: 0 });
+    const g = deriveGeometry(p);
+    const z = g.baseBand + 1, r = 30;
+    expect(ribBump(g, p, 0, z, r)).toBeCloseTo(1.5, 6);
+    expect(ribBump(g, p, 0.5 / r, z, r)).toBeCloseTo(0.75, 6);
+  });
+  it('never gets wider (as seen from the axis) than the solid strip, so no light ray is clipped', () => {
+    const p = P({ ...base, ribTopWidth: 2, ribHeight: 6 });   // top width asks for the full base
+    const g = deriveGeometry(p);
+    const z = g.baseBand + 1, r = 30;
+    // the flat top is narrower than the strip scaled to its radius: ribWidth * (r - h) / r
+    const topEdge = (p.ribWidth * (r - p.ribHeight)) / r / 2;   // mm, half width of the allowed top
+    expect(ribBump(g, p, (topEdge + 0.01) / r, z, r)).toBeLessThan(p.ribHeight);
+  });
+  it('validates the rib dimensions', () => {
+    expect(validateTealightParams(P({ ribHeight: 0 }))).not.toEqual([]);
+    expect(validateTealightParams(P({ ribTopWidth: -1 }))).not.toEqual([]);
+    expect(validateTealightParams(P({ ribs: 6, ribWidth: 2, ribTopWidth: 3 }))).not.toEqual([]);
   });
   it('stays watertight with ribs on', () => {
     const res = generateTealightShade(TEALIGHT_SAMPLES[0].make(512), P({ ribs: 6 }));

@@ -24,7 +24,9 @@ export interface TealightParams {
   imageOffsetY: number;     // mm, (+y up)
   imageScale: number;       // % of the shadow disk the image's shorter side spans (100 = fills it)
   ribs: number;             // 0 = off
-  ribWidth: number;         // mm
+  ribWidth: number;         // mm, rib base on the wall
+  ribHeight: number;        // mm, how far a rib stands out from the inner wall
+  ribTopWidth: number;      // mm, flat inner face of the rib (0 = triangle); at most ribWidth
   autoRibs: boolean;        // choose the rib count automatically so no roof spans more than maxBridge
   maxBridge: number;        // mm, longest unsupported horizontal span the printer can bridge
   ribAngles?: number[];     // explicit rib positions (rad); set by the optimizer, overrides even spacing of `ribs`
@@ -56,6 +58,8 @@ export const DEFAULT_TEALIGHT_PARAMS: TealightParams = {
   imageOffsetY: 0,
   ribs: 6,
   ribWidth: 2,
+  ribHeight: 1.7,
+  ribTopWidth: 0.6,
   autoRibs: true,
   maxBridge: 8,
   vents: 0,
@@ -115,11 +119,11 @@ export function outerHeight(g: TealightGeometry, z: number): number {
 }
 
 /**
- * Radial height of the support rib at (theta, z). Each rib is a right-triangle (sawtooth) in plan
- * view, centred on its angle: a flat radial face at the -ribWidth/2 edge standing the full height
- * (ribWidth * sqrt(3) / 2), sloping back to a sharp tip on the wall at the +ribWidth/2 edge, so the
- * tip lies along the circumference. The ribs sit inside the forced-solid strips, so they never clip
- * a light ray; they fade out above the pattern band so the top rim stays clean.
+ * Radial height of the support rib at (theta, z). Each rib is a trapezoid in plan view, centred on
+ * its angle: base ribWidth on the wall, a flat inner face of ribTopWidth standing ribHeight out from
+ * the wall (ribTopWidth 0 gives a triangle). The ribs sit inside the forced-solid strips, so they
+ * never clip a light ray: the flat face is kept narrower than the strip scaled to its radius,
+ * ribWidth * (r - ribHeight) / r. They fade out above the pattern band so the top rim stays clean.
  */
 /** Rib centre angles: explicit positions if given, else `ribs` evenly spaced from angle 0. */
 export function ribAngleList(p: Pick<TealightParams, 'ribs' | 'ribAngles'>): number[] {
@@ -128,17 +132,15 @@ export function ribAngleList(p: Pick<TealightParams, 'ribs' | 'ribAngles'>): num
 }
 
 export function ribBump(g: TealightGeometry, p: TealightParams, theta: number, z: number, radius: number): number {
-  if (p.ribs <= 0 || p.ribWidth <= 0) return 0;
+  if (p.ribs <= 0 || p.ribWidth <= 0 || p.ribHeight <= 0) return 0;
   const taper = z <= g.zmax ? 1 : Math.max(0, (g.H - z) / (g.H - g.zmax));
   if (taper === 0) return 0;
-  let d = Infinity; // signed arc offset (mm) from the nearest rib centre
-  for (const a of ribAngleList(p)) {
-    const o = angDiff(theta, a) * radius;
-    if (Math.abs(o) < Math.abs(d)) d = o;
-  }
+  let arc = Infinity;
+  for (const a of ribAngleList(p)) arc = Math.min(arc, Math.abs(angDiff(theta, a)) * radius);
   const half = p.ribWidth / 2;
-  if (d < -half || d >= half) return 0;
-  return taper * ((p.ribWidth * Math.sqrt(3)) / 2) * ((half - d) / p.ribWidth);
+  if (arc >= half) return 0;
+  const topHalf = Math.min(p.ribTopWidth, p.ribWidth * Math.max(0, 1 - p.ribHeight / radius)) / 2;
+  return taper * p.ribHeight * Math.min(1, (half - arc) / (half - topHalf));
 }
 
 export function deriveGeometry(p: TealightParams): TealightGeometry {
@@ -184,6 +186,8 @@ export function validateTealightParams(p: TealightParams): string[] {
   if (p.innerDiameter <= p.tealightDiameter + 4)
     e.push(`Inner Diameter must exceed tealight diameter + 4 mm (> ${p.tealightDiameter + 4} mm).`);
   if (!(p.wallThickness > 0)) e.push('Wall Thickness must be positive.');
+  if (!(p.ribHeight > 0)) e.push('Rib Height must be positive.');
+  if (p.ribTopWidth < 0 || p.ribTopWidth > p.ribWidth) e.push('Rib Top Width must be between 0 and the Rib Width.');
   if (p.topDiameter <= 0) e.push('Top Diameter must be positive.');
   if (p.height <= 10) e.push('Height must be above 10 mm.');
   if (p.cols < 60 || p.cols > 1440) e.push('Resolution must be between 60 and 1440 columns.');

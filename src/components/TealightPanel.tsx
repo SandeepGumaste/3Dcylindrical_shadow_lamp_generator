@@ -98,6 +98,8 @@ export const TealightPanel: React.FC<{ c: TealightController }> = ({ c }) => {
             <Num label="Max bridge span" unit="mm" value={t.maxBridge} min={2} max={20} step={0.5} disabled={!t.autoRibs} onChange={(v) => c.setTealight({ maxBridge: v })} />
             <Num label="Support Ribs" value={ribs} min={0} max={48} onChange={(v) => c.setTealight({ ribs: v, autoRibs: false })} />
             <Num label="Rib Width" unit="mm" value={t.ribWidth} min={0.8} max={6} step={0.2} disabled={ribs === 0} onChange={(v) => c.setTealight({ ribWidth: v })} />
+            <Num label="Rib Height" unit="mm" value={t.ribHeight} min={0.5} max={6} step={0.1} disabled={ribs === 0} onChange={(v) => c.setTealight({ ribHeight: v })} />
+            <Num label="Rib Top Width" unit="mm" value={t.ribTopWidth} min={0} max={t.ribWidth} step={0.1} disabled={ribs === 0} onChange={(v) => c.setTealight({ ribTopWidth: v })} />
             <Check label="Close bottom (floor plate)" value={t.closeBottom} onChange={(v) => c.setTealight({ closeBottom: v, ...(v ? { vents: 0 } : {}) })}
               hint="The tealight then sits on the plate; flame height is measured from its top." />
             <Num label="Floor Thickness" unit="mm" value={t.floorThickness} min={0.2} max={3} step={0.2} disabled={!t.closeBottom} onChange={(v) => c.setTealight({ floorThickness: v })} />
