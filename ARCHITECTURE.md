@@ -104,3 +104,27 @@ Notes: outer-surface vertices sit where the ray from the light through the inner
 - **Printability checks:** minimum feature size drops tiny holes and specks, auto-bridge attaches floating islands with thin strips, and `meshCheck` verifies the mesh is watertight.
 - **Layout:** on desktop the preview fills the right column and the "Table shadow check" inset (`TableInset.tsx`) is a collapsible bar underneath, collapsed by default. On mobile the preview is sticky at the top with the controls scrolling under it and the action bar pinned.
 - **Manual generation:** the model is built when an image is first loaded (the default Hanuman on start-up), when another bundled image is picked, and when an image is uploaded. Changing any setting does not regenerate: the hook keeps a snapshot of the inputs (mode, parameters, image) used for the last result, and when the current inputs differ `stale` is true. The viewer then shows a floating "model needs to be generated again" banner with a Generate button, the panel button reads "Regenerate 3D Model", and STL/SVG export is disabled until it is regenerated.
+
+## Box shadow mode
+
+A wall-hung shadow box kit, fixed at 120 × 150 mm: a silhouette image becomes the top edges of four wall plates, so the box throws that silhouette on the wall behind it while a separate picture glows on the panel. It is a mode next to Tealight shade and shares none of its code.
+
+```
+src/geometry/box/kitSpec.ts      measured constants of the owner's kit (dimensions, tabs, light axis, T) from scripts/measure-kit.ts
+src/geometry/box/kitParts.ts     which bundled STLs go with which tray (2xAA / 2xAAA)
+src/geometry/box/shadowModel.ts  r = d (L + T) / (L - h) and its inverse; rim positions relative to the light axis
+src/geometry/box/rimProfile.ts   silhouette image -> top-edge height around the four walls, thin-spike widening, notch filling, warnings
+src/geometry/box/wallMesh.ts     one wall plate with its tabs (closed mesh)
+src/geometry/box/panelMesh.ts    picture panel: 3 mm plate, picture raised to 3.5 / 4.0 mm, checkerboard-safe
+src/geometry/box/kit.ts          builds all ten parts, the assembled preview and the zip
+src/geometry/box/zip.ts          store-only zip writer
+src/workers/box*.ts              compute, worker and runner (same pattern as tealight)
+src/hooks/useBoxGenerator.ts     two images, settings, generate on image change, out-of-date rule
+src/components/Box*.tsx           panel and the lit wall preview
+public/box-kit/                  the owner's fixed parts (trays, lamp post, cap, hook, battery covers), exported unchanged
+```
+
+- **Geometry:** the light sits on the lamp post at height `L` above the panel; the wall is `T` = 20 mm behind it. A wall top at height `h` and distance `d` from the light axis grazes the ray that lands at `r = d (L + T) / (L - h)`, so the silhouette's reach in each direction sets the wall height there. The light axis is the post socket (60, 117.9 mm in the tray frame), not the box centre.
+- **Limits:** only shapes with one reach per direction from the light can be reproduced; spikes narrower than the minimum spike width are widened and narrower notches filled, and the user is told. Walls never drop below 15 mm (they carry their tabs) or exceed `L - 1`.
+- **Kit:** four generated walls, the generated panel and five bundled parts (tray, battery cover, post, cap, hook) as individual STLs or one zip. The walls keep the tab strips of the originals; the exact tab shapes are rectangular approximations.
+- **Same interaction rules as tealight:** generate on first load and when an image changes; settings changes only show the out-of-date banner.
