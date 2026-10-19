@@ -65,11 +65,34 @@ function normalizeSiteUrl(raw: string, production: boolean): string {
   return url.origin;
 }
 
+/** Mirrors vercel.json (cleanUrls + /app rewrite) for the local dev and preview servers. */
+export function rewriteCleanUrl(url: string): string {
+  const q = url.indexOf('?');
+  const pathname = q === -1 ? url : url.slice(0, q);
+  const query = q === -1 ? '' : url.slice(q);
+  if (pathname === '/app' || pathname === '/app/') return '/app/index.html' + query;
+  const clean = pathname.replace(/\/$/, '');
+  const file = (PAGES as Record<string, string>)[clean];
+  if (file && clean !== '/' && clean !== '/app') return '/' + file + query;
+  return url;
+}
+
+function cleanUrlMiddleware(req: {url?: string}, _res: unknown, next: () => void) {
+  if (req.url) req.url = rewriteCleanUrl(req.url);
+  next();
+}
+
 export function sitePages(options: SitePagesOptions = {}): Plugin {
   let siteUrl = options.siteUrl ?? '';
   let guardPlaceholders = false;
   return {
     name: 'site-pages',
+    configureServer(server) {
+      server.middlewares.use(cleanUrlMiddleware);
+    },
+    configurePreviewServer(server) {
+      server.middlewares.use(cleanUrlMiddleware);
+    },
     configResolved(config) {
       guardPlaceholders =
         config.command === 'build' && config.mode === 'production' && process.env.VERCEL_ENV === 'production';

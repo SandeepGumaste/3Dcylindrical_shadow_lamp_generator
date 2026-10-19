@@ -1,7 +1,7 @@
 import {readFileSync} from 'node:fs';
 import path from 'node:path';
 import {describe, expect, it} from 'vitest';
-import {sitePages, transformPage} from '../../vite-plugins/sitePages';
+import {rewriteCleanUrl, sitePages, transformPage} from '../../vite-plugins/sitePages';
 
 const root = path.resolve(__dirname, '../..');
 const partials = {header: '<header>HEAD</header>', footer: '<footer>FOOT</footer>'};
@@ -91,5 +91,23 @@ describe('sitePages plugin', () => {
   it('transformIndexHtml uses order pre', () => {
     const p = sitePages({siteUrl: 'https://example.com'});
     expect((p.transformIndexHtml as any).order).toBe('pre');
+  });
+});
+
+describe('rewriteCleanUrl (dev and preview)', () => {
+  it('maps clean routes to their page files', () => {
+    expect(rewriteCleanUrl('/app')).toBe('/app/index.html');
+    expect(rewriteCleanUrl('/app/')).toBe('/app/index.html');
+    expect(rewriteCleanUrl('/app?x=1')).toBe('/app/index.html?x=1');
+    expect(rewriteCleanUrl('/faq')).toBe('/faq/index.html');
+    expect(rewriteCleanUrl('/privacy/')).toBe('/privacy/index.html');
+    expect(rewriteCleanUrl('/legal')).toBe('/legal/index.html');
+    expect(rewriteCleanUrl('/terms')).toBe('/terms/index.html');
+  });
+  it('leaves the root, assets and source files alone', () => {
+    expect(rewriteCleanUrl('/')).toBe('/');
+    expect(rewriteCleanUrl('/src/main.tsx')).toBe('/src/main.tsx');
+    expect(rewriteCleanUrl('/site/site.css')).toBe('/site/site.css');
+    expect(rewriteCleanUrl('/app/index.html')).toBe('/app/index.html');
   });
 });
