@@ -498,7 +498,7 @@ export function buildTealightField(img: GrayImage, p: TealightParams): TealightF
 
 export interface RibSuggestion {
   ribs: number;
-  /** Rib centre angles (rad), placed where the generated wall pattern has wide flat-roofed holes. */
+  /** Rib centre angles (rad): evenly spaced, possibly rotated to suit the pattern. */
   angles: number[];
   /** Widest hole (mm) still too wide to bridge and too flat to self-support with these ribs; 0 = none. */
   worstSpan: number;
@@ -515,11 +515,12 @@ export const MAX_AUTO_RIBS = 48;
 interface HoleRun { j: number; start: number; cols: number; mm: number; full: boolean }
 
 /**
- * Analyses the generated wall pattern and places ribs only where it needs them.
+ * Analyses the generated wall pattern and picks the rib count it needs, as an even number of
+ * evenly spaced ribs so the shade looks uniform.
  * A hole needs support when its cross-section is wider than p.maxBridge (too wide to bridge) and
  * its roof is shallower than ~45 degrees (too flat to self-support). Ribs are forced solid, so a
- * rib through such a hole cuts it into narrower ones. Ribs are added to split the widest offender
- * evenly, repeated until no hole is left, then any rib that turns out redundant is dropped.
+ * rib through such a hole cuts it into narrower ones. Counts 2, 4, 6 ... are tried in turn, each
+ * at a few rotations, and the first that leaves no such hole wins. 0 ribs if none is needed.
  */
 export function suggestRibs(img: GrayImage, p: TealightParams): RibSuggestion {
   const { geometry: g, field } = buildTealightField(img, { ...p, ribs: 0, ribAngles: undefined });
@@ -573,29 +574,23 @@ export function suggestRibs(img: GrayImage, p: TealightParams): RibSuggestion {
 
   const base = findRuns([]);
   const spanWithoutRibs = widest(base);
-  let angles: number[] = [];
-  let runs = base;
-  while (runs.length && angles.length < MAX_AUTO_RIBS) {
-    const w = runs.reduce((a, r) => (r.mm > a.mm ? r : a));
-    const R = coneRadius(g.Rb, g.k, g.zs[w.j]);
-    const pieces = Math.max(2, Math.ceil(((w.full ? TWO_PI * R : w.mm) + p.ribWidth) / (p.maxBridge + p.ribWidth)));
-    const add: number[] = [];
-    if (w.full) for (let k = 0; k < pieces; k++) add.push((k / pieces) * TWO_PI);
-    else for (let k = 1; k < pieces; k++) add.push((((w.start + (w.cols * k) / pieces) % C) / C) * TWO_PI);
-    angles = angles.concat(add).slice(0, MAX_AUTO_RIBS);
-    runs = findRuns(angles);
-  }
-  let achievable = runs.length === 0;
-  if (achievable) {
-    // drop ribs that turned out redundant (later ribs often make earlier ones unnecessary)
-    for (let n = angles.length - 1; n >= 0; n--) {
-      const without = angles.filter((_, k) => k !== n);
-      if (findRuns(without).length === 0) angles = without;
+  const problemRows = new Set(base.map((r) => r.j)).size;
+
+  // Ribs stay uniform: an even count, evenly spaced. Try each count with a few rotations (the
+  // ring may line up better with the pattern when turned) and keep the first that clears every hole.
+  const evenly = (n: number, phase: number) => Array.from({ length: n }, (_, k) => phase + (k / n) * TWO_PI);
+  const OFFSETS = 8;
+  if (base.length === 0) return { ribs: 0, angles: [], worstSpan: 0, spanWithoutRibs, problemRows, achievable: true };
+  let best = { angles: evenly(MAX_AUTO_RIBS, 0), span: Infinity };
+  for (let n = 2; n <= MAX_AUTO_RIBS; n += 2) {
+    for (let o = 0; o < OFFSETS; o++) {
+      const angles = evenly(n, (o / OFFSETS) * (TWO_PI / n));
+      const span = widest(findRuns(angles));
+      if (span === 0) return { ribs: n, angles, worstSpan: 0, spanWithoutRibs, problemRows, achievable: true };
+      if (n === MAX_AUTO_RIBS && span < best.span) best = { angles, span };
     }
   }
-  angles.sort((a, b) => a - b);
-  const problemRows = new Set(base.map((r) => r.j)).size;
-  return { ribs: angles.length, angles, worstSpan: widest(runs), spanWithoutRibs, problemRows, achievable };
+  return { ribs: best.angles.length, angles: best.angles, worstSpan: best.span, spanWithoutRibs, problemRows, achievable: false };
 }
 
 // ---- meshing ---------------------------------------------------------------------------------

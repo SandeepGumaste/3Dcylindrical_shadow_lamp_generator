@@ -249,6 +249,16 @@ describe('rib optimizer', () => {
     expect(loose.ribs).toBeLessThan(tight.ribs);
   });
 
+  it('always suggests an even number of evenly spaced ribs', () => {
+    for (const maxBridge of [4, 6, 12, 20]) {
+      const r = suggestRibs(ring, P({ maxBridge }));
+      expect(r.ribs % 2).toBe(0);
+      expect(r.angles).toHaveLength(r.ribs);
+      const gap = (2 * Math.PI) / r.ribs;
+      for (let k = 1; k < r.angles.length; k++) expect(r.angles[k] - r.angles[k - 1]).toBeCloseTo(gap, 6);
+    }
+  });
+
   it('suggests no ribs for an image with no wide flat-roofed holes', () => {
     const blank = { width: 64, height: 64, pixels: new Float32Array(64 * 64).fill(1) };
     const r = suggestRibs(blank, P());

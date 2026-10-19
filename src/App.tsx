@@ -28,7 +28,7 @@ const MODES: { id: AppMode; label: string }[] = [
 export default function App() {
   const [appMode, setAppMode] = useState<AppMode>('tealight');
   const tableMode = appMode === 'bowl' ? 'bowl' : 'tealight';
-  const tea = useTealightGenerator(appMode !== 'cylinder', tableMode);
+  const tea = useTealightGenerator(tableMode);
 
   // 1. Core States
   const [lamp, setLamp] = useState<LampConfig>({
@@ -273,6 +273,8 @@ export default function App() {
               groundRadius={tea.result?.groundRadius ?? 150}
               triangleCount={tea.result?.triangleCount ?? 0}
               busy={tea.busy}
+              stale={tea.stale}
+              onGenerate={tea.generate}
             />
           </div>
           {appMode === 'tealight' && <div className="order-3 p-3 lg:p-0 lg:shrink-0"><TableInset comparison={tea.result?.comparison ?? null} /></div>}

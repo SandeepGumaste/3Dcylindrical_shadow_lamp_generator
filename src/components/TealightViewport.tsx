@@ -11,6 +11,9 @@ interface Props {
   groundRadius: number;
   triangleCount: number;
   busy: boolean;
+  /** Inputs changed since the model on screen was generated. */
+  stale?: boolean;
+  onGenerate?: () => void;
 }
 
 /**
@@ -18,7 +21,7 @@ interface Props {
  * point light at the flame / LED position. The room is otherwise dark, so what lands on the
  * ground is the shadow the printed part would throw.
  */
-export const TealightViewport: React.FC<Props> = ({ positions, indices, lightZ, topZ, groundRadius, triangleCount, busy }) => {
+export const TealightViewport: React.FC<Props> = ({ positions, indices, lightZ, topZ, groundRadius, triangleCount, busy, stale, onGenerate }) => {
   const host = useRef<HTMLDivElement>(null);
   const stateRef = useRef<{
     scene: THREE.Scene; camera: THREE.PerspectiveCamera; controls: OrbitControls;
@@ -133,6 +136,14 @@ export const TealightViewport: React.FC<Props> = ({ positions, indices, lightZ, 
         <span className="max-lg:hidden">lit preview · orbit to inspect<span className="text-slate-500"> | </span></span>
         <span className="text-slate-400">{triangleCount > 0 ? `${triangleCount.toLocaleString()} triangles` : 'awaiting generation'}</span>
       </div>
+      {stale && !busy && (
+        <div role="status" className="absolute bottom-3 left-1/2 -translate-x-1/2 w-[calc(100%-1.5rem)] max-w-md flex items-center gap-3 bg-amber-950/90 backdrop-blur-md px-3 py-2 rounded-xl border border-amber-500/50 shadow-xl text-xs text-amber-200">
+          <span className="flex-1">Settings changed. This model is out of date; generate it again.</span>
+          {onGenerate && (
+            <button onClick={onGenerate} className="shrink-0 min-h-9 px-3 rounded-lg bg-amber-500/25 border border-amber-500/50 text-amber-100 hover:bg-amber-500/35">Generate</button>
+          )}
+        </div>
+      )}
       {busy && (
         <div className="absolute top-2 right-2 lg:top-3 lg:right-3 flex items-center gap-2 bg-slate-900/85 px-3 py-1.5 rounded-lg border border-slate-700/60 text-xs text-amber-300">
           <span className="w-3 h-3 border-2 border-amber-400/30 border-t-amber-400 rounded-full animate-spin" /> generating…
