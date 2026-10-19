@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { GrayImage } from '../types';
 import { DEFAULT_TEALIGHT_PARAMS, TealightParams, validateTealightParams, LED_CLEARANCE } from '../geometry/tealightShade';
 import { DEFAULT_BOWL_PARAMS, BowlParams, validateBowlParams } from '../geometry/shadowBowl';
+import batmanUrl from '../assets/batman.jpg';
 import hanumanUrl from '../assets/hanuman.png';
 import catUrl from '../assets/cat.png';
 import { loadImageToGray } from '../image/loadImage';
@@ -12,9 +13,10 @@ import { downloadSVG } from '../geometry/svg';
 
 export type TableMode = 'tealight' | 'bowl';
 
-export const DEFAULT_IMAGE_ID = 'hanuman';
+export const DEFAULT_IMAGE_ID = 'batman';
 /** Bundled raster images, loaded once at start-up. */
 export const BUNDLED_IMAGES = [
+  { id: 'batman', name: 'Batman', url: batmanUrl, params: { imageScale: 85 } as Partial<TealightParams> },
   { id: 'hanuman', name: 'Hanuman', url: hanumanUrl, params: { imageScale: 85 } as Partial<TealightParams> },
   { id: 'cat', name: 'Cat', url: catUrl, params: { imageScale: 80 } as Partial<TealightParams> },
 ];
