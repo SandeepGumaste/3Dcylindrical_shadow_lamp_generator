@@ -37,6 +37,8 @@ export const KIT = {
   /** Panel top and the walls' seating edge are level with the tray rim, 20 mm above the mounting wall. */
   T: 20,
   panelPlaneX: 0,
+  /** Picture panel: a plate with the picture raised to one of two heights inside a plain border. */
+  panel: { w: 113.9, h: 143.9, plate: 3, border: 1.4, lightTop: 3.5, darkTop: 4 },
   post: { length: 60, floorZ: 3 },
   /** Centre of the post socket, which is also the centre of the keyhole recess. */
   lightAxis: { x: 60, y: 117.9 },
