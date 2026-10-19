@@ -1,7 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import { generatePerforatedWall } from '../perforatedWall';
 import { generateWall } from '../wallMesh';
-import { PLATE_CELL, type PlateField } from '../plateField';
+import { PLATE_CELL, buildPlateField, type PlateField } from '../plateField';
+import { buildRimProfile, DEFAULT_BOX_PARAMS } from '../rimProfile';
+import type { GrayImage } from '../../../types';
 import { PROFILE_STEP, type RimProfile } from '../rimProfile';
 import { KIT, WALL_IDS, type WallId } from '../kitSpec';
 import { wallSpan } from '../shadowModel';
@@ -92,5 +94,32 @@ describe.each(WALL_IDS)('perforated wall %s', (id: WallId) => {
     const t0 = Date.now();
     generatePerforatedWall(id, plate(id, 44));
     expect(Date.now() - t0).toBeLessThan(300);
+  });
+});
+
+describe('smooth top outline', () => {
+  const n = 450, pixels = new Float32Array(n * n).fill(1);
+  for (let py = 0; py < n; py++) for (let px = 0; px < n; px++) { const x = px + 0.5 - n / 2, y = n / 2 - (py + 0.5); if (Math.hypot(x, y) < 210 + 15 * Math.cos(5 * Math.atan2(y, x))) pixels[py * n + px] = 0; }
+  const img: GrayImage = { width: n, height: n, pixels };
+  it.each(['w1', 'w2'] as const)('puts the top vertices of %s on the rim profile, not on the 0.4 mm rows', (id) => {
+    const profile = buildRimProfile(img, DEFAULT_BOX_PARAMS);
+    const field = buildPlateField(id, profile, DEFAULT_BOX_PARAMS);
+    const mesh = generatePerforatedWall(id, field);
+    const spec = KIT.walls[id], pitchY = spec.length / field.cols;
+    const top = (y: number) => {
+      const f = Math.min(Math.max(y / pitchY - 0.5, 0), field.cols - 1.0001), i = Math.floor(f);
+      return field.topHs![i] + (field.topHs![i + 1] - field.topHs![i]) * (f - i);
+    };
+    let checked = 0, worst = 0;
+    const p = mesh.positions;
+    for (let i = 0; i < p.length; i += 3) {
+      const hs = spec.attachAtMax ? spec.maxHeight - p[i] : p[i], y = p[i + 1];
+      if (y < 1 || y > spec.length - 1 || hs < 16) continue; // skip the plate ends and the tabs
+      const exact = top(y);
+      if (hs < exact - 0.6) continue; // only the outline near the top edge
+      checked++; worst = Math.max(worst, Math.abs(hs - exact));
+    }
+    expect(checked).toBeGreaterThan(50);
+    expect(worst).toBeLessThan(0.06);
   });
 });

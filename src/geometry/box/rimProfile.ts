@@ -47,6 +47,8 @@ export const PROFILE_STEP = 0.5;
 export const MIN_WALL_HEIGHT = 15;
 /** The same limit as a height above the panel plane, which is where profile heights are measured. */
 export const MIN_RIM_HEIGHT = MIN_WALL_HEIGHT - KIT.panelPlaneX;
+/** Signal value of a light pixel and of everything outside the image. */
+const LIGHT = -0.5;
 /** Dark blobs smaller than this on the wall are treated as stray pixels, not shape. */
 export const SPECK_AREA_MM2 = 25;
 
@@ -92,18 +94,28 @@ export function buildRimProfile(img: GrayImage, p: BoxParams): RimProfile {
   const size = p.shadowSize * (p.imageScale / 100); // width of the image on the wall, mm
   const k = size / Math.max(img.width, img.height); // mm per image pixel
   const t = p.threshold / 255;
-  const { mask, specks, edgeDark } = darkMask(img, p.invert, t, SPECK_AREA_MM2 / (k * k), p.edgeRounding / 10);
-  const darkAt = (X: number, Y: number) => {
-    const ix = Math.floor(img.width / 2 + X / k), iy = Math.floor(img.height / 2 - Y / k);
-    if (ix < 0 || iy < 0 || ix >= img.width || iy >= img.height) return false;
-    return mask[iy * img.width + ix] === 1;
+  const { signal, specks, edgeDark } = darkMask(img, p.invert, t, SPECK_AREA_MM2 / (k * k), p.edgeRounding / 10);
+  const W = img.width, H = img.height;
+  /** Darkness at a point of the wall plane, interpolated between pixels: above 0 is shadow. Outside the image is light. */
+  const signalAt = (X: number, Y: number) => {
+    const u = W / 2 + X / k - 0.5, v = H / 2 - Y / k - 0.5;
+    const x0 = Math.floor(u), y0 = Math.floor(v), fx = u - x0, fy = v - y0;
+    const at = (x: number, y: number) => (x < 0 || y < 0 || x >= W || y >= H ? LIGHT : signal[y * W + x]);
+    return (at(x0, y0) * (1 - fx) + at(x0 + 1, y0) * fx) * (1 - fy) + (at(x0, y0 + 1) * (1 - fx) + at(x0 + 1, y0 + 1) * fx) * fy;
   };
-  /** Distance to the outermost dark pixel along a direction from the light axis (0 if none). */
+  const darkAt = (X: number, Y: number) => signalAt(X, Y) > 0;
+  /** Distance to the outermost edge of the dark shape along a direction from the light axis (0 if none), found between pixels. */
   const reachAt = (angle: number) => {
     const c = Math.cos(angle), s = Math.sin(angle), step = k * 0.5, rMax = size * 0.75;
-    let last = 0;
-    for (let r = 0; r <= rMax; r += step) if (darkAt(r * c, r * s)) last = r;
-    return last;
+    let last = -1, lastValue = 0, nextValue = 0;
+    for (let r = 0, i = 0; r <= rMax; r += step, i++) {
+      const value = signalAt(r * c, r * s);
+      if (last >= 0 && i === last + 1) nextValue = value;
+      if (value > 0) { last = i; lastValue = value; nextValue = LIGHT; }
+    }
+    if (last < 0) return 0;
+    const edge = lastValue - nextValue > 1e-9 ? lastValue / (lastValue - nextValue) : 0; // where the signal crosses zero, as a fraction of a step
+    return (last + Math.min(Math.max(edge, 0), 1)) * step;
   };
 
   // One closed loop of samples around the box, so processing treats the corners like any other point.
@@ -207,6 +219,7 @@ function darkMask(img: GrayImage, invert: boolean, t: number, minPixels: number,
   const pixels = gaussianBlur(img.pixels, W, H, sigma);
   const mask = new Uint8Array(W * H);
   for (let i = 0; i < mask.length; i++) mask[i] = (invert ? pixels[i] >= t : pixels[i] < t) ? 1 : 0;
+  const signal = new Float32Array(W * H);
   const seen = new Uint8Array(W * H), queue = new Int32Array(W * H);
   let specks = 0;
   for (let start = 0; start < mask.length; start++) {
@@ -224,10 +237,12 @@ function darkMask(img: GrayImage, invert: boolean, t: number, minPixels: number,
     }
     if (tail < minPixels) { for (let i = 0; i < tail; i++) mask[queue[i]] = 0; specks++; }
   }
+  // Signed darkness per pixel (positive = shadow) so edges can be read between pixels; removed specks read as light.
+  for (let i = 0; i < signal.length; i++) signal[i] = mask[i] ? Math.max(invert ? pixels[i] - t : t - pixels[i], 1e-4) : Math.min(invert ? pixels[i] - t : t - pixels[i], -1e-4);
   let edge = 0, dark = 0;
   for (let x = 0; x < W; x++) for (const y of [0, H - 1]) { edge++; dark += mask[y * W + x]; }
   for (let y = 1; y < H - 1; y++) for (const x of [0, W - 1]) { edge++; dark += mask[y * W + x]; }
-  return { mask, specks, edgeDark: edge ? dark / edge : 0 };
+  return { signal, specks, edgeDark: edge ? dark / edge : 0 };
 }
 
 /** Separable Gaussian blur with clamped edges; sigma in pixels (below 0.05 the image is returned as is). */

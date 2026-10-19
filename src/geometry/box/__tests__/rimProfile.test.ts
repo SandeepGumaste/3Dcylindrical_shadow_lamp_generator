@@ -118,6 +118,22 @@ describe('rim profile from the silhouette image', () => {
     }
   });
 
+  it('reads edges between pixels: a coarse image of a disc gives a smooth, accurate wall top', () => {
+    // 64 px across 450 mm is 7 mm per pixel; the disc is 20 px (140 mm) in radius, antialiased like a real picture
+    const coarse = raster(() => false, 64);
+    for (let py = 0; py < 64; py++) for (let px = 0; px < 64; px++) coarse.pixels[py * 64 + px] = Math.min(1, Math.max(0, Math.hypot(px + 0.5 - 32, 32 - (py + 0.5)) - 20 + 0.5));
+    const prof = buildRimProfile(coarse, P({ edgeRounding: 0, innerDetails: false }));
+    let worst = 0;
+    for (const id of WALL_IDS) {
+      for (let i = 0; i < prof.rawHeights[id].length; i++) {
+        const s = i * PROFILE_STEP, { d } = rimPoint(id, s);
+        const ideal = Math.min(Math.max(heightForReach(140, d, DEFAULT_BOX_PARAMS.lightHeight, KIT.T), MIN_RIM_HEIGHT), Math.min(KIT.walls[id].maxHeight - KIT.panelPlaneX, DEFAULT_BOX_PARAMS.lightHeight - 1));
+        worst = Math.max(worst, Math.abs(prof.rawHeights[id][i] - ideal));
+      }
+    }
+    expect(worst).toBeLessThan(0.45);
+  });
+
   it('rounds jagged edges: more edge rounding gives a smoother wall top (before spike and notch cleanup)', () => {
     // a disc with a ragged edge (radius wobbling by up to 4 mm from direction to direction)
     const ragged = raster((x, y) => Math.hypot(x, y) < 160 + 4 * Math.sin(Math.floor(Math.atan2(y, x) * 80) * 12.9898));

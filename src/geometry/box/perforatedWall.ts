@@ -28,10 +28,38 @@ export function generatePerforatedWall(id: WallId, field: PlateField): IndexedMe
     return [spec.attachAtMax ? spec.maxHeight - hs : hs, c * pitchY]; // [x, y]
   };
 
+  /**
+   * The cell grid quantises the top edge to whole rows (0.4 mm), which perspective stretches into steps of
+   * centimetres on the wall. Vertices on the top boundary are moved onto the exact rim profile instead.
+   */
+  const snapTop = (loop: [number, number][]): [number, number][] => {
+    const topHs = field.topHs;
+    if (!topHs) return loop;
+    const topAt = (c: number) => {
+      const f = Math.min(Math.max(c - 0.5, 0), cols - 1.0001), i = Math.floor(f);
+      return topHs[i] + (topHs[i + 1] - topHs[i]) * (f - i);
+    };
+    const on = (r: number, c: number) => r >= 0 && r < rows && c >= 0 && c < cols && solid[r * cols + c] === 1;
+    const out: [number, number][] = [];
+    for (const [c, r] of loop) {
+      const ci = Math.round(c), ri = Math.round(r);
+      const aboveOpen = !on(ri, ci - 1) || !on(ri, ci), belowSolid = on(ri - 1, ci - 1) || on(ri - 1, ci);
+      const exact = topAt(c) / pitchH;
+      const p: [number, number] = aboveOpen && belowSolid && Math.abs(r - exact) <= 1.25 ? [c, exact] : [c, r];
+      const last = out[out.length - 1];
+      if (!last || Math.abs(last[0] - p[0]) > 1e-9 || Math.abs(last[1] - p[1]) > 1e-9) out.push(p); // stair-step corners collapse onto one point
+    }
+    const first = out[0], end = out[out.length - 1];
+    if (out.length > 1 && Math.abs(first[0] - end[0]) < 1e-9 && Math.abs(first[1] - end[1]) < 1e-9) out.pop();
+    return out;
+  };
+
   for (const shape of groupShapes(extractSmoothLoops(solid, cols, rows))) {
     const grid: [number, number][] = []; // triangulated in cell units: far faster than in millimetres, whose float pitches defeat the exact-arithmetic shortcuts
     const edges: [number, number][] = [];
-    for (const loop of [shape.outer, ...shape.holes]) {
+    for (const raw of [shape.outer, ...shape.holes]) {
+      const loop = snapTop(raw);
+      if (loop.length < 3) continue;
       const first = grid.length;
       for (const [c, r] of loop) grid.push([c, r]);
       for (let i = 0; i < loop.length; i++) edges.push([first + i, first + ((i + 1) % loop.length)]);

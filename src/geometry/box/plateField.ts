@@ -4,6 +4,8 @@ import { rimPoint, wallSpan } from './shadowModel';
 
 /** Cell size of the wall mask, mm: one nozzle width. */
 export const PLATE_CELL = 0.4;
+/** Material right under the rim profile is always kept, mm, so a lit sliver there never erodes the outline. */
+const EDGE_BAND = 0.6;
 
 export interface PlateField {
   /** Cells along the plate's length (y) and up its height from the seat. */
@@ -11,6 +13,8 @@ export interface PlateField {
   rows: number;
   /** 1 = material, 0 = open; cell (col, row) is at index row * cols + col. */
   solid: Uint8Array;
+  /** Exact rim profile height from the seat at each column centre, mm; the mesh snaps the top outline to it. */
+  topHs?: Float64Array;
   report: {
     /** Openings fully enclosed by material. */
     openings: number;
@@ -54,7 +58,7 @@ export function buildPlateField(id: WallId, profile: RimProfile, p: BoxParams): 
       let on = false;
       if (hs <= MIN_WALL_HEIGHT) on = true;
       else if (hs > top) on = false;
-      else if (hs > rawTop) on = true; // added by spike widening
+      else if (hs > rawTop - EDGE_BAND) on = true; // spike widening, and the outermost sliver under the profile, so the outline is the profile
       else {
         const h = hs - KIT.panelPlaneX;
         const reach = (d * (L + T)) / (L - h);
@@ -157,7 +161,7 @@ export function buildPlateField(id: WallId, profile: RimProfile, p: BoxParams): 
   for (let r = 0; r < rows; r++) { if (openLabels[r * cols] >= 0) outside[openLabels[r * cols]] = 1; if (openLabels[r * cols + cols - 1] >= 0) outside[openLabels[r * cols + cols - 1]] = 1; }
   for (let l = 0; l < openCount; l++) if (!outside[l]) report.openings++;
 
-  return { cols, rows, solid, report };
+  return { cols, rows, solid, topHs: topOf, report };
 }
 
 /** 4-connected components of cells equal to `value`; labels are -1 elsewhere. Does not wrap. */
