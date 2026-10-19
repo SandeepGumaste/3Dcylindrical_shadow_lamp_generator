@@ -47,7 +47,7 @@ export function generateWall(id: WallId, profile: RimProfile): IndexedMesh {
   return mb.toArrays();
 }
 
-function addBox(mb: MeshBuilder, x0: number, x1: number, y0: number, y1: number, z0: number, z1: number) {
+export function addBox(mb: MeshBuilder, x0: number, x1: number, y0: number, y1: number, z0: number, z1: number) {
   const v = (x: number, y: number, z: number) => mb.vertex(x, y, z);
   const a = v(x0, y0, z0), b = v(x1, y0, z0), c = v(x1, y1, z0), d = v(x0, y1, z0);
   const e = v(x0, y0, z1), f = v(x1, y0, z1), g = v(x1, y1, z1), h = v(x0, y1, z1);
