@@ -1,6 +1,6 @@
 {
-  "name": "Shadow Lamp Generator",
-  "description": "Convert images into 3D-printable cylindrical shadow lamps via inverse ray projection and export watertight STLs.",
+  "name": "Odd Shadows",
+  "description": "Odd Shadows turns any image into a 3D-printable shadow lamp. Pick or upload an image, tune the shade and export a watertight STL.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }
