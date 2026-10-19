@@ -72,6 +72,15 @@ Three pieces, built in this order, each ending in something testable. There is o
 - The privacy policy, terms, legal notice and FAQ are drafted by Claude as a starting point, not legal advice, and a lawyer should review the privacy policy and terms before go-live. Placeholders mark the owner's full name, country and contact email.
 - The landing page is designed with the owner in a separate design step when piece 1 starts; this document does not fix its look or wording.
 
+- **Template leftovers.** `express`, `@google/genai` and `dotenv` are unused and are removed on the `chore/remove-template-deps` branch; there is no server code to keep. Local development uses `vercel dev`.
+- **"All settings"** is the plain, serialisable settings object (numbers and on/off values). The record stores an app version. Load fills any missing setting from the current defaults and ignores unknown ones, so there are no migrations. The record also stores the image name (the uploaded file's name, or the built-in image's name); the original upload itself is not stored.
+- **After logging in.** Login is a full-page redirect. Before it, the app saves the processed 512 px image and the settings in session storage; on return it restores them and says "Signed in. Press Download to continue", so the download starts from a real click.
+- **Records per download.** One record per button press, best-effort: the model already exists when the record is saved, so a failure after saving is very unlikely. No deduplication; the per-user rate limit covers abuse.
+- **Delete.** Deleting an entry removes the record even if imgbb cannot delete the image; the app then says the image could not be removed, and the delete link is logged for manual cleanup.
+- **Sessions** are signed tokens (JWT), so there is no database read on every request.
+- **"Delete my account and all data"** is in scope: it removes all of a person's records and their imgbb images, because the privacy policy promises it.
+- **Origin and previews.** The site address comes from one environment variable (the custom domain once there is one, otherwise the `*.vercel.app` address). Login works on the real domain and locally; Vercel preview deployments cannot log in because Google does not accept changing redirect addresses. The per-user rate limit lives in MongoDB (Hobby has no per-route limit).
+
 ## Left to the builder
 
 - The exact auth setup (library configuration, cookie settings, CSRF), the MongoDB collections, indexes and validation, and the API shapes.
