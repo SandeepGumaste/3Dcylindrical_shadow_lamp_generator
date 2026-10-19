@@ -133,6 +133,12 @@ describe('landing page', () => {
       expect(bytes('site/assets/' + f), f).toBeLessThan(150 * 1024);
     }
   });
+  it('does not tell people to burn a candle, and points to LED safety', () => {
+    const text = src.replace(/<[^>]+>/g, ' ');
+    expect(text).not.toMatch(/light the candle|real flame|small candle|\bcandle\b/i);
+    expect(text).toMatch(/\bLED\b/);
+    expect(text).toMatch(/material that handles the heat/i);
+  });
   it('mentions only the tealight shade, not box mode', () => {
     expect(src).not.toMatch(/box mode/i);
   });

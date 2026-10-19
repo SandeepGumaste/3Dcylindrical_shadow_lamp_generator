@@ -11,7 +11,7 @@ h1{line-height:1.2}
 .site-footer{border-top:1px solid var(--line);color:var(--muted)}
 .brand{font-weight:700;text-decoration:none;color:var(--fg)}
 nav{display:flex;flex-wrap:wrap;gap:.5rem 1.25rem}
-.landing-page .site-header,.landing-page .site-footer{max-width:68rem}
+.landing-page .site-header,.landing-page .site-footer{max-width:68rem;padding-inline:1rem}
 .landing{max-width:none;padding:0}
 .landing h1,.landing h2,.landing h3{font-family:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;font-weight:700;line-height:1.15;margin:0 0 .75rem}
 .landing p{max-width:60ch}
@@ -37,10 +37,13 @@ nav{display:flex;flex-wrap:wrap;gap:.5rem 1.25rem}
 .makes li{margin:.4rem 0}
 .cta{border-top:1px solid var(--line);text-align:left}
 .cta .button{background:var(--fg);color:var(--bg)}
+.cta .button:hover{background:var(--link);color:var(--bg)}
+.cta .button:focus-visible{outline-color:var(--link)}
 @media (min-width:48em){
   .hero{grid-template-columns:1fr 1fr;padding:4.5rem 1.5rem;gap:3rem}
   .hero>*{margin-inline:0}
   .hero{padding-inline:max(1.5rem,calc((100% - 68rem)/2))}
   .steps{grid-template-columns:repeat(3,1fr)}
   .band,.cta{padding-inline:1.5rem}
+  .landing-page .site-header,.landing-page .site-footer{padding-inline:1.5rem}
 }

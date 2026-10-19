@@ -41,9 +41,9 @@ for (let y = 0; y < H; y++) {
     const lit = cover(discD);
     const pic = lit * (1 - cover(circle(x, y, 905, 285, 150)));
     const stars = Math.max(
-      cover(star(x, y, 745, 405, 38)),
-      cover(star(x, y, 800, 215, 22)),
-      cover(star(x, y, 960, 440, 28)),
+      cover(star(x, y, 960, 205, 34)),
+      cover(star(x, y, 1010, 330, 20)),
+      cover(star(x, y, 900, 380, 26)),
     );
     c = mix(c, AMBER, pic * 0.95);
     c = mix(c, AMBER, clamp(stars) * 0.95);

@@ -93,7 +93,9 @@ export function sitePages(options: SitePagesOptions = {}): Plugin {
       }
       // Share images are referenced only from meta tags, so Vite would not bundle them.
       if (existsSync(assetsDir)) {
-        for (const f of readdirSync(assetsDir)) {
+        for (const d of readdirSync(assetsDir, {withFileTypes: true})) {
+          if (!d.isFile()) continue;
+          const f = d.name;
           this.emitFile({type: 'asset', fileName: `site/assets/${f}`, source: readFileSync(path.join(assetsDir, f))});
         }
       }
