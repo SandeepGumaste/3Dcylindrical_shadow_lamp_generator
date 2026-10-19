@@ -275,7 +275,7 @@ export default function App() {
             <BoxViewport
               preview={box.result?.preview ?? null}
               light={box.result?.light ?? null}
-              shadowSize={box.params.shadowSize}
+              shadowSize={box.params.shadowSize * (box.params.imageScale / 100)}
               busy={box.busy}
               stale={box.stale}
               onGenerate={box.generate}

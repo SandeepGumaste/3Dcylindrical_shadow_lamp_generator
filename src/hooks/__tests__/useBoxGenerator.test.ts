@@ -35,6 +35,10 @@ describe('parameter validation', () => {
     expect(validateBoxParams({ ...DEFAULT_BOX_PARAMS, lightHeight: 5 }).join(' ')).toMatch(/Light height/);
     expect(validateBoxParams({ ...DEFAULT_BOX_PARAMS, lightHeight: 80 }).join(' ')).toMatch(/Light height/);
   });
+  it('rejects an image size outside 10 to 400 percent', () => {
+    expect(validateBoxParams({ ...DEFAULT_BOX_PARAMS, imageScale: 5 }).join(' ')).toMatch(/Image size/);
+    expect(validateBoxParams({ ...DEFAULT_BOX_PARAMS, imageScale: 500 }).join(' ')).toMatch(/Image size/);
+  });
   it('rejects a shadow size of zero and negative widths', () => {
     expect(validateBoxParams({ ...DEFAULT_BOX_PARAMS, shadowSize: 0 }).join(' ')).toMatch(/Shadow size/);
     expect(validateBoxParams({ ...DEFAULT_BOX_PARAMS, minSpike: -1 }).join(' ')).toMatch(/Minimum spike/);

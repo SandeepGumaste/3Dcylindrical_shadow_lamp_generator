@@ -94,6 +94,14 @@ describe('rim profile from the silhouette image', () => {
     expect(prof.warnings.join(' ')).toMatch(/dark all the way/i);
   });
 
+  it('treats image size in shadow as a multiplier on the shadow size', () => {
+    const big = buildRimProfile(disc(120), P({ shadowSize: 450, imageScale: 200 }));
+    const same = buildRimProfile(disc(120), P({ shadowSize: 900, imageScale: 100 }));
+    for (const id of WALL_IDS) for (let i = 0; i < big.heights[id].length; i++) expect(big.heights[id][i]).toBeCloseTo(same.heights[id][i], 4);
+    const small = buildRimProfile(disc(120), P({ imageScale: 50 }));
+    expect(Math.max(...small.heights.w1)).toBeLessThanOrEqual(Math.max(...buildRimProfile(disc(120), P()).heights.w1));
+  });
+
   it('always says only one-reach-per-direction shapes are reproduced', () => {
     expect(buildRimProfile(disc(100), P()).warnings.join(' ')).toMatch(/one reach per direction/);
   });

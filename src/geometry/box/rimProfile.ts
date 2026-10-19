@@ -6,6 +6,8 @@ import type { TrayId } from './kitParts';
 export interface BoxParams {
   /** Width in mm of the shadow image frame as it lands on the wall, centred on the light axis. */
   shadowSize: number;
+  /** How much of the frame the image fills, percent. 200 makes the shadow twice as big, like Tealight's image size. */
+  imageScale: number;
   /** LED height above the panel, mm. */
   lightHeight: number;
   tray: TrayId;
@@ -22,6 +24,7 @@ export interface BoxParams {
 
 export const DEFAULT_BOX_PARAMS: BoxParams = {
   shadowSize: 450,
+  imageScale: 100,
   lightHeight: 45,
   tray: '2AA',
   threshold: 128,
@@ -76,7 +79,8 @@ const countRuns = (changed: boolean[]) => {
 
 export function buildRimProfile(img: GrayImage, p: BoxParams): RimProfile {
   const L = p.lightHeight, T = KIT.T;
-  const k = p.shadowSize / Math.max(img.width, img.height); // mm per image pixel
+  const size = p.shadowSize * (p.imageScale / 100); // width of the image on the wall, mm
+  const k = size / Math.max(img.width, img.height); // mm per image pixel
   const t = p.threshold / 255;
   const { mask, specks, edgeDark } = darkMask(img, p.invert, t, SPECK_AREA_MM2 / (k * k));
   const darkAt = (X: number, Y: number) => {
@@ -86,7 +90,7 @@ export function buildRimProfile(img: GrayImage, p: BoxParams): RimProfile {
   };
   /** Distance to the outermost dark pixel along a direction from the light axis (0 if none). */
   const reachAt = (angle: number) => {
-    const c = Math.cos(angle), s = Math.sin(angle), step = k * 0.5, rMax = p.shadowSize * 0.75;
+    const c = Math.cos(angle), s = Math.sin(angle), step = k * 0.5, rMax = size * 0.75;
     let last = 0;
     for (let r = 0; r <= rMax; r += step) if (darkAt(r * c, r * s)) last = r;
     return last;
@@ -173,6 +177,7 @@ export function validateBoxParams(p: BoxParams): string[] {
   const [lo, hi] = KIT.lightHeightRange;
   if (!(p.lightHeight >= lo && p.lightHeight <= hi)) e.push(`Light height must be between ${lo} and ${hi} mm (the post is ${KIT.post.length} mm long).`);
   if (!(p.shadowSize > 0)) e.push('Shadow size must be above 0 mm.');
+  if (!(p.imageScale >= 10 && p.imageScale <= 400)) e.push('Image size must be between 10 % and 400 %.');
   if (!(p.minSpike >= 0)) e.push('Minimum spike width cannot be negative.');
   if (!(p.minGap >= 0)) e.push('Minimum gap width cannot be negative.');
   return e;

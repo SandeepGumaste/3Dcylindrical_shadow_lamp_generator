@@ -60,7 +60,8 @@ export const BoxPanel: React.FC<{ c: BoxController }> = ({ c }) => {
         <p className="text-[10px] text-slate-500">Dark = shadow on the wall. Only shapes with one reach per direction from the light are reproduced; anything else is simplified.</p>
         <Num label="Threshold" value={p.threshold} min={0} max={255} onChange={(v) => c.setParams({ threshold: v })} />
         <Check label="Invert" value={p.invert} onChange={(v) => c.setParams({ invert: v })} />
-        <Num label="Shadow size (width on the wall)" unit="mm" value={p.shadowSize} min={150} max={1500} step={10} onChange={(v) => c.setParams({ shadowSize: v })} />
+        <Num label="Shadow size (width on the wall)" unit="mm" value={p.shadowSize} min={150} max={3000} step={25} onChange={(v) => c.setParams({ shadowSize: v })} />
+        <Num label="Image size in shadow" unit="%" value={p.imageScale} min={20} max={300} step={5} onChange={(v) => c.setParams({ imageScale: v })} />
         <Num label="Light height above the panel" unit="mm" value={p.lightHeight} min={lo} max={hi} step={1} onChange={(v) => c.setParams({ lightHeight: v })} />
       </Group>
 
