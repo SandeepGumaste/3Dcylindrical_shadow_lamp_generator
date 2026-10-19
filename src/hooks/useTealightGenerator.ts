@@ -3,6 +3,7 @@ import type { GrayImage } from '../types';
 import { DEFAULT_TEALIGHT_PARAMS, TealightParams, validateTealightParams, LED_CLEARANCE } from '../geometry/tealightShade';
 import { DEFAULT_BOWL_PARAMS, BowlParams, validateBowlParams } from '../geometry/shadowBowl';
 import batmanUrl from '../assets/batman.jpg';
+import shivaUrl from '../assets/shiva.jpg';
 import hanumanUrl from '../assets/hanuman.png';
 import catUrl from '../assets/cat.png';
 import { loadImageToGray } from '../image/loadImage';
@@ -17,9 +18,15 @@ export const DEFAULT_IMAGE_ID = 'batman';
 /** Bundled raster images, loaded once at start-up. */
 export const BUNDLED_IMAGES = [
   { id: 'batman', name: 'Batman', url: batmanUrl, params: { imageScale: 85 } as Partial<TealightParams> },
+  { id: 'shiva', name: 'Shiva', url: shivaUrl, params: { imageScale: 85, invert: true } as Partial<TealightParams> },
   { id: 'hanuman', name: 'Hanuman', url: hanumanUrl, params: { imageScale: 85 } as Partial<TealightParams> },
   { id: 'cat', name: 'Cat', url: catUrl, params: { imageScale: 80 } as Partial<TealightParams> },
 ];
+/** Settings a bundled image applies when selected; invert is always set so one preset's invert never carries over to the next. */
+export function presetParams(id: string): Partial<TealightParams> {
+  const s = BUNDLED_IMAGES.find((x) => x.id === id);
+  return s ? { invert: DEFAULT_TEALIGHT_PARAMS.invert, ...s.params } : {};
+}
 const NEUTRAL = { invert: false, brightness: 0, contrast: 1, gamma: 1, threshold: 0.5, rotation: 0, flipHorizontal: false } as const;
 
 export function useTealightGenerator(mode: TableMode) {
@@ -81,10 +88,7 @@ export function useTealightGenerator(mode: TableMode) {
 
   const selectSample = (id: string) => {
     setSampleId(id);
-    const s = BUNDLED_IMAGES.find((x) => x.id === id);
-    if (s) {
-      setTParams((p) => ({ ...p, ...s.params }));
-    }
+    setTParams((p) => ({ ...p, ...presetParams(id) }));
   };
 
   const upload = async (file: File) => {
@@ -105,8 +109,7 @@ export function useTealightGenerator(mode: TableMode) {
     });
 
   const reset = () => {
-    const s = BUNDLED_IMAGES.find((x) => x.id === sampleId);
-    if (mode === 'tealight') setTParams({ ...DEFAULT_TEALIGHT_PARAMS, ...(s?.params ?? {}) });
+    if (mode === 'tealight') setTParams({ ...DEFAULT_TEALIGHT_PARAMS, ...presetParams(sampleId) });
     else setBParams({ ...DEFAULT_BOWL_PARAMS });
   };
 
