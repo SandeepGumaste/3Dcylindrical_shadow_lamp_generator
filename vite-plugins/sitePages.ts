@@ -81,7 +81,7 @@ export function sitePages(options: SitePagesOptions = {}): Plugin {
         const found = new Set<string>();
         for (const item of Object.values(bundle ?? {}) as any[]) {
           if (item.type === 'asset' && String(item.fileName).endsWith('.html')) {
-            for (const p of findPlaceholders(String(item.source))) found.add(p);
+            for (const p of findPlaceholders(typeof item.source === 'string' ? item.source : Buffer.from(item.source).toString())) found.add(p);
           }
         }
         if (found.size > 0) {

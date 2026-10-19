@@ -46,6 +46,20 @@ describe('placeholders in drafts', () => {
   });
 });
 
+describe('privacy policy content', () => {
+  const text = read('privacy/index.html');
+  it('mentions the file name and the session cookie', () => {
+    expect(text).toMatch(/file name/i);
+    expect(text).toMatch(/cookie/i);
+  });
+  it('says what happens when an image upload fails', () => {
+    expect(text).toMatch(/image missing/i);
+  });
+  it('hedges account deletion', () => {
+    expect(text).toMatch(/cannot remove/i);
+  });
+});
+
 describe('faq structured data', () => {
   const html = read('faq/index.html');
   const visible = [...html.matchAll(/<summary>([\s\S]*?)<\/summary>\s*<p>([\s\S]*?)<\/p>/g)].map(

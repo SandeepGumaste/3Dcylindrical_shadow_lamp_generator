@@ -16,7 +16,7 @@ describe('findPlaceholders', () => {
 });
 
 describe('production placeholder guard', () => {
-  const run = (html: string, vercelEnv: string | undefined, mode = 'production') => {
+  const run = (html: string | Uint8Array, vercelEnv: string | undefined, mode = 'production') => {
     const old = process.env.VERCEL_ENV;
     if (vercelEnv === undefined) delete process.env.VERCEL_ENV;
     else process.env.VERCEL_ENV = vercelEnv;
@@ -38,6 +38,9 @@ describe('production placeholder guard', () => {
     expect(() => run('<p>[[OWNER_NAME]] [[OWNER_EMAIL]]</p>', 'production')).toThrow(
       /\[\[OWNER_NAME\]\].*\[\[OWNER_EMAIL\]\]/,
     );
+  });
+  it('scans a non-string asset source', () => {
+    expect(() => run(new TextEncoder().encode('<p>[[OWNER_NAME]]</p>'), 'production')).toThrow(/OWNER_NAME/);
   });
   it('passes when none remain', () => {
     expect(() => run('<p>Jane Doe</p>', 'production')).not.toThrow();
