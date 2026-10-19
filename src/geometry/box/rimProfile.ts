@@ -14,6 +14,8 @@ export interface BoxParams {
   /** 0..255; pixels darker than this are shadow (lighter when `invert`). */
   threshold: number;
   invert: boolean;
+  /** Cut openings in the walls so lit areas inside the dark shape show. Off keeps solid-outline walls. */
+  innerDetails: boolean;
   /** Narrowest wall spike that is kept as is, mm. */
   minSpike: number;
   /** Narrowest notch in the wall top that is kept, mm. */
@@ -29,6 +31,7 @@ export const DEFAULT_BOX_PARAMS: BoxParams = {
   tray: '2AA',
   threshold: 128,
   invert: false,
+  innerDetails: true,
   minSpike: 1.2,
   minGap: 0.8,
   panelThreshold: 128,

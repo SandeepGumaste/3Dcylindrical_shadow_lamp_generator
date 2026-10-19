@@ -4,6 +4,8 @@ import { buildKit, placeWall, type PartLoader } from '../kit';
 import { generateWall } from '../wallMesh';
 import { buildRimProfile } from '../rimProfile';
 import { WALL_IDS } from '../kitSpec';
+import { indexedMeshToBinarySTL } from '../../stl';
+import { moveToOrigin } from '../stlParse';
 import { checkMesh } from '../../meshCheck';
 import { DEFAULT_BOX_PARAMS, type BoxParams } from '../rimProfile';
 import { KIT } from '../kitSpec';
@@ -76,4 +78,40 @@ describe('kit builder', () => {
       expect(checkMesh(placed.positions, placed.indices).signedVolume, id).toBeGreaterThan(0);
     }
   });
+});
+
+describe('inner details', () => {
+  const raster = (dark: (x: number, y: number) => boolean, n = 450): GrayImage => {
+    const pixels = new Float32Array(n * n).fill(1);
+    for (let py = 0; py < n; py++) for (let px = 0; px < n; px++) if (dark(px + 0.5 - n / 2, n / 2 - (py + 0.5))) pixels[py * n + px] = 0;
+    return { width: n, height: n, pixels };
+  };
+  // a lit patch well inside the frame (radius 155 to 205 mm) with a dark dot floating in it
+  const face = raster((x, y) => (Math.hypot(x, y) < 250 && Math.hypot(x, y - 180) >= 25) || Math.hypot(x, y - 180) < 5);
+  const wallParts = (kit: Awaited<ReturnType<typeof buildKit>>) => kit.parts.filter((q) => q.id.startsWith('wall-') && q.id !== 'wall-hook');
+
+  it('cuts openings in the walls, keeps them watertight, and reports bridged pieces', async () => {
+    const on = await buildKit(face, disc, P({ innerDetails: true }), load);
+    const off = await buildKit(face, disc, P({ innerDetails: false }), load);
+    const tri = (k: typeof on) => wallParts(k).reduce((n, q) => n + q.mesh.indices.length / 3, 0);
+    expect(tri(on)).toBeGreaterThan(tri(off));
+    for (const q of wallParts(on)) expect(checkMesh(q.mesh.positions, q.mesh.indices).watertight, q.id).toBe(true);
+    expect(on.warnings.join(' ')).toMatch(/opening/i);
+    expect(on.warnings.join(' ')).toMatch(/bridge/i);
+  });
+
+  it('with the option off the walls are exactly the plain walls', async () => {
+    const off = await buildKit(face, disc, P({ innerDetails: false }), load);
+    const profile = buildRimProfile(face, P({ innerDetails: false }));
+    const plain = moveToOrigin(generateWall('w1', profile));
+    expect(new Uint8Array(wallParts(off)[0].stl)).toEqual(new Uint8Array(indexedMeshToBinarySTL(plain.positions, plain.indices, 'Odd Shadows box kit')));
+  });
+
+  it('keeps time and size bounded for an image of hundreds of small lit and dark dots', async () => {
+    const dots = raster((x, y) => Math.hypot(x, y) < 260 && Math.hypot((x + 400) % 10 - 5, (y + 400) % 10 - 5) < 3.3);
+    const t0 = Date.now();
+    const kit = await buildKit(dots, disc, P({ innerDetails: true }), load);
+    expect(Date.now() - t0).toBeLessThan(15000);
+    for (const q of wallParts(kit)) expect(q.mesh.indices.length / 3, q.id).toBeLessThan(400000);
+  }, 30000);
 });

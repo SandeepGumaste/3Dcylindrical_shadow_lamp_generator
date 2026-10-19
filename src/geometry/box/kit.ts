@@ -4,6 +4,8 @@ import { KIT, WALL_IDS, type WallId } from './kitSpec';
 import { bundledPartsFor } from './kitParts';
 import { buildRimProfile, type BoxParams } from './rimProfile';
 import { generateWall } from './wallMesh';
+import { buildPlateField } from './plateField';
+import { generatePerforatedWall } from './perforatedWall';
 import { generatePanel } from './panelMesh';
 import { moveToOrigin, parseBinaryStl, type IndexedMesh } from './stlParse';
 import { makeZip } from './zip';
@@ -79,7 +81,20 @@ export async function buildKit(shadow: GrayImage, panelImg: GrayImage, p: BoxPar
     parts.push({ id, label, generated, mesh, stl: indexedMeshToBinarySTL(mesh.positions, mesh.indices, HEADER) });
 
   const walls = {} as Record<WallId, IndexedMesh>;
-  for (const id of WALL_IDS) { walls[id] = generateWall(id, profile); push(wallPartId(id), WALL_LABEL[id], true, moveToOrigin(walls[id])); }
+  const totals = { openings: 0, thickened: 0, bridged: 0, dropped: 0 };
+  for (const id of WALL_IDS) {
+    if (p.innerDetails) {
+      const field = buildPlateField(id, profile, p);
+      for (const k of Object.keys(totals) as (keyof typeof totals)[]) totals[k] += field.report[k];
+      walls[id] = generatePerforatedWall(id, field);
+    } else walls[id] = generateWall(id, profile);
+    push(wallPartId(id), WALL_LABEL[id], true, moveToOrigin(walls[id]));
+  }
+  const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+  if (totals.openings > 0) warnings.push(`${plural(totals.openings, 'opening was', 'openings were')} cut in the walls for lit areas inside the shape.`);
+  if (totals.thickened > 0) warnings.push(`${plural(totals.thickened, 'thin stroke was', 'thin strokes were')} thickened so they print.`);
+  if (totals.bridged > 0) warnings.push(`${plural(totals.bridged, 'floating piece was', 'floating pieces were')} joined to the wall with a small bridge.`);
+  if (totals.dropped > 0) warnings.push(`${plural(totals.dropped, 'floating piece', 'floating pieces')} with nothing to join to ${totals.dropped === 1 ? 'was' : 'were'} left out.`);
   push('panel', 'Picture panel', true, moveToOrigin(panel.mesh));
   const fixed: Record<string, IndexedMesh> = {};
   for (const part of bundledPartsFor(p.tray)) {

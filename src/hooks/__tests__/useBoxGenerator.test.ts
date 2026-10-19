@@ -22,6 +22,7 @@ describe('input key', () => {
   it('changes with any parameter or with either image', () => {
     expect(inputKey({ ...DEFAULT_BOX_PARAMS, lightHeight: 41 }, 1, 1)).not.toBe(base);
     expect(inputKey({ ...DEFAULT_BOX_PARAMS, tray: '2AAA' }, 1, 1)).not.toBe(base);
+    expect(inputKey({ ...DEFAULT_BOX_PARAMS, innerDetails: !DEFAULT_BOX_PARAMS.innerDetails }, 1, 1)).not.toBe(base);
     expect(inputKey(DEFAULT_BOX_PARAMS, 2, 1)).not.toBe(base);
     expect(inputKey(DEFAULT_BOX_PARAMS, 1, 2)).not.toBe(base);
   });
