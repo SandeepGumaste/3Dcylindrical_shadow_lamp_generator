@@ -73,7 +73,7 @@
 
 **Interfaces:**
 - Consumes: `parseBinaryStl` from Task 1.
-- Produces: `export const KIT: KitSpec` with at least: `boxW: 120`, `boxD: 150`, `wallThickness: number`, `walls: Record<'w1'|'w2'|'w3'|'w4', { length: number; maxHeight: number; features: Feature[] }>` where `Feature = { kind: 'tab' | 'boss' | 'hole'; x: number; y: number; w: number; h: number; z0: number; z1: number }` (position and size in the wall's own plate frame: x along the wall's height direction, y along its length, z through the plate), `panelPlaneX: number` (where the panel plane sits in a wall's x), `wallOffset: { short: number; long: number }` (distance of each wall plate from the box axis), `postLength: 60`, `lightHeightRange: [number, number]`, `T: number`.
+- Produces: `type WallId = 'w1' | 'w2' | 'w3' | 'w4'` (w1 and w4 are the 120 mm walls, w2 and w3 the 147 mm walls, matching the numbers on the original parts); `export const KIT: KitSpec` with at least: `boxW: 120`, `boxD: 150`, `wallThickness: number`, `walls: Record<WallId, { length: number; maxHeight: number; features: Feature[] }>` where `Feature = { kind: 'tab' | 'boss' | 'hole'; x: number; y: number; w: number; h: number; z0: number; z1: number }` (position and size in the wall's own plate frame: x along the wall's height direction, y along its length, z through the plate), `panelPlaneX: number` (where the panel plane sits in a wall's x), `wallOffset: { short: number; long: number }` (distance of each wall plate from the box axis), `postLength: 60`, `lightHeightRange: [number, number]`, `T: number`.
 
 - [ ] **Step 1: Write the script** `measure-kit.ts` (run with `npx tsx scripts/measure-kit.ts`): for each wall STL in `research/…_stls/` print the plate thickness (the z of the main flat face; measured values so far: 3.0 mm plate, tabs to 4.2, and bosses to 9.7 on `obj_2_3`/`obj_3_2`), and every connected group of faces above the plate as a bounding box. For the tray print the rim notch positions. The scene positions in the files are not an assembly, so also print the data needed to derive `panelPlaneX`, `wallOffset` and `T` (tab positions against the tray rim notches and the 114 × 144 panel inset).
 - [ ] **Step 2: Fill in `kitSpec.ts`** from the output. Any value that cannot be established from the files is not guessed: stop and ask the owner (spec rule).
@@ -88,8 +88,8 @@
 - Create: `src/geometry/box/shadowModel.ts`, `src/geometry/box/__tests__/shadowModel.test.ts`
 
 **Interfaces:**
-- Consumes: `KIT` from Task 2.
-- Produces: `rimPoint(wall: WallId, s: number): { d: number; angle: number }` (position `s` in mm along that wall from its start to the plan distance and direction from the box axis); `reachForHeight(h: number, d: number, L: number, T: number): number`; `heightForReach(r: number, d: number, L: number, T: number): number`; `type WallId = 'w1'|'w2'|'w3'|'w4'`.
+- Consumes: `KIT` and `WallId` from Task 2.
+- Produces: `rimPoint(wall: WallId, s: number): { d: number; angle: number }` (position `s` in mm along that wall from its start to the plan distance and direction from the box axis); `reachForHeight(h: number, d: number, L: number, T: number): number`; `heightForReach(r: number, d: number, L: number, T: number): number`.
 
 - [ ] **Step 1: Write failing tests:** `heightForReach(reachForHeight(h,d,L,T),d,L,T)` returns `h` within 1e-9 for several values; at `h = 0` reach equals `d·(L+T)/L`; `rimPoint` for the midpoint of a wall has `angle` equal to that wall's outward direction (0, π/2, π, 3π/2 in wall order); the last point of one wall and the first point of the next return the same `{d, angle}` (corner continuity).
 - [ ] **Step 2: Run to verify failure,** then implement the three functions using the formula in Global Constraints.
@@ -179,7 +179,7 @@
 
 **Interfaces:**
 - Consumes: `runBox`, `DEFAULT_BOX_PARAMS`, `loadImageToGray`.
-- Produces: `useBoxGenerator(active: boolean)` returning `{ params, setParams(patch), shadowName, panelName, selectShadow(file), selectPanel(file), result, busy, stale, error, generate, downloadKit, downloadPart(id) }`, with bundled default shadow and panel images so the mode shows a model on first load.
+- Produces: `useBoxGenerator(active: boolean)` returning `{ params, setParams(patch), shadowName, panelName, selectShadow(file), selectPanel(file), result, busy, stale, error, generate, downloadKit, downloadPart(id) }`, with the existing `src/assets/hanuman.png` as the default shadow image and `src/assets/cat.png` as the default panel picture, so the mode shows a model on first load.
 
 - [ ] **Step 1: Write failing tests** for the helper: stale is false with no result; stale is false when the keys match; stale is true after any parameter or image change.
 - [ ] **Step 2: Run to verify failure,** then implement the hook following `useTealightGenerator.ts` (generate once when `active` becomes true and both images are loaded, and whenever either image changes; settings changes only mark it stale; the token pattern drops results from cancelled runs). Use `downloadSTL` for single parts and a blob link for the zip.
