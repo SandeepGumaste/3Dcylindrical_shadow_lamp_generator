@@ -79,17 +79,28 @@ src/
 
 ## Table modes: tealight shade and shadow-art bowl
 
-A mode switch at the top of the sidebar selects **Cylinder lamp (wall)** (everything above, unchanged), **Tealight shade (table)** or **Shadow-art bowl**. The two new modes are self-contained and use a z-up, table-at-z=0 convention (the cylinder mode is y-up).
+The app has three modes: **Cylinder lamp (wall)** (everything above, unchanged), **Tealight shade (table)** and **Shadow-art bowl**. Tealight shade is the default; the cylinder and bowl modes are hidden in the UI for now but their code is kept. The table modes are self-contained and use a z-up, table-at-z=0 convention (the cylinder mode is y-up).
 
 ```
-src/geometry/tealightShade.ts   params, r(z)/z_max formulas, inverse sampling, ribs/vents/island bridging, LED socket, forward projection (compareShadow)
+src/geometry/tealightShade.ts   params, r(z)/z_max formulas, inverse sampling, ribs/vents/island bridging, rib optimizer (suggestRibs), closed floor, LED socket, forward projection (compareShadow)
 src/geometry/shellMesh.ts       generic marching-squares shell mesher on a (theta, z) field; shared vertices, seam wrap, watertight by construction
 src/geometry/shadowBowl.ts      silhouette radii -> h(theta) = hLED (1 - R / rs), smoothing, revolved profile mesh
 src/geometry/meshCheck.ts       index-based manifold / orientation / degenerate / signed-volume checks
 src/image/tealightSamples.ts    procedural sample patterns (mandala, crest, cat head) + asymmetric test image
+src/assets/                     bundled default images (Hanuman, Cat), each with its own default image size
 src/workers/tealight*.ts        shared compute, worker and runner (main-thread fallback)
-src/hooks/useTealightGenerator.ts  state, validation, debounced regenerate, STL download
-src/components/Tealight*.tsx, TableInset.tsx   panel, lit three.js preview, forward-projection inset
+src/hooks/useTealightGenerator.ts  state, bundled images, validation, manual generate + stale tracking, STL/map download
+src/components/Tealight*.tsx, TableInset.tsx   panel, lit three.js preview, collapsible forward-projection inset
 ```
 
 Notes: outer-surface vertices sit where the ray from the light through the inner vertex meets the outer cone (a constant scale about the light), blended to zero at the bottom and top rims so both rims stay planar. Wall rows are spaced geometrically in table radius, so cells are roughly square on the table rather than on the wall. The bowl uses the outer top edge of the rim (R + wall) as the grazing edge.
+
+### Tealight shade details
+
+- **Image placement:** the image is sampled as the shadow on the table, scaled by `imageScale` (% of the shadow disc) and shifted by `imageOffsetX/Y`, which moves the light relative to the image.
+- **Ribs:** each rib is a solid vertical strip across the pattern band with a triangular bump on the inner wall that points toward the axis. Ribs are placed from `ribAngleList(p)`: explicit `ribAngles` if set, otherwise `ribs` evenly spaced from angle 0. The inner bump (`ribBump`) fades out above the pattern band so the top rim stays clean.
+- **Rib optimizer** (`suggestRibs`, on by default via `autoRibs`): builds the wall field with no ribs (after small-feature cleanup and island bridging), then looks for printing overhangs. A hole needs support when its cross-section is wider than `maxBridge` (default 8 mm) and its roof is shallower than about 45 degrees. It tries 2, 4, 6 ... up to 48 evenly spaced ribs, each at a few rotations, and keeps the first that leaves no such hole, so the ribs always look uniform. The count depends on the image and can be 0 if nothing needs support. Editing Support Ribs by hand sets `autoRibs` to false. The suggestion is computed in `runTealightRequest` (`src/workers/tealightCompute.ts`) and returned as `ribSuggestion`, which the panel uses to show the count and a hint.
+- **Floor and vents:** `closeBottom` adds a solid floor plate under the shade (with vents off); otherwise base vents are arches cut up from the bottom edge, centred between ribs.
+- **Printability checks:** minimum feature size drops tiny holes and specks, auto-bridge attaches floating islands with thin strips, and `meshCheck` verifies the mesh is watertight.
+- **Layout:** on desktop the preview fills the right column and the "Table shadow check" inset (`TableInset.tsx`) is a collapsible bar underneath, collapsed by default. On mobile the preview is sticky at the top with the controls scrolling under it and the action bar pinned.
+- **Manual generation:** the model is built when an image is first loaded (the default Hanuman on start-up), when another bundled image is picked, and when an image is uploaded. Changing any setting does not regenerate: the hook keeps a snapshot of the inputs (mode, parameters, image) used for the last result, and when the current inputs differ `stale` is true. The viewer then shows a floating "model needs to be generated again" banner with a Generate button, the panel button reads "Regenerate 3D Model", and STL/SVG export is disabled until it is regenerated.

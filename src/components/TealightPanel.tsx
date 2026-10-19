@@ -91,10 +91,10 @@ export const TealightPanel: React.FC<{ c: TealightController }> = ({ c }) => {
               onChange={(v) => c.setTealight(v ? { autoRibs: true } : { autoRibs: false, ribs })}
               hint={rs ? (rs.achievable
                 ? (rs.ribs > 0
-                  ? `Placed ${rs.ribs} rib${rs.ribs === 1 ? '' : 's'} at the wide holes in this pattern (widest was ${Number.isFinite(rs.spanWithoutRibs) ? rs.spanWithoutRibs.toFixed(0) + ' mm' : 'a full ring'}; now all within ${t.maxBridge} mm or steep).`
+                  ? `Using ${rs.ribs} evenly spaced ribs for this pattern (widest unsupported hole was ${Number.isFinite(rs.spanWithoutRibs) ? rs.spanWithoutRibs.toFixed(0) + ' mm' : 'a full ring'}; now all within ${t.maxBridge} mm or steep).`
                   : 'This pattern needs no ribs for printing.')
                 : `${rs.ribs} ribs is the most allowed and still leaves a ${rs.worstSpan.toFixed(1)} mm flat-roofed hole.`)
-                : 'Analyses the generated pattern and adds ribs only where it has wide flat-roofed holes. Editing Support Ribs turns this off.'} />
+                : 'Analyses the generated pattern and picks an even number of evenly spaced ribs. Editing Support Ribs turns this off.'} />
             <Num label="Max bridge span" unit="mm" value={t.maxBridge} min={2} max={20} step={0.5} disabled={!t.autoRibs} onChange={(v) => c.setTealight({ maxBridge: v })} />
             <Num label="Support Ribs" value={ribs} min={0} max={48} onChange={(v) => c.setTealight({ ribs: v, autoRibs: false })} />
             <Num label="Rib Width" unit="mm" value={t.ribWidth} min={0.8} max={6} step={0.2} disabled={ribs === 0} onChange={(v) => c.setTealight({ ribWidth: v })} />
@@ -159,13 +159,13 @@ export const TealightPanel: React.FC<{ c: TealightController }> = ({ c }) => {
         <div className="flex gap-2 [&_button]:min-h-11 lg:[&_button]:min-h-0">
           <button onClick={c.reset} className="flex items-center gap-1 px-2.5 py-2 rounded-lg border border-slate-700 hover:bg-slate-800"><RotateCcw className="w-3.5 h-3.5" />Reset</button>
           <button onClick={c.generate} disabled={bad || c.busy} className="flex-1 flex items-center justify-center gap-1.5 px-2.5 py-2 rounded-lg bg-amber-500/20 border border-amber-500/40 text-amber-200 hover:bg-amber-500/30 disabled:opacity-40">
-            <Play className="w-3.5 h-3.5" />{c.busy ? 'Generating…' : 'Generate 3D Model'}
+            <Play className="w-3.5 h-3.5" />{c.busy ? 'Generating…' : c.stale ? 'Regenerate 3D Model' : 'Generate 3D Model'}
           </button>
-          <button onClick={c.download} disabled={!c.result || bad || !c.result.check.watertight} className="flex items-center gap-1.5 px-2.5 py-2 rounded-lg bg-emerald-500/20 border border-emerald-500/40 text-emerald-200 hover:bg-emerald-500/30 disabled:opacity-40">
+          <button onClick={c.download} disabled={!c.result || c.stale || bad || !c.result.check.watertight} className="flex items-center gap-1.5 px-2.5 py-2 rounded-lg bg-emerald-500/20 border border-emerald-500/40 text-emerald-200 hover:bg-emerald-500/30 disabled:opacity-40">
             <Download className="w-3.5 h-3.5" />STL
           </button>
           {isTea && (
-            <button onClick={c.downloadMap} disabled={!c.result?.mapSvg || bad} title="Unwrapped wall map (mm), solid = black, holes = white"
+            <button onClick={c.downloadMap} disabled={!c.result?.mapSvg || c.stale || bad} title="Unwrapped wall map (mm), solid = black, holes = white"
               className="flex items-center gap-1.5 px-2.5 py-2 rounded-lg bg-sky-500/20 border border-sky-500/40 text-sky-200 hover:bg-sky-500/30 disabled:opacity-40">
               <Download className="w-3.5 h-3.5" />SVG
             </button>

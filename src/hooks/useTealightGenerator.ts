@@ -20,15 +20,17 @@ export const BUNDLED_IMAGES = [
 ];
 const NEUTRAL = { invert: false, brightness: 0, contrast: 1, gamma: 1, threshold: 0.5, rotation: 0, flipHorizontal: false } as const;
 
-export function useTealightGenerator(active: boolean, mode: TableMode) {
+export function useTealightGenerator(mode: TableMode) {
   const [tParams, setTParams] = useState<TealightParams>({ ...DEFAULT_TEALIGHT_PARAMS, ...BUNDLED_IMAGES[0].params });
   const [bParams, setBParams] = useState<BowlParams>({ ...DEFAULT_BOWL_PARAMS });
   const [sampleId, setSampleId] = useState<string>(DEFAULT_IMAGE_ID);
-  const [uploaded, setUploaded] = useState<{ name: string; image: GrayImage } | null>(null);
+  const [uploaded, setUploaded] = useState<{ name: string; image: GrayImage; id: number } | null>(null);
   const [result, setResult] = useState<TealightOutput | null>(null);
   const [busy, setBusy] = useState(false);
   const [runError, setRunError] = useState<string | null>(null);
   const token = useRef(0);
+  /** Snapshot of the inputs the current `result` was generated from. */
+  const [generatedKey, setGeneratedKey] = useState<string | null>(null);
 
   const [bundled, setBundled] = useState<Record<string, GrayImage>>({});
   useEffect(() => {
@@ -48,23 +50,32 @@ export function useTealightGenerator(active: boolean, mode: TableMode) {
 
   const errors = useMemo(() => (mode === 'tealight' ? validateTealightParams(tParams) : validateBowlParams(bParams)), [mode, tParams, bParams]);
 
+  const inputKey = useMemo(
+    () => JSON.stringify([mode, mode === 'tealight' ? tParams : bParams, sampleId, sampleId === 'upload' ? uploaded?.id : null]),
+    [mode, tParams, bParams, sampleId, uploaded],
+  );
+  /** True once the inputs have changed since the model on screen was generated. */
+  const stale = result !== null && generatedKey !== inputKey;
+
   const generate = useCallback(() => {
     if (errors.length || !image) return;
     const my = ++token.current;
+    const key = inputKey;
     setBusy(true);
     setRunError(null);
     const req = mode === 'tealight' ? ({ kind: 'tealight', image, params: tParams } as const) : ({ kind: 'bowl', image, params: bParams } as const);
     runTealight(req)
-      .then((r) => { if (token.current === my) { setResult(r); setBusy(false); } })
+      .then((r) => { if (token.current === my) { setResult(r); setGeneratedKey(key); setBusy(false); } })
       .catch((e: Error) => { if (token.current === my) { setRunError(e.message); setBusy(false); } });
-  }, [errors, mode, image, tParams, bParams]);
+  }, [errors, mode, image, tParams, bParams, inputKey]);
 
-  // Debounced auto-regenerate while the mode is visible.
+  // Generate on first load and whenever the image changes (bundled pick or upload), but never for
+  // settings changes: those wait for the Generate button. The ref keeps the effect on the image only.
+  const generateRef = useRef(generate);
+  generateRef.current = generate;
   useEffect(() => {
-    if (!active) return;
-    const id = setTimeout(generate, 350);
-    return () => clearTimeout(id);
-  }, [active, generate]);
+    if (image) generateRef.current();
+  }, [image]);
 
   const selectSample = (id: string) => {
     setSampleId(id);
@@ -76,7 +87,7 @@ export function useTealightGenerator(active: boolean, mode: TableMode) {
 
   const upload = async (file: File) => {
     const { grayImage } = await loadImageToGray(file, { targetResolution: 512, adjustments: { ...NEUTRAL } });
-    setUploaded({ name: file.name.replace(/\.[^.]+$/, '').replace(/[^a-z0-9_-]+/gi, '-').toLowerCase() || 'image', image: grayImage });
+    setUploaded((u) => ({ name: file.name.replace(/\.[^.]+$/, '').replace(/[^a-z0-9_-]+/gi, '-').toLowerCase() || 'image', image: grayImage, id: (u?.id ?? 0) + 1 }));
     setSampleId('upload');
   };
 
@@ -112,7 +123,7 @@ export function useTealightGenerator(active: boolean, mode: TableMode) {
 
   return {
     mode, tParams, bParams, setTealight, setBowl: (patch: Partial<BowlParams>) => setBParams((p) => ({ ...p, ...patch })),
-    sampleId, selectSample, upload, imageName, image, result, busy, errors, runError, generate, reset, download, downloadMap,
+    sampleId, selectSample, upload, imageName, image, result, stale, busy, errors, runError, generate, reset, download, downloadMap,
   };
 }
 
