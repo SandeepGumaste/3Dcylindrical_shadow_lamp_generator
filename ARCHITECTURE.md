@@ -105,3 +105,12 @@ Notes: outer-surface vertices sit where the ray from the light through the inner
 - **Printability checks:** minimum feature size drops tiny holes and specks, auto-bridge attaches floating islands with thin strips, and `meshCheck` verifies the mesh is watertight.
 - **Layout:** on desktop the preview fills the right column and the "Table shadow check" inset (`TableInset.tsx`) is a collapsible bar underneath, collapsed by default. On mobile the preview is sticky at the top with the controls scrolling under it and the action bar pinned.
 - **Manual generation:** the model is built when an image is first loaded (the default Hanuman on start-up), when another bundled image is picked, and when an image is uploaded. Changing any setting does not regenerate: the hook keeps a snapshot of the inputs (mode, parameters, image) used for the last result, and when the current inputs differ `stale` is true. The viewer then shows a floating "model needs to be generated again" banner with a Generate button, the panel button reads "Regenerate 3D Model", and STL/SVG export is disabled until it is regenerated.
+
+### Guided and advanced views
+
+On the first visit a welcome dialog asks "Are you new to making lamps like this?". The answer is remembered per device (`src/ui/experience.ts`, localStorage with every access guarded, so a blocked store just means it asks every visit) and can be changed any time with the **Guided steps** button in the advanced sidebar or the **Advanced view** button in the guided header.
+
+- **Advanced** is the original sidebar and preview (`TealightPanel`, `TealightViewport`, `TableInset`), unchanged.
+- **Guided** (`src/components/guided/GuidedApp.tsx`, scoped styles in `guided.css`) shows the same settings one step at a time: pick an image, shape the shade, make it printable, generate and export. It has light and dark themes (system default, remembered, scoped to this view) and a phone layout with the preview pinned on top.
+- Both views share one controller (`useTealightGenerator`), so settings, the generated model and the out-of-date state survive switching. The step contents, the greyed-out rules and how a change applies (editing the rib count turns the optimizer off, closing the bottom clears the vents, turning the optimizer off keeps the current count) are plain data and functions in `src/ui/guidedSteps.ts`, tested to place every Tealight setting in exactly one step.
+- The prototype this was built from is `docs/prototypes/guided-steps.html` (branch `docs/guided-steps-prototype`).
