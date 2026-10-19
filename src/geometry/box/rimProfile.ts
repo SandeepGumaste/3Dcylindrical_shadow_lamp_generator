@@ -155,3 +155,14 @@ export function buildRimProfile(img: GrayImage, p: BoxParams): RimProfile {
   warnings.push('Only shapes with one reach per direction from the light can be reproduced; anything else is simplified.');
   return { heights, step: PROFILE_STEP, warnings, clamped };
 }
+
+/** Messages for settings the kit cannot be built with; empty when the parameters are usable. */
+export function validateBoxParams(p: BoxParams): string[] {
+  const e: string[] = [];
+  const [lo, hi] = KIT.lightHeightRange;
+  if (!(p.lightHeight >= lo && p.lightHeight <= hi)) e.push(`Light height must be between ${lo} and ${hi} mm (the post is ${KIT.post.length} mm long).`);
+  if (!(p.shadowSize > 0)) e.push('Shadow size must be above 0 mm.');
+  if (!(p.minSpike >= 0)) e.push('Minimum spike width cannot be negative.');
+  if (!(p.minGap >= 0)) e.push('Minimum gap width cannot be negative.');
+  return e;
+}
