@@ -41,7 +41,7 @@ export const KIT = {
   /** Centre of the post socket, which is also the centre of the keyhole recess. */
   lightAxis: { x: 60, y: 117.9 },
   /** LED height above the panel, limited by the 60 mm post standing on the tray floor. */
-  lightHeightRange: [10, 43] as [number, number],
+  lightHeightRange: [20, 43] as [number, number],
   walls: {
     w1: {
       length: 121, maxHeight: 61.9, attachAtMax: false,
