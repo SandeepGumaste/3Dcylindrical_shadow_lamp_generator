@@ -94,6 +94,16 @@ export const ShadowWallPanel: React.FC<{ c: ShadowWallController }> = ({ c }) =>
         <Num label="Light Height" unit="mm" value={p.lightHeight} min={25} max={300} onChange={(v) => c.setParams({ lightHeight: v })} />
       </Group>
 
+      <Group title="Base">
+        <Check label="Base plate" value={p.base} onChange={(v) => c.setParams({ base: v })} hint="A plate under the wall with a hole for the light and magnet pockets underneath." />
+        <Num label="Base Thickness" unit="mm" value={p.baseThickness} min={0.4} max={10} step={0.2} disabled={!p.base} onChange={(v) => c.setParams({ baseThickness: v })} />
+        <Num label="Centre Hole Diameter" unit="mm" value={p.baseHoleDiameter} min={4} max={60} step={0.5} disabled={!p.base} onChange={(v) => c.setParams({ baseHoleDiameter: v })} />
+        <Check label="Magnet pockets" value={p.magnetHoles} onChange={(v) => c.setParams({ magnetHoles: v })} />
+        <Num label="Pocket Diameter" unit="mm" value={p.magnetDiameter} min={3} max={20} step={0.1} disabled={!p.base || !p.magnetHoles} onChange={(v) => c.setParams({ magnetDiameter: v })} />
+        <Num label="Pocket Depth" unit="mm" value={p.magnetDepth} min={0.4} max={Math.max(0.4, p.baseThickness - 0.4)} step={0.1} disabled={!p.base || !p.magnetHoles} onChange={(v) => c.setParams({ magnetDepth: v })} />
+        <Num label="Pocket Offset" unit="mm" value={p.magnetOffset} min={5} max={60} step={0.5} disabled={!p.base || !p.magnetHoles} onChange={(v) => c.setParams({ magnetOffset: v })} />
+      </Group>
+
       <Group title="Shadow">
         <Num label="Shadow Size (width)" unit="mm" value={p.shadowSize} min={100} max={1000} step={10} onChange={(v) => c.setParams({ shadowSize: v })} />
         <Num label="Image Size in shadow" unit="%" value={p.imageScale} min={10} max={300} step={5} onChange={(v) => c.setParams({ imageScale: v })} />

@@ -1,8 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import type { GrayImage } from '../../../types';
-import { DEFAULT_SHADOW_WALL_PARAMS, ShadowWallParams, deriveGeometry, generateShadowWall, largeModelWarning, surfaceMaps } from '../shadowWall';
+import { DEFAULT_SHADOW_WALL_PARAMS, ShadowWallParams, validateShadowWallParams, deriveGeometry, generateShadowWall, largeModelWarning, surfaceMaps } from '../shadowWall';
 
-const P = DEFAULT_SHADOW_WALL_PARAMS;
+// The base is covered in base.test.ts and the 'with a base' blocks; these tests describe the bare wall.
+const P = { ...DEFAULT_SHADOW_WALL_PARAMS, base: false };
 const N = 256;
 
 function flat(v: number): GrayImage {
@@ -190,5 +191,59 @@ describe('largeModelWarning', () => {
   });
   it('does not fire on the defaults', () => {
     expect(generateShadowWall(disc(60), P, false).report.warnings.some((w) => /Very large model/.test(w))).toBe(false);
+  });
+});
+
+describe('generateShadowWall with a base', () => {
+  for (const [name, bare] of shapes) {
+    describe(name, () => {
+      const p: ShadowWallParams = { ...bare, base: true };
+      const res = generateShadowWall(disc(60), p);
+      const T = p.baseThickness;
+      const bounds = (pos: Float32Array) => {
+        let z0 = Infinity, z1 = -Infinity, x0 = Infinity, x1 = -Infinity;
+        for (let v = 0; v < pos.length; v += 3) { z0 = Math.min(z0, pos[v + 2]); z1 = Math.max(z1, pos[v + 2]); x0 = Math.min(x0, pos[v]); x1 = Math.max(x1, pos[v]); }
+        return { z0, z1, x0, x1 };
+      };
+      it('is watertight with positive volume', () => {
+        expect(res.report.check.errors).toEqual([]);
+        expect(res.report.check.watertight).toBe(true);
+        expect(res.report.check.degenerateTriangles).toBe(0);
+        expect(res.report.check.signedVolume).toBeGreaterThan(0);
+      });
+      it('rests on z = 0, reaches height + T and keeps the wall footprint', () => {
+        const b = bounds(res.positions), bb = bounds(generateShadowWall(disc(60), bare).positions);
+        expect(b.z0).toBeCloseTo(0, 4);
+        expect(b.z1).toBeCloseTo(p.height + T, 3);
+        expect(b.x1 - b.x0).toBeCloseTo(bb.x1 - bb.x0, 4);
+      });
+      it('has the centre hole and the magnet pockets in the mesh', () => {
+        const near = (x: number, y: number, z: number) => {
+          for (let v = 0; v < res.positions.length; v += 3)
+            if (Math.hypot(res.positions[v] - x, res.positions[v + 1] - y) < 1e-3 && Math.abs(res.positions[v + 2] - z) < 1e-3) return true;
+          return false;
+        };
+        expect(near(p.baseHoleDiameter / 2, 0, 0)).toBe(true);
+        expect(near(p.baseHoleDiameter / 2, 0, T)).toBe(true);
+        expect(near(p.magnetDiameter / 2, p.magnetOffset, 0)).toBe(true);
+        expect(near(0, p.magnetOffset, p.magnetDepth)).toBe(true);
+        expect(near(0, -p.magnetOffset, p.magnetDepth)).toBe(true);
+      });
+      it('adds the plate volume to the bare wall volume (within the foot ground change)', () => {
+        const bareVol = generateShadowWall(disc(60), bare).report.check.signedVolume;
+        expect(res.report.check.signedVolume).toBeGreaterThan(bareVol);
+      });
+    });
+  }
+  it('reports invalid base parameters through validateShadowWallParams, and the defaults are clean', () => {
+    expect(validateShadowWallParams(P)).toEqual([]);
+    expect(validateShadowWallParams({ ...P, base: true })).toEqual([]);
+    expect(validateShadowWallParams({ ...P, base: true, baseThickness: 0.2 }).join(' ')).toMatch(/Base Thickness/);
+    expect(validateShadowWallParams({ ...P, base: true, baseHoleDiameter: 2 }).join(' ')).toMatch(/Base Hole Diameter/);
+    expect(validateShadowWallParams({ ...P, base: true, magnetDepth: 3 }).join(' ')).toMatch(/too deep/);
+    expect(() => generateShadowWall(disc(60), { ...P, base: true, baseHoleDiameter: 2 })).toThrow(/Base Hole Diameter/);
+  });
+  it('ignores base parameters when the base is off', () => {
+    expect(validateShadowWallParams({ ...P, base: false, baseThickness: 0.1, baseHoleDiameter: 1 })).toEqual([]);
   });
 });

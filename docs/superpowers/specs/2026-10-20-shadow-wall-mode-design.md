@@ -9,7 +9,7 @@ A third mode next to Tealight shade and Box shadow. A standing thin wall around 
 ## Scope
 
 In: rectangle (corner radius) and ellipse footprints; vertical walls; the shadow image placed on the table around the axis; dark = shadow = solid (the Box shadow convention, not Tealight's); a solid foot and a solid top rim; printability cleanup (small features, floating pieces); lit preview, STL download.
-Out for now (parked): custom SVG footprint, splitting the wall into flat plates (lying / overhang layouts), base plate with magnet holes, inner pattern layer, ribs, LED socket, vents, SVG export.
+Out for now (parked): custom SVG footprint, splitting the wall into flat plates (lying / overhang layouts), inner pattern layer, ribs, LED socket, vents, SVG export.
 
 ## Geometry
 
@@ -35,5 +35,5 @@ A tab "Shadow wall (table)". A new hook `useShadowWallGenerator` (image presets 
 ## Rulings made while designing
 
 - Dark = solid (Box convention). Tealight's "black = hole" would give a lit silhouette; the source model casts a dark one. The image presets work in both because the silhouettes are black on white.
-- No base plate: the wall stands on the table; the solid foot ring is the base.
+- Base plate (added later, see `docs/superpowers/plans/2026-10-20-shadow-wall-base.md`): a base plate under the wall (default on, like Tealight's floor): a plate of `baseThickness` (3 mm) with a centre hole (12.5 mm) for the light and two magnet pockets (8.1 x 2.1 mm, 12 mm either side of the centre) on the underside, built in `src/geometry/shadowWall/base.ts` from the shell's bottom rings (`skipBottomBorder`). The wall's z stays measured from the top of the plate and the whole model is shifted up by the thickness at the end; the ground where the shadow lands is the plate's underside, so a wall node (q, z) maps to the table point q * (hf + G) / (hf - z) with G = base thickness (0 without a base), used by the field sampling, the row spacing and the reach warning (`tableScale` in `shadowWall.ts`). `lightHeight` stays measured above the top of the base.
 - Floating pieces are dropped, not bridged, in v1 (the shapes are centred on the axis, so most connect to the foot through the rays near it).

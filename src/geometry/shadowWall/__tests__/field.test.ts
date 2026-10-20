@@ -1,10 +1,11 @@
 import { describe, it, expect } from 'vitest';
 import type { GrayImage } from '../../../types';
 import {
-  DEFAULT_SHADOW_WALL_PARAMS, FOOT, RIM, outerHeightAt, ShadowWallParams, buildField, deriveGeometry, validateShadowWallParams,
+  DEFAULT_SHADOW_WALL_PARAMS, FOOT, RIM, outerHeightAt, ShadowWallParams, buildField, deriveGeometry, validateShadowWallParams, tableScale, groundDrop, DEFAULT_SHADOW_WALL_PARAMS as DEFAULTS,
 } from '../shadowWall';
 
-const P = DEFAULT_SHADOW_WALL_PARAMS;
+// The base is covered in base.test.ts and the 'with a base' blocks; these tests describe the bare wall.
+const P = { ...DEFAULT_SHADOW_WALL_PARAMS, base: false };
 const N = 512;
 
 /** White image with dark discs; each disc is (centre x, centre y, radius) in mm on the table (y up), at 400 mm / 512 px. */
@@ -194,5 +195,43 @@ describe('buildField', () => {
       return n;
     };
     expect(softNodes(40)).toBeGreaterThan(softNodes(0));
+  });
+});
+
+describe('ground drop (base)', () => {
+  const B: ShadowWallParams = { ...DEFAULTS, base: true, baseThickness: 4, edgeRounding: 0 };
+  const N0: ShadowWallParams = { ...B, base: false };
+
+  it('tableScale is exactly hf / (hf - z) without a drop and (hf + G) / (hf - z) with one', () => {
+    expect(groundDrop(N0)).toBe(0);
+    expect(groundDrop(B)).toBe(4);
+    expect(tableScale(90, 0, 30)).toBe(90 / 60);
+    expect(tableScale(90, 4, 30)).toBeCloseTo(94 / 60, 12);
+  });
+
+  it('the base only changes the row spacing through (hf + G): rows get denser by that factor', () => {
+    const a = deriveGeometry(N0), b = deriveGeometry(B);
+    const z = a.zs[a.bandStart], hf = B.lightHeight, cell = a.outline.perimeter / a.outline.cols;
+    let dMax = 0;
+    for (let i = 0; i < a.outline.cols; i++) dMax = Math.max(dMax, a.outline.dIn[i]);
+    expect(a.zs[a.bandStart + 1] - z).toBeCloseTo((cell * (hf - z) ** 2) / (dMax * hf), 9);
+    expect(b.zs[b.bandStart + 1] - z).toBeCloseTo((cell * (hf - z) ** 2) / (dMax * (hf + 4)), 9);
+    expect(b.zs[b.bandStart + 1] - z).toBeLessThan(a.zs[a.bandStart + 1] - z);
+  });
+
+  it('a node is lit or shadowed by the image at the scaled table position', () => {
+    // dark disc of table radius 80 centred on the axis; a node at (q, z) is solid iff |q| (hf + G) / (hf - z) < 80
+    const img = discs([[0, 0, 80]]);
+    const { geometry: g, field } = buildField(img, B);
+    const o = g.outline;
+    let checked = 0;
+    for (let j = g.bandStart; j <= g.bandEnd; j += 7)
+      for (let i = 0; i < o.cols; i += 11) {
+        const d = Math.hypot(o.qx[i], o.qy[i]) * tableScale(B.lightHeight, 4, g.zs[j]);
+        if (Math.abs(d - 80) < 3) continue;
+        expect(field[i + o.cols * j] > 0).toBe(d < 80);
+        checked++;
+      }
+    expect(checked).toBeGreaterThan(50);
   });
 });

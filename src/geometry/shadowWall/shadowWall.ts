@@ -15,6 +15,7 @@ import { gaussianBlur, labelComponents } from '../tealightShade';
 import { buildOutline, FootprintParams, Outline } from './footprint';
 import { MeshBuilder, SurfaceMap, buildShell } from '../shellMesh';
 import { checkMesh, MeshCheck } from '../meshCheck';
+import { BaseSpec, addBase, validateBase } from './base';
 
 export interface ShadowWallParams extends FootprintParams {
   height: number;        // mm, total wall height
@@ -27,6 +28,13 @@ export interface ShadowWallParams extends FootprintParams {
   edgeRounding: number;  // 0..40, blur radius = value / 10 grid pixels
   invert: boolean;       // false: dark pixels are shadow (solid)
   minFeature: number;    // mm, 0 = off
+  base: boolean;         // plate under the wall (z = 0 of the wall is the top of the plate)
+  baseThickness: number; // mm
+  baseHoleDiameter: number; // mm, centre hole for the light
+  magnetHoles: boolean;
+  magnetDiameter: number; // mm
+  magnetDepth: number;    // mm, from the underside
+  magnetOffset: number;   // mm, pockets at (0, +offset) and (0, -offset)
 }
 
 export const DEFAULT_SHADOW_WALL_PARAMS: ShadowWallParams = {
@@ -46,6 +54,13 @@ export const DEFAULT_SHADOW_WALL_PARAMS: ShadowWallParams = {
   edgeRounding: 10,
   invert: false,
   minFeature: 0.8,
+  base: true,
+  baseThickness: 3,
+  baseHoleDiameter: 12.5,
+  magnetHoles: true,
+  magnetDiameter: 8.1,
+  magnetDepth: 2.1,
+  magnetOffset: 12,
 };
 
 export const FOOT = 3; // mm of solid foot band
@@ -71,6 +86,18 @@ export function blendWeight(g: Pick<ShadowWallGeometry, 'blendBottom' | 'blendTo
 /** Outer-surface height for an inner-surface height z at a column whose ray scale is s (the ray from the light through the inner point leaves the outer outline at s * q). */
 export function outerHeightAt(g: Pick<ShadowWallGeometry, 'blendBottom' | 'blendTop'>, p: Pick<ShadowWallParams, 'height' | 'lightHeight'>, s: number, z: number): number {
   return z + blendWeight(g, p, z) * (p.lightHeight - z) * (1 - s);
+}
+
+/** How far the ground (where the shadow lands) lies below the wall's z = 0: the base thickness, 0 without a base. */
+export const groundDrop = (p: Pick<ShadowWallParams, 'base' | 'baseThickness'>): number => (p.base ? p.baseThickness : 0);
+
+/** Table position of wall node (q, z) is q * tableScale: the ray from the light at hf through the node reaches the ground `ground` below z = 0. */
+export function tableScale(hf: number, ground: number, z: number): number {
+  return (hf + ground) / (hf - z);
+}
+
+export function baseSpecOf(p: ShadowWallParams): BaseSpec {
+  return { thickness: p.baseThickness, holeDiameter: p.baseHoleDiameter, magnets: p.magnetHoles, magnetDiameter: p.magnetDiameter, magnetDepth: p.magnetDepth, magnetOffset: p.magnetOffset };
 }
 
 export function validateShadowWallParams(p: ShadowWallParams): string[] {
@@ -100,6 +127,10 @@ export function validateShadowWallParams(p: ShadowWallParams): string[] {
   if (e.length) return e;
 
   const outline = buildOutline(p);
+  if (p.base) {
+    const be = validateBase(baseSpecOf(p), outline);
+    if (be.length) return be;
+  }
   const foot = footHeightFor(outline, p.lightHeight);
   if (foot + RIM + 5 > p.height)
     return [`No room for the foot, rim and 5 mm of pattern: this shape needs a ${foot.toFixed(1)} mm foot; raise Height above ${(foot + RIM + 5).toFixed(1)} mm or make the shape rounder / the wall thinner.`];
@@ -127,7 +158,7 @@ function footHeightFor(o: Outline, hf: number): number {
 export function deriveGeometry(p: ShadowWallParams): ShadowWallGeometry {
   const outline = buildOutline(p);
   const cell = outline.perimeter / outline.cols;
-  const hf = p.lightHeight;
+  const hf = p.lightHeight, G = groundDrop(p);
   let dMax = 0;
   for (let i = 0; i < outline.cols; i++) dMax = Math.max(dMax, outline.dIn[i]);
   const zTop = p.height - RIM;
@@ -143,7 +174,7 @@ export function deriveGeometry(p: ShadowWallParams): ShadowWallGeometry {
     const out = [foot];
     let z = foot;
     for (;;) {
-      const dz = (factor * cell * (hf - z) ** 2) / (dMax * hf);
+      const dz = (factor * cell * (hf - z) ** 2) / (dMax * (hf + G));
       if (z + dz * 1.5 >= zTop) break;
       z += dz;
       out.push(z);
@@ -184,12 +215,12 @@ export function buildField(img: GrayImage, p: ShadowWallParams): ShadowWallField
   const o = g.outline;
   const C = o.cols, zs = g.zs, rowsN = zs.length;
   const nb = g.bandEnd - g.bandStart + 1;
-  const hf = p.lightHeight;
+  const hf = p.lightHeight, G = groundDrop(p);
   const k = (p.shadowSize * (p.imageScale / 100)) / Math.max(img.width, img.height);
 
   const lum = new Float32Array(C * nb);
   for (let jb = 0; jb < nb; jb++) {
-    const s = hf / (hf - zs[g.bandStart + jb]);
+    const s = tableScale(hf, G, zs[g.bandStart + jb]);
     for (let i = 0; i < C; i++) lum[i + C * jb] = luminanceAt(img, p, k, o.qx[i] * s, o.qy[i] * s);
   }
   const blurred = gaussianBlur(lum, C, nb, p.edgeRounding / 10);
@@ -304,7 +335,7 @@ function unreachedFraction(img: GrayImage, p: ShadowWallParams, g: ShadowWallGeo
   const o = g.outline, C = o.cols, hf = p.lightHeight;
   const BINS = 720;
   const reach = new Float64Array(BINS);
-  const scale = hf / (hf - (p.height - RIM));
+  const scale = tableScale(hf, groundDrop(p), p.height - RIM);
   for (let b = 0; b < BINS; b++) {
     const dx = Math.cos((2 * Math.PI * b) / BINS), dy = Math.sin((2 * Math.PI * b) / BINS);
     let best = Infinity;
@@ -348,7 +379,11 @@ export function generateShadowWall(img: GrayImage, p: ShadowWallParams, runCheck
 
   const { inner: innerMap, outer: outerMap } = surfaceMaps(g, p);
 
-  buildShell(mb, { cols: C, zs: g.zs, field, inner: innerMap, outer: outerMap }, {});
+  const shell = buildShell(mb, { cols: C, zs: g.zs, field, inner: innerMap, outer: outerMap }, { skipBottomBorder: p.base });
+  if (p.base) {
+    addBase(mb, shell.bottomInner, shell.bottomOuter, baseSpecOf(p));
+    for (let v = 2; v < mb.positions.length; v += 3) mb.positions[v] += p.baseThickness; // rest the plate on z = 0
+  }
   const { positions, indices } = mb.toArrays();
   const check = runChecks
     ? checkMesh(positions, indices)

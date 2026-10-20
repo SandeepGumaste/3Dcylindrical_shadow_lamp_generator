@@ -18,9 +18,17 @@ describe('shadow wall request', () => {
   });
   it('reports the light height, top and ground radius for the preview', () => {
     const p = DEFAULT_SHADOW_WALL_PARAMS;
-    expect(out.lightZ).toBe(p.lightHeight);
-    expect(out.topZ).toBe(p.height);
+    expect(out.lightZ).toBe(p.lightHeight + p.baseThickness);
+    expect(out.topZ).toBe(p.height + p.baseThickness);
     expect(out.groundRadius).toBe((p.shadowSize * p.imageScale) / 200);
     expect(out.ms).toBeGreaterThanOrEqual(0);
+  });
+  it('leaves lightZ and topZ unshifted without a base', () => {
+    const p = { ...DEFAULT_SHADOW_WALL_PARAMS, base: false };
+    const o = runShadowWallRequest({ image: disc, params: p });
+    expect(o.lightZ).toBe(p.lightHeight);
+    expect(o.topZ).toBe(p.height);
+    expect(o.check.watertight).toBe(true);
+    expect(o.stl.byteLength).toBe(84 + 50 * o.triangleCount);
   });
 });
