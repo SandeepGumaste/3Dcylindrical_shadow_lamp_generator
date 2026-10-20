@@ -272,7 +272,7 @@ function luminanceAt(img: GrayImage, Rs: number, x: number, y: number, invert: b
   return invert ? 1 - l : l;
 }
 
-function gaussianBlur(src: Float32Array, W: number, Hh: number, sigma: number): Float32Array {
+export function gaussianBlur(src: Float32Array, W: number, Hh: number, sigma: number): Float32Array {
   if (sigma < 0.05) return src;
   const rad = Math.max(1, Math.ceil(3 * sigma));
   const ker = new Float32Array(2 * rad + 1);

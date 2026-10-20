@@ -79,7 +79,7 @@ src/
 
 ## Table modes: tealight shade and shadow-art bowl
 
-The app has three modes: **Cylinder lamp (wall)** (everything above, unchanged), **Tealight shade (table)** and **Shadow-art bowl**. Tealight shade is the default; the cylinder and bowl modes are hidden in the UI for now but their code is kept. The table modes are self-contained and use a z-up, table-at-z=0 convention (the cylinder mode is y-up).
+The app has these modes: **Cylinder lamp (wall)** (everything above, unchanged), **Tealight shade (table)**, **Shadow-art bowl**, plus the Box shadow and Shadow wall modes described below. Tealight shade is the default; the cylinder and bowl modes are hidden in the UI for now but their code is kept. The table modes are self-contained and use a z-up, table-at-z=0 convention (the cylinder mode is y-up).
 
 ```
 src/geometry/tealightShade.ts   params, r(z)/z_max formulas, inverse sampling, ribs/vents/island bridging, rib optimizer (suggestRibs), closed floor, LED socket, forward projection (compareShadow)
@@ -106,3 +106,61 @@ Notes: outer-surface vertices sit where the ray from the light through the inner
 - **Printability checks:** minimum feature size drops tiny holes and specks, auto-bridge attaches floating islands with thin strips, and `meshCheck` verifies the mesh is watertight.
 - **Layout:** on desktop the preview fills the right column and the "Table shadow check" inset (`TableInset.tsx`) is a collapsible bar underneath, collapsed by default. On mobile the preview is sticky at the top with the controls scrolling under it and the action bar pinned.
 - **Manual generation:** the model is built when an image is first loaded (the default Hanuman on start-up), when another bundled image is picked, and when an image is uploaded. Changing any setting does not regenerate: the hook keeps a snapshot of the inputs (mode, parameters, image) used for the last result, and when the current inputs differ `stale` is true. The viewer then shows a floating "model needs to be generated again" banner with a Generate button, the panel button reads "Regenerate 3D Model", and STL/SVG export is disabled until it is regenerated.
+
+### Guided and advanced views
+
+On the first visit a welcome dialog asks "Are you new to making lamps like this?". The answer is remembered per device (`src/ui/experience.ts`, localStorage with every access guarded, so a blocked store just means it asks every visit) and can be changed any time with the **Guided steps** button in the advanced sidebar or the **Advanced view** button in the guided header.
+
+- **Advanced** is the original sidebar and preview (`TealightPanel`, `TealightViewport`, `TableInset`), unchanged.
+- **Guided** (`src/components/guided/GuidedApp.tsx`, scoped styles in `guided.css`) shows the same settings one step at a time: pick an image, shape the shade, make it printable, generate and export. It has light and dark themes (system default, remembered, scoped to this view) and a phone layout with the preview pinned on top.
+- Both views share one controller (`useTealightGenerator`), so settings, the generated model and the out-of-date state survive switching. The step contents, the greyed-out rules and how a change applies (editing the rib count turns the optimizer off, closing the bottom clears the vents, turning the optimizer off keeps the current count) are plain data and functions in `src/ui/guidedSteps.ts`, tested to place every Tealight setting in exactly one step.
+- The prototype this was built from is `docs/prototypes/guided-steps.html` (branch `docs/guided-steps-prototype`).
+
+## Box shadow mode
+
+A wall-hung shadow box kit, fixed at 120 × 150 mm: a silhouette image becomes the top edges of four wall plates, so the box throws that silhouette on the wall behind it while a separate picture glows on the panel. It is a mode next to Tealight shade and shares none of its code.
+
+```
+src/geometry/box/kitSpec.ts      measured constants of the owner's kit (dimensions, tabs, light axis, T) from scripts/measure-kit.ts
+src/geometry/box/kitParts.ts     which bundled STLs go with which tray (2xAA / 2xAAA)
+src/geometry/box/shadowModel.ts  r = d (L + T) / (L - h) and its inverse; rim positions relative to the light axis
+src/geometry/box/rimProfile.ts   silhouette image -> top-edge height around the four walls, thin-spike widening, notch filling, warnings
+src/geometry/box/wallMesh.ts     one wall plate with its tabs (closed mesh), solid outline
+src/geometry/box/plateField.ts   per-wall solid/open cell mask for inner details: openings, thin-stroke thickening, narrow-gap filling, island bridging
+src/geometry/box/perforatedWall.ts  wall plate with openings: smooth loops (contours.ts) + cdt2d, side faces from the boundary edges
+src/geometry/box/panelMesh.ts    picture panel: 3 mm plate, picture raised to 3.5 / 4.0 mm, checkerboard-safe
+src/geometry/box/kit.ts          builds all ten parts, the assembled preview and the zip
+src/geometry/box/zip.ts          store-only zip writer
+src/workers/box*.ts              compute, worker and runner (same pattern as tealight)
+src/hooks/useBoxGenerator.ts     two images, settings, generate on image change, out-of-date rule
+src/components/Box*.tsx           panel and the lit wall preview
+public/box-kit/                  the owner's fixed parts (trays, lamp post, cap, hook, battery covers), exported unchanged
+```
+
+- **Geometry:** the light sits on the lamp post at height `L` above the panel; the panel plane is `T` = 21.5 mm in front of the mounting wall. A wall top at height `h` above the panel plane and distance `d` from the light axis grazes the ray that lands at `r = d (L + T) / (L - h)`, so the silhouette's reach in each direction sets the wall height there. The light axis is the 10 mm post bore at the box centre (60, 75 mm in the tray frame). The walls stand in the 3 mm channel outside the tray's inner wall, seated on the tray skirt 7.46 mm above the mounting wall, so a wall's plate height is `h + 14.04` mm.
+- **Limits:** only shapes with one reach per direction from the light can be reproduced. The shadow image is blurred before the threshold by the edge rounding setting (0 to 40, radius = value / 10 image pixels, default 10, as in Tealight), which smooths jagged edges. The image is read between pixels (bilinear, with the edge found by interpolation), and with Inner details the wall outline's top vertices are snapped onto the exact rim profile, because the 0.4 mm cell grid would otherwise turn into centimetre steps on the wall at far radii. Dark blobs under 25 mm² on the wall are ignored as stray pixels, spikes narrower than the minimum spike width are widened and narrower notches filled, and the user is told. Walls never drop below 15 mm from their seat (they carry their tabs) or exceed `L - 1` above the panel plane. The box has a smallest possible shadow (about 90 to 145 mm from the light for the default light height); smaller shapes are drawn larger and the user is warned. The shadow size (150 to 3000 mm) and the image size in shadow (20 to 300 %, as in Tealight) multiply to the width of the image on the wall. The light height is limited to 20 to 52 mm (the 60 mm post plus the 11.9 mm cap).
+- **Inner details (option, on by default):** with only a top edge, lit areas inside a dark shape are filled in. With the option on, a wall point at position `s` and height `h` lets light through exactly when the shadow pixel it maps to (`r = d (L + T) / (L - h)`, same direction) is light, so those areas become openings in the walls. The foot (15 mm from the seat) stays solid and the rim profile is a ceiling (cleanup never lifts the top edge, so walls still meet at the corners); strokes thinner than the minimum spike width are thickened, openings narrower than the minimum notch width are filled, and floating pieces (an eye inside a lit face) are bridged to the wall (a long piece gets a bridge about every 24 mm) or dropped, all reported as warnings. Perspective squeezes far radii, so a shape only shows on a wall for radii from about 90 to 145 mm (the box's own shadow) outwards; small shapes need a larger image size. Off keeps solid-outline walls.
+- **Kit:** four generated walls, the generated panel (with a 10.4 mm hole at the centre for the post) and five bundled parts (tray, battery cover, post, cap, hook) as individual STLs or one zip. The walls keep the tab strips of the originals (rectangular approximations) and are placed so the tabs land on the tray's rim notches: wall 4 along the bottom, 1 along the top (running the opposite way), 3 on the left and 2 on the right (running the opposite way). `KIT` is checked against the original STLs in `kitSpec.test.ts`.
+- **Same interaction rules as tealight:** generate on first load and when an image changes (not when the mode is shown again); settings changes only show the out-of-date banner.
+
+## Shadow wall mode
+
+A standing thin wall around a point light on a table, with a rounded-rectangle or ellipse footprint: the holes cut in the wall throw the image onto the table. It is the tab "Shadow wall (table)" in the advanced view (the guided view covers Tealight only), uses the z-up, table-at-z=0 convention and shares the lit `TealightViewport` and the bundled image list with Tealight.
+
+```
+src/geometry/shadowWall/footprint.ts      outline (rectangle with corner radius / ellipse): samples, normals, inner offset by the wall thickness
+src/geometry/shadowWall/shadowWall.ts     params, validation, node rows, solid/open field, cleanup, mesh generation
+src/geometry/shadowWall/limits.ts         corner radius limits shared by the panel and the validation rule
+src/workers/shadowWall*.ts                compute, worker and runner (same pattern as tealight)
+src/hooks/useShadowWallGenerator.ts       settings, image selection and upload, generate on image change, out-of-date rule
+src/components/ShadowWallPanel.tsx        panel: image, footprint, wall, shadow, printability, footer
+```
+
+- **Geometry:** the light is on the vertical axis through the footprint centre at height `lightHeight`. A wall point (u, z) on the inner surface lands on the table at `q(u) * hf / (hf - z)`, and the image (a square canvas centred on the axis, `shadowSize` wide at 100 %, rotated and offset) is sampled there; outside the canvas counts as light. Rows are uniform in the foot and adaptive in the pattern band (a row moves the table position by at most one cell), which runs to the top edge (no top rim). The shell is built with the shared marching-squares `buildShell`, periodic in u, so it is closed by construction.
+- **Ray-exact outer surface:** for each column the ray from the axis through the inner point meets the outer outline at scale `sRay`, so across the pattern band the outer point of (u, z) lies on the same straight ray as the inner point and every hole stays straight along its ray. At the foot the outer surface blends (weight `z / foot top` below, 1 from there to the top edge; no top blend) to the plain outer outline point at height z. The foot is `max(3 mm, 1.25 (sMax - 1) hf)` tall so the taper cannot fold the outer surface; validation checks the outer height map is strictly increasing in every column and only rejects when foot + 5 mm exceeds the height.
+- **Convention:** dark = solid (the Box convention), so the default image casts a dark silhouette; Invert flips it. Only the foot is forced solid; the top row follows the image and the shell is capped along the top border where solid.
+- **Cleanup:** specks smaller than a `minFeature` disc (default 0.8 mm) are flipped (the Tealight rule, periodic in u); solid pieces not connected to the foot (touching only the top edge does not count) are bridged to attached material with one thin straight strip (`bridge.ts`: 8 directions, width max(minFeature, 0.8 mm), at most 32 mm of wall surface, nearest first, repeated passes so nested pieces chain); only pieces with nothing in reach are removed. The warning counts both.
+- **Reach and fit:** the wall reaches `inner distance * (hf + G) / (hf - height)` in each direction (up to its top edge); dark pixels beyond are not reproduced and warn. `fitShadowSize` (called on every new image and by the Fit shadow to the wall button) picks the largest Shadow Size in 5 mm steps, never above the current one, with no dark pixel beyond 99 % of the reach; `ok` is false when even 100 mm does not fit. The part nearest the axis is always hidden under the base and foot.
+- **Same interaction rules as tealight:** generate on first load and when an image changes (not when the mode is shown again); settings changes only show the out-of-date banner. STL download only when the result is watertight and not stale.
+- **Base plate:** A base plate under the wall (default on, like Tealight's floor): a plate of `baseThickness` (3 mm) with a centre hole (12.5 mm) for the light and two magnet pockets (8.1 x 2.1 mm, 12 mm either side of the centre, along the footprint's longer axis, y on a tie) on the underside, built in `src/geometry/shadowWall/base.ts` from the shell's bottom rings (`skipBottomBorder`). The wall's z stays measured from the top of the plate and the whole model is shifted up by the thickness at the end; the ground where the shadow lands is the plate's underside, so a wall node (q, z) maps to the table point q * (hf + G) / (hf - z) with G = base thickness (0 without a base), used by the field sampling, the row spacing and the reach warning (`tableScale` in `shadowWall.ts`). `lightHeight` stays measured above the top of the base.
+- **Parked:** custom SVG footprint, splitting the wall into flat plates (lying / overhang layouts), inner pattern layer, ribs, LED socket, vents, SVG export, and bridging of floating pieces (they are dropped for now).
