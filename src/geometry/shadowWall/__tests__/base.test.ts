@@ -47,18 +47,22 @@ describe.each(SHAPES)('addBase %s', (_n, p) => {
   it('plate volume matches area * thickness minus hole and pockets', () => {
     const o = buildOutline(p);
     const A = area(o.px, o.py);
+    // reference: the same shell with a closed bottom and no plate (independent of addBase)
+    const g = deriveGeometry(p);
+    const zs = Float64Array.from([0, 5, 40, p.height]);
+    const field = new Float32Array(g.outline.cols * zs.length).fill(1);
+    const { inner, outer } = surfaceMaps(g, p);
+    const mb = new MeshBuilder();
+    buildShell(mb, { cols: g.outline.cols, zs, field, inner, outer }, {});
+    const ref = checkMesh(mb.toArrays().positions, mb.toArrays().indices);
+    expect(ref.watertight).toBe(true);
     const bare = build(p, { ...SPEC, holeDiameter: 0, magnets: false });
     const noMag = build(p, { ...SPEC, magnets: false });
-    expect(bare.check.watertight).toBe(true);
-    const plate = (c: { signedVolume: number }, ref: number) => c.signedVolume - ref;
-    // shell contribution is the same in all three; the bare plate is area * T.
-    const shellVol = bare.check.signedVolume - A * 3;
-    expect(plate(bare.check, shellVol)).toBeCloseTo(A * 3, 0);
+    expect(Math.abs(bare.check.signedVolume - (ref.signedVolume + A * 3))).toBeLessThan(0.01 * A * 3);
     const holeVol = Math.PI * 6.25 ** 2 * 3;
     expect(Math.abs(bare.check.signedVolume - noMag.check.signedVolume - holeVol)).toBeLessThan(0.01 * holeVol);
     const pocketVol = 2 * Math.PI * 4.05 ** 2 * 2.1;
     expect(Math.abs(noMag.check.signedVolume - full.check.signedVolume - pocketVol)).toBeLessThan(0.01 * pocketVol);
-    expect(bare.check.signedVolume / (A * 3 + shellVol)).toBeCloseTo(1, 2);
   });
   it('has no pocket vertices when magnets are off', () => {
     const off = build(p, { ...SPEC, magnets: false });
@@ -77,7 +81,8 @@ describe.each(SHAPES)('addBase %s', (_n, p) => {
       return out;
     };
     const ceiling = pts(-3 + 2.1).filter(([x, y]) => Math.hypot(x, y) < 20);
-    const ring = (cy: number) => ceiling.filter(([x, y]) => Math.abs(Math.hypot(x, y - cy) - 4.05) < 1e-5);
+    const alongX = p.width > p.length; // longer axis, y on a tie
+    const ring = (c: number) => ceiling.filter(([x, y]) => Math.abs(Math.hypot(x - (alongX ? c : 0), y - (alongX ? 0 : c)) - 4.05) < 1e-5);
     expect(ring(12).length).toBeGreaterThanOrEqual(64);
     expect(ring(-12).length).toBeGreaterThanOrEqual(64);
     const holeRing = pts(0).filter(([x, y]) => Math.abs(Math.hypot(x, y) - 6.25) < 1e-5);
@@ -93,7 +98,7 @@ describe('validateBase', () => {
     expect(validateBase({ ...SPEC, thickness: 11 }, o).join(' ')).toMatch(/thickness/i);
   });
   it('rejects a hole that is too small or too big', () => {
-    expect(validateBase({ ...SPEC, holeDiameter: 3 }, o).join(' ')).toMatch(/hole/i);
+    expect(validateBase({ ...SPEC, holeDiameter: 3 }, o).join(' ')).toMatch(/Centre Hole Diameter/);
     expect(validateBase({ ...SPEC, holeDiameter: 80 }, o).join(' ')).toMatch(/hole/i);
   });
   it('rejects pockets outside the inner outline, overlapping the hole or each other, or too deep', () => {

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { runShadowWallRequest } from '../shadowWallCompute';
-import { DEFAULT_SHADOW_WALL_PARAMS } from '../../geometry/shadowWall/shadowWall';
+import { DEFAULT_SHADOW_WALL_PARAMS, previewHeights } from '../../geometry/shadowWall/shadowWall';
 import type { GrayImage } from '../../types';
 
 const disc: GrayImage = (() => {
@@ -30,5 +30,11 @@ describe('shadow wall request', () => {
     expect(o.topZ).toBe(p.height);
     expect(o.check.watertight).toBe(true);
     expect(o.stl.byteLength).toBe(84 + 50 * o.triangleCount);
+  });
+  it('previewHeights shifts both heights by the base thickness only when the base is on', () => {
+    const p = DEFAULT_SHADOW_WALL_PARAMS;
+    expect(previewHeights(p)).toEqual({ lightZ: p.lightHeight + p.baseThickness, topZ: p.height + p.baseThickness });
+    expect(previewHeights({ ...p, base: false })).toEqual({ lightZ: p.lightHeight, topZ: p.height });
+    expect(previewHeights(p)).toEqual({ lightZ: out.lightZ, topZ: out.topZ });
   });
 });

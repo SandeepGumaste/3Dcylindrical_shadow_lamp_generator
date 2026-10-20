@@ -96,6 +96,12 @@ export function tableScale(hf: number, ground: number, z: number): number {
   return (hf + ground) / (hf - z);
 }
 
+/** Light and top heights for the preview, measured from the ground (the underside of the base). */
+export function previewHeights(p: Pick<ShadowWallParams, 'base' | 'baseThickness' | 'lightHeight' | 'height'>): { lightZ: number; topZ: number } {
+  const G = groundDrop(p);
+  return { lightZ: p.lightHeight + G, topZ: p.height + G };
+}
+
 export function baseSpecOf(p: ShadowWallParams): BaseSpec {
   return { thickness: p.baseThickness, holeDiameter: p.baseHoleDiameter, magnets: p.magnetHoles, magnetDiameter: p.magnetDiameter, magnetDepth: p.magnetDepth, magnetOffset: p.magnetOffset };
 }

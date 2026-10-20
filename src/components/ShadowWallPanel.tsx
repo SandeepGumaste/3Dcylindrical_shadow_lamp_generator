@@ -31,9 +31,9 @@ const Num: React.FC<{
   </label>
 );
 
-const Check: React.FC<{ label: string; value: boolean; onChange: (v: boolean) => void; hint?: string }> = ({ label, value, onChange, hint }) => (
-  <label className="flex items-start gap-3 lg:gap-2 py-1 lg:py-0 text-slate-300 cursor-pointer">
-    <input type="checkbox" checked={value} onChange={(e) => onChange(e.target.checked)} className="mt-0.5 size-5 lg:size-auto accent-amber-400" />
+const Check: React.FC<{ label: string; value: boolean; onChange: (v: boolean) => void; hint?: string; disabled?: boolean }> = ({ label, value, onChange, hint, disabled }) => (
+  <label className={`flex items-start gap-3 lg:gap-2 py-1 lg:py-0 text-slate-300 ${disabled ? 'opacity-40' : 'cursor-pointer'}`}>
+    <input type="checkbox" checked={value} disabled={disabled} onChange={(e) => onChange(e.target.checked)} className="mt-0.5 size-5 lg:size-auto accent-amber-400" />
     <span>{label}{hint && <span className="block text-[10px] text-slate-500">{hint}</span>}</span>
   </label>
 );
@@ -98,7 +98,7 @@ export const ShadowWallPanel: React.FC<{ c: ShadowWallController }> = ({ c }) =>
         <Check label="Base plate" value={p.base} onChange={(v) => c.setParams({ base: v })} hint="A plate under the wall with a hole for the light and magnet pockets underneath." />
         <Num label="Base Thickness" unit="mm" value={p.baseThickness} min={0.4} max={10} step={0.2} disabled={!p.base} onChange={(v) => c.setParams({ baseThickness: v })} />
         <Num label="Centre Hole Diameter" unit="mm" value={p.baseHoleDiameter} min={4} max={60} step={0.5} disabled={!p.base} onChange={(v) => c.setParams({ baseHoleDiameter: v })} />
-        <Check label="Magnet pockets" value={p.magnetHoles} onChange={(v) => c.setParams({ magnetHoles: v })} />
+        <Check label="Magnet pockets" value={p.magnetHoles} disabled={!p.base} onChange={(v) => c.setParams({ magnetHoles: v })} />
         <Num label="Pocket Diameter" unit="mm" value={p.magnetDiameter} min={3} max={20} step={0.1} disabled={!p.base || !p.magnetHoles} onChange={(v) => c.setParams({ magnetDiameter: v })} />
         <Num label="Pocket Depth" unit="mm" value={p.magnetDepth} min={0.4} max={Math.max(0.4, p.baseThickness - 0.4)} step={0.1} disabled={!p.base || !p.magnetHoles} onChange={(v) => c.setParams({ magnetDepth: v })} />
         <Num label="Pocket Offset" unit="mm" value={p.magnetOffset} min={5} max={60} step={0.5} disabled={!p.base || !p.magnetHoles} onChange={(v) => c.setParams({ magnetOffset: v })} />

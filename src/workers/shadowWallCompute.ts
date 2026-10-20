@@ -1,5 +1,5 @@
 import type { GrayImage } from '../types';
-import { ShadowWallParams, generateShadowWall, groundDrop } from '../geometry/shadowWall/shadowWall';
+import { ShadowWallParams, generateShadowWall, previewHeights } from '../geometry/shadowWall/shadowWall';
 import { indexedMeshToBinarySTL } from '../geometry/stl';
 import type { MeshCheck } from '../geometry/meshCheck';
 
@@ -31,8 +31,7 @@ export function runShadowWallRequest(req: ShadowWallRequest): ShadowWallOutput {
     check: res.report.check,
     warnings: res.report.warnings,
     ms: res.report.ms,
-    lightZ: params.lightHeight + groundDrop(params),
-    topZ: params.height + groundDrop(params),
+    ...previewHeights(params),
     groundRadius: (params.shadowSize * params.imageScale) / 200,
   };
 }

@@ -14,7 +14,7 @@ export interface BaseSpec {
   magnets: boolean;
   magnetDiameter: number; // mm
   magnetDepth: number;    // mm, from the underside
-  magnetOffset: number;   // mm, pockets at (0, +offset) and (0, -offset)
+  magnetOffset: number;   // mm, pockets at +offset and -offset from the centre along the footprint's longer axis (y on a tie)
 }
 
 const SIDES = 64;
@@ -64,6 +64,13 @@ function addInnerWall(mb: MeshBuilder, bottom: Int32Array, top: Int32Array): voi
   }
 }
 
+/** True when the two pockets go along x: the footprint is strictly wider than long (ties go along y). */
+function pocketsAlongX(xs: ArrayLike<number>, ys: ArrayLike<number>): boolean {
+  let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+  for (let i = 0; i < xs.length; i++) { x0 = Math.min(x0, xs[i]); x1 = Math.max(x1, xs[i]); y0 = Math.min(y0, ys[i]); y1 = Math.max(y1, ys[i]); }
+  return x1 - x0 > y1 - y0 + 1e-6;
+}
+
 /** Adds the plate to `mb` (z in [-thickness, 0]); the mesh stays one closed manifold with the shell. */
 export function addBase(mb: MeshBuilder, bottomInner: Int32Array, bottomOuter: Int32Array, spec: BaseSpec): void {
   const T = spec.thickness;
@@ -89,10 +96,13 @@ export function addBase(mb: MeshBuilder, bottomInner: Int32Array, bottomOuter: I
   }
   if (spec.magnets) {
     const r = spec.magnetDiameter / 2;
-    for (const cy of [spec.magnetOffset, -spec.magnetOffset]) {
-      const bottom = circle(mb, 0, cy, r, -T), top = circle(mb, 0, cy, r, -T + spec.magnetDepth);
+    const xs = Array.from(bottomOuter, (v) => pos[3 * v]), ys = Array.from(bottomOuter, (v) => pos[3 * v + 1]);
+    const alongX = pocketsAlongX(xs, ys);
+    for (const c of [spec.magnetOffset, -spec.magnetOffset]) {
+      const cx = alongX ? c : 0, cy = alongX ? 0 : c;
+      const bottom = circle(mb, cx, cy, r, -T), top = circle(mb, cx, cy, r, -T + spec.magnetDepth);
       addInnerWall(mb, bottom, top);
-      const centre = mb.vertex(0, cy, -T + spec.magnetDepth);
+      const centre = mb.vertex(cx, cy, -T + spec.magnetDepth);
       for (let k = 0; k < SIDES; k++) mb.tri(centre, top[(k + 1) % SIDES], top[k]); // ceiling, facing down
       underHoles.push(bottom);
     }
@@ -120,26 +130,30 @@ export function validateBase(spec: BaseSpec, outline: Outline): string[] {
   let minR = Infinity;
   for (let i = 0; i < outline.cols; i++) minR = Math.min(minR, outline.dIn[i]);
   const maxHole = (minR - 2) * 2;
-  if (!(spec.holeDiameter >= MIN_HOLE)) e.push(`Base Hole Diameter must be at least ${MIN_HOLE} mm.`);
+  if (!(spec.holeDiameter >= MIN_HOLE)) e.push(`Centre Hole Diameter must be at least ${MIN_HOLE} mm.`);
   else if (spec.holeDiameter > maxHole)
-    e.push(`Base Hole Diameter is too big for this shape: at most ${Math.max(0, maxHole).toFixed(1)} mm.`);
+    e.push(`Centre Hole Diameter is too big for this shape: at most ${Math.max(0, maxHole).toFixed(1)} mm.`);
   if (spec.magnets) {
     const r = spec.magnetDiameter / 2;
-    if (!(spec.magnetDiameter > 0)) e.push('Magnet Diameter must be positive.');
-    if (!(spec.magnetDepth > 0)) e.push('Magnet Depth must be positive.');
-    else if (spec.magnetDepth > spec.thickness - MIN_PLATE_ABOVE_POCKET)
-      e.push(`Magnet pockets are too deep: at most ${Math.max(0, spec.thickness - MIN_PLATE_ABOVE_POCKET).toFixed(1)} mm for this Base Thickness.`);
+    const maxDepth = spec.thickness - MIN_PLATE_ABOVE_POCKET;
+    if (!(spec.magnetDiameter > 0)) e.push('Pocket Diameter must be positive.');
+    if (maxDepth < MIN_PLATE_ABOVE_POCKET)
+      e.push('Base Thickness is too thin for magnet pockets: increase it to at least 0.8 mm or turn off Magnet pockets.');
+    else if (!(spec.magnetDepth > 0)) e.push('Pocket Depth must be positive.');
+    else if (spec.magnetDepth > maxDepth)
+      e.push(`Pocket Depth is too deep: at most ${maxDepth.toFixed(1)} mm for this Base Thickness.`);
     if (spec.magnetDiameter > 0) {
       const off = Math.abs(spec.magnetOffset);
-      for (const cy of [off, -off])
-        if (signedDistance(outline.qx, outline.qy, 0, cy) < r + CLEARANCE) {
-          e.push(`Magnet pockets must lie at least ${CLEARANCE} mm inside the wall: reduce Magnet Offset or Magnet Diameter, or enlarge the shape.`);
+      const alongX = pocketsAlongX(outline.px, outline.py);
+      for (const c of [off, -off])
+        if (signedDistance(outline.qx, outline.qy, alongX ? c : 0, alongX ? 0 : c) < r + CLEARANCE) {
+          e.push(`Magnet pockets must lie at least ${CLEARANCE} mm inside the wall. Reduce Pocket Offset or Pocket Diameter, or turn off Magnet pockets.`);
           break;
         }
       if (spec.holeDiameter > 0 && off - r - spec.holeDiameter / 2 < CLEARANCE)
-        e.push(`Magnet pockets must be at least ${CLEARANCE} mm clear of the centre hole: increase Magnet Offset or reduce a diameter.`);
+        e.push(`Magnet pockets must be at least ${CLEARANCE} mm clear of the centre hole: increase Pocket Offset or reduce a diameter.`);
       if (2 * off - 2 * r < CLEARANCE)
-        e.push(`The two magnet pockets must be at least ${CLEARANCE} mm clear of each other: increase Magnet Offset or reduce Magnet Diameter.`);
+        e.push(`The two magnet pockets must be at least ${CLEARANCE} mm clear of each other: increase Pocket Offset or reduce Pocket Diameter.`);
     }
   }
   return e;

@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import type { GrayImage } from '../../../types';
+import { buildOutline } from '../footprint';
 import { DEFAULT_SHADOW_WALL_PARAMS, ShadowWallParams, validateShadowWallParams, deriveGeometry, generateShadowWall, largeModelWarning, surfaceMaps } from '../shadowWall';
 
 // The base is covered in base.test.ts and the 'with a base' blocks; these tests describe the bare wall.
@@ -214,7 +215,7 @@ describe('generateShadowWall with a base', () => {
       it('rests on z = 0, reaches height + T and keeps the wall footprint', () => {
         const b = bounds(res.positions), bb = bounds(generateShadowWall(disc(60), bare).positions);
         expect(b.z0).toBeCloseTo(0, 4);
-        expect(b.z1).toBeCloseTo(p.height + T, 3);
+        expect(Math.abs(b.z1 - (p.height + T))).toBeLessThan(1e-6);
         expect(b.x1 - b.x0).toBeCloseTo(bb.x1 - bb.x0, 4);
       });
       it('has the centre hole and the magnet pockets in the mesh', () => {
@@ -225,13 +226,16 @@ describe('generateShadowWall with a base', () => {
         };
         expect(near(p.baseHoleDiameter / 2, 0, 0)).toBe(true);
         expect(near(p.baseHoleDiameter / 2, 0, T)).toBe(true);
-        expect(near(p.magnetDiameter / 2, p.magnetOffset, 0)).toBe(true);
-        expect(near(0, p.magnetOffset, p.magnetDepth)).toBe(true);
-        expect(near(0, -p.magnetOffset, p.magnetDepth)).toBe(true);
+        const [mx, my] = p.width > p.length ? [p.magnetOffset, 0] : [0, p.magnetOffset]; // longer axis, y on a tie
+        expect(near(mx, my, p.magnetDepth)).toBe(true);
+        expect(near(-mx, -my, p.magnetDepth)).toBe(true);
       });
-      it('adds the plate volume to the bare wall volume (within the foot ground change)', () => {
-        const bareVol = generateShadowWall(disc(60), bare).report.check.signedVolume;
-        expect(res.report.check.signedVolume).toBeGreaterThan(bareVol);
+      it('changes the volume by exactly the hole and pocket volumes (same field, so same shell)', () => {
+        const vol = (q: ShadowWallParams) => generateShadowWall(disc(60), q).report.check.signedVolume;
+        const pockets = 2 * Math.PI * (p.magnetDiameter / 2) ** 2 * p.magnetDepth;
+        expect(Math.abs(vol({ ...p, magnetHoles: false }) - res.report.check.signedVolume - pockets)).toBeLessThan(0.02 * pockets);
+        const small = 4, holeDiff = Math.PI * ((p.baseHoleDiameter / 2) ** 2 - (small / 2) ** 2) * T;
+        expect(Math.abs(vol({ ...p, baseHoleDiameter: small }) - res.report.check.signedVolume - holeDiff)).toBeLessThan(0.02 * holeDiff);
       });
     });
   }
@@ -239,11 +243,35 @@ describe('generateShadowWall with a base', () => {
     expect(validateShadowWallParams(P)).toEqual([]);
     expect(validateShadowWallParams({ ...P, base: true })).toEqual([]);
     expect(validateShadowWallParams({ ...P, base: true, baseThickness: 0.2 }).join(' ')).toMatch(/Base Thickness/);
-    expect(validateShadowWallParams({ ...P, base: true, baseHoleDiameter: 2 }).join(' ')).toMatch(/Base Hole Diameter/);
+    expect(validateShadowWallParams({ ...P, base: true, baseHoleDiameter: 2 }).join(' ')).toMatch(/Centre Hole Diameter/);
     expect(validateShadowWallParams({ ...P, base: true, magnetDepth: 3 }).join(' ')).toMatch(/too deep/);
-    expect(() => generateShadowWall(disc(60), { ...P, base: true, baseHoleDiameter: 2 })).toThrow(/Base Hole Diameter/);
+    expect(() => generateShadowWall(disc(60), { ...P, base: true, baseHoleDiameter: 2 })).toThrow(/Centre Hole Diameter/);
   });
   it('ignores base parameters when the base is off', () => {
     expect(validateShadowWallParams({ ...P, base: false, baseThickness: 0.1, baseHoleDiameter: 1 })).toEqual([]);
+  });
+});
+
+describe('pocket axis and messages', () => {
+  it('uses the panel labels and the fix hint', () => {
+    const bad = (patch: Partial<ShadowWallParams>) => validateShadowWallParams({ ...P, base: true, ...patch }).join(' ');
+    expect(bad({ baseThickness: 0.2 })).toMatch(/Base Thickness/);
+    expect(bad({ magnetDiameter: 0 })).toMatch(/Pocket Diameter/);
+    expect(bad({ magnetDepth: 0 })).toMatch(/Pocket Depth/);
+    expect(bad({ magnetOffset: 36 })).toMatch(/Reduce Pocket Offset or Pocket Diameter, or turn off Magnet pockets\.$/);
+    expect(bad({ baseThickness: 0.6 })).toMatch(/Base Thickness is too thin for magnet pockets: increase it to at least 0.8 mm or turn off Magnet pockets\./);
+    expect(bad({ baseHoleDiameter: 2 })).not.toMatch(/Base Hole|Magnet Offset|Magnet Depth|Magnet Diameter/);
+  });
+  it('puts the pockets along the longer axis, so an elongated footprint validates', () => {
+    const wide = { ...P, base: true, width: 140, length: 40, cornerRadius: 10 };
+    expect(validateShadowWallParams(wide)).toEqual([]);
+    const res = generateShadowWall(disc(60), wide);
+    expect(res.report.check.watertight).toBe(true);
+    let found = false;
+    for (let v = 0; v < res.positions.length; v += 3)
+      if (Math.abs(res.positions[v] - 12) < 1e-3 && Math.abs(res.positions[v + 1]) < 1e-3 + 4.05 && Math.abs(res.positions[v + 2] - wide.magnetDepth) < 1e-3) found = true;
+    expect(found).toBe(true);
+    const tall = { ...wide, width: 40, length: 140 };
+    expect(validateShadowWallParams(tall)).toEqual([]);
   });
 });

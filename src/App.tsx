@@ -28,6 +28,7 @@ import { BoxPanel } from './components/BoxPanel';
 import { BoxViewport } from './components/BoxViewport';
 import { useShadowWallGenerator } from './hooks/useShadowWallGenerator';
 import { ShadowWallPanel } from './components/ShadowWallPanel';
+import { previewHeights } from './geometry/shadowWall/shadowWall';
 
 type AppMode = 'cylinder' | 'tealight' | 'bowl' | 'box' | 'wall';
 const MODES: { id: AppMode; label: string }[] = [
@@ -306,8 +307,8 @@ export default function App() {
             <TealightViewport
               positions={wall.result?.positions ?? null}
               indices={wall.result?.indices ?? null}
-              lightZ={wall.result?.lightZ ?? wall.params.lightHeight}
-              topZ={wall.result?.topZ ?? wall.params.height}
+              lightZ={wall.result?.lightZ ?? previewHeights(wall.params).lightZ}
+              topZ={wall.result?.topZ ?? previewHeights(wall.params).topZ}
               groundRadius={wall.result?.groundRadius ?? (wall.params.shadowSize * wall.params.imageScale) / 200}
               triangleCount={wall.result?.triangleCount ?? 0}
               busy={wall.busy}
