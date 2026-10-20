@@ -31,67 +31,57 @@
     </script>
   </head>
   <body class="landing-page">
+    <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+      <defs>
+        <path id="p-moon" d="M100 10A90 90 0 0 0 100 190A120 120 0 0 1 100 10Z M150 40l4 12 12 4-12 4-4 12-4-12-12-4 12-4z M138 128l3 9 9 3-9 3-3 9-3-9-9-3 9-3z"/>
+        <pattern id="holes" width="12" height="12" patternUnits="userSpaceOnUse"><circle cx="6" cy="6" r="3.3" fill="#ffc23a"/></pattern>
+        <clipPath id="clip-shade"><use href="#p-moon" transform="translate(4 40) scale(.62)"/></clipPath>
+        <g id="shade-art"><rect width="130" height="250" rx="6" fill="#14121c"/><g clip-path="url(#clip-shade)"><rect width="130" height="250" fill="url(#holes)"/></g></g>
+      </defs>
+    </svg>
     <!-- @include header -->
     <main class="landing">
       <section class="hero">
-        <div class="hero-copy">
-          <h1>Print a lamp that draws with light</h1>
-          <p class="lede">Pick a picture. Odd Shadows turns it into a tealight shade you can print at home. Switch on an LED tealight and the picture appears on the wall as a shadow.</p>
+        <h1>Print a<br>shadow.</h1>
+        <div class="hero-row">
+          <div>
+            <p class="lede">Pick a picture. Odd Shadows turns it into a tealight shade you can print at home. Switch on an LED tealight and the picture appears on the wall as a shadow.</p>
+            <p class="note">Free to try in your browser. No account needed to look around.</p>
+          </div>
           <p><a class="button" href="/app">Start making a shade</a></p>
-          <p class="note">Free to try in your browser. No account needed to look around.</p>
         </div>
-        <svg class="hero-art" viewBox="0 0 640 400" role="img" aria-label="A glowing lamp shade with small holes beside the shadow it casts on the wall: a crescent moon and stars." width="640" height="400">
-          <defs>
-            <radialGradient id="glow" cx="30%" cy="50%" r="70%"><stop offset="0" stop-color="#7a5230" stop-opacity=".7"/><stop offset="1" stop-color="#7a5230" stop-opacity="0"/></radialGradient>
-            <linearGradient id="barrel" x1="0" x2="1"><stop offset="0" stop-color="#241d30"/><stop offset=".4" stop-color="#3a3048"/><stop offset="1" stop-color="#1e1829"/></linearGradient>
-            <pattern id="holes" width="22" height="22" patternUnits="userSpaceOnUse"><circle cx="11" cy="11" r="3.2" fill="#ffc463"/></pattern>
-          </defs>
-          <rect width="640" height="400" fill="#1b182c"/>
-          <rect width="640" height="400" fill="url(#glow)"/>
-          <rect x="0" y="352" width="640" height="48" fill="#0a0912"/>
-          <rect x="60" y="92" width="150" height="260" rx="16" fill="url(#barrel)"/>
-          <rect x="60" y="92" width="150" height="260" rx="16" fill="url(#holes)" opacity=".9"/>
-          <path fill="#ffc463" fill-rule="evenodd" d="M440 100a115 115 0 1 0 0 230a115 115 0 0 0 0-230zM470 118a96 96 0 0 1 0 194a96 96 0 0 0 0-194z"/>
-          <path fill="#ffc463" d="M500 150l5 15 15 5-15 5-5 15-5-15-15-5 15-5zM545 225l3.5 9 9 3.5-9 3.5-3.5 9-3.5-9-9-3.5 9-3.5zM482 262l4.5 12 12 4.5-12 4.5-4.5 12-4.5-12-12-4.5 12-4.5z"/>
-        </svg>
       </section>
-
-      <section class="band" aria-labelledby="how">
-        <h2 id="how">How it works</h2>
+      <section class="how" aria-labelledby="how">
+        <h2 id="how">Three moves.</h2>
         <ol class="steps" role="list">
           <li>
-            <h3>Upload a picture</h3>
+            <h3>Pick a picture.</h3>
             <p>A photo, a drawing or a logo. Simple shapes with strong contrast cast the cleanest shadows.</p>
+            <svg viewBox="0 0 200 200" aria-hidden="true"><rect x="10" y="10" width="180" height="180" fill="#14121c"/><use href="#p-moon" fill="#ffc23a" transform="translate(20 20) scale(.9)"/></svg>
           </li>
           <li>
-            <h3>Tune the shade and preview the shadow</h3>
+            <h3>Tune the shade.</h3>
             <p>Set the size, wall thickness and flame height. The preview lights the shade so you can see the shadow before you print anything.</p>
+            <svg viewBox="0 0 200 200" aria-hidden="true"><use href="#shade-art" x="55" y="-15"/></svg>
           </li>
           <li>
-            <h3>Download the STL and print</h3>
-            <p>Send the file to your slicer and print the shade in a material that handles the heat of your light. Put an LED tealight inside.</p>
+            <h3>Download and print.</h3>
+            <p>Send the STL file to your slicer and print the shade in a material that handles the heat of your light. Put an LED tealight inside.</p>
+            <svg viewBox="0 0 200 200" aria-hidden="true"><use href="#p-moon" fill="#14121c" transform="translate(5 5)"/></svg>
           </li>
         </ol>
       </section>
-
-      <section class="band" aria-labelledby="make">
-        <h2 id="make">What you can make</h2>
-        <p>Right now Odd Shadows makes one thing, and aims to make it well: a tealight shade, a printed sleeve that stands over an LED tealight. Use an LED light only, never fire; the <a href="/faq">FAQ explains why</a>.</p>
-        <ul class="makes">
-          <li>A portrait of a pet that glows on the bedroom wall.</li>
-          <li>A family crest or a club logo for the shelf.</li>
-          <li>A skyline, a mountain or a favourite constellation.</li>
-          <li>A gift with a photo only the light can show.</li>
-        </ul>
+      <section class="faq" aria-labelledby="faq">
+        <h2 id="faq">Good questions.</h2>
+        <div class="cols">
+          <div><h3>Can I use fire?</h3><p>No. Use an LED light only. A printed shade can bend, melt or burn around a flame.</p></div>
+          <div><h3>Which printer?</h3><p>Any 3D printer that can print an STL file. Pick a material that handles the heat of your light.</p></div>
+          <div><h3>Do I need an account?</h3><p>Not to look around. You log in with Google when you download, so the site can keep your history.</p></div>
+          <div><h3>What is stored?</h3><p>For each download, a small grayscale copy of the picture and your settings.</p></div>
+        </div>
       </section>
-
-      <section class="band" aria-labelledby="faq">
-        <h2 id="faq">Questions you might have</h2>
-        <p>What printer and material to use, whether you need to log in, what is stored and how to use a lamp safely: <a href="/faq">the FAQ answers these</a>.</p>
-      </section>
-
       <section class="cta" aria-labelledby="go">
-        <h2 id="go">Ready to see your picture in light?</h2>
+        <h2 id="go">See it in light.</h2>
         <p><a class="button" href="/app">Open the app</a></p>
       </section>
     </main>

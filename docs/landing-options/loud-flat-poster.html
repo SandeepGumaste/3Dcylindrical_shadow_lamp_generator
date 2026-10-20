@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Option 3 · Loud flat poster · Odd Shadows</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Archivo:wght@400;600&display=swap" rel="stylesheet" />
+<style>
+:root{--amber:#ffc23a;--ink:#14121c;--red:#ff4b2e;--white:#ffffff;
+--display:"Archivo Black","Arial Black",Impact,sans-serif;--body:"Archivo",system-ui,-apple-system,"Segoe UI",sans-serif;--m:clamp(16px,2.4vw,32px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--amber);color:var(--ink);font:400 1.125rem/1.5 var(--body)}
+a{color:inherit}
+:focus-visible{outline:4px solid var(--ink);outline-offset:3px}
+h1,h2,h3{font-family:var(--display);font-weight:400;line-height:.88;letter-spacing:-.03em;margin:0;text-wrap:balance}
+header{display:flex;justify-content:space-between;align-items:center;gap:1rem;padding:1rem var(--m);background:var(--amber)}
+.brand{font-family:var(--display);font-size:1.4rem;text-decoration:none;letter-spacing:-.02em}
+nav{display:flex;gap:1.5rem;align-items:center;flex-wrap:wrap}
+nav a{text-decoration:none;font-weight:600}
+.btn{display:inline-block;background:var(--ink);color:var(--amber);font-family:var(--display);text-decoration:none;padding:1rem 1.8rem;font-size:1.15rem;letter-spacing:-.01em}
+.btn:hover{background:var(--red);color:var(--ink)}
+nav .btn{padding:.6rem 1.1rem;font-size:1rem}
+.hero{position:relative;padding:clamp(1rem,3vw,2.5rem) var(--m) clamp(3rem,6vw,6rem);min-height:clamp(30rem,52vw,48rem);overflow:hidden}
+.hero h1{font-size:clamp(3.8rem,14.5vw,15rem);max-width:9ch}
+.hero .lede{max-width:28ch;font-size:clamp(1.15rem,1.7vw,1.6rem);font-weight:600;line-height:1.3;margin:1.75rem 0 1.75rem}
+.hero small{display:block;margin-top:1rem;font-weight:600}
+.sticker{position:absolute;right:var(--m);bottom:calc(var(--m)*-.5);width:min(46vw,40rem);margin:0;transform:rotate(-4deg);transform-origin:70% 100%}
+.sticker svg{display:block;width:100%;height:auto}
+section{padding:clamp(3.5rem,8vw,7rem) var(--m)}
+h2{font-size:clamp(3rem,10vw,10rem);max-width:10ch}
+.how{background:var(--ink);color:var(--amber)}
+.how .row{display:grid;grid-template-columns:repeat(3,1fr);gap:var(--m);margin-top:clamp(2rem,5vw,4rem)}
+.how .step{background:var(--amber);color:var(--ink);padding:1.5rem;display:flex;flex-direction:column;gap:1.25rem;min-height:21rem}
+.how .step:nth-child(2){background:var(--red)}
+.how .step:nth-child(3){background:var(--white)}
+.how h3{font-size:clamp(2.2rem,4vw,3.8rem)}
+.how p{margin:0;font-weight:600;max-width:30ch}
+.how .step svg{width:4.5rem;height:4.5rem;margin-top:auto}
+.make{background:var(--red)}
+.make ul{margin:clamp(2rem,4vw,3rem) 0 0;padding:0;list-style:none;display:grid;gap:.4rem}
+.make li{font-family:var(--display);font-size:clamp(2rem,6.2vw,6.4rem);line-height:.95;letter-spacing:-.03em}
+.make li:nth-child(even){padding-left:clamp(0rem,14vw,14rem)}
+.make p{max-width:40ch;font-weight:600;margin:2rem 0 0;font-size:1.2rem}
+.faq{background:var(--white)}
+.faq .cols{display:grid;grid-template-columns:1fr 1fr;gap:clamp(1.5rem,3vw,3rem) var(--m);margin-top:clamp(2rem,4vw,3rem)}
+.faq h3{font-size:clamp(1.8rem,3vw,2.8rem);margin-bottom:.7rem}
+.faq p{margin:0;max-width:40ch}
+.cta{display:grid;grid-template-columns:1fr auto;gap:var(--m);align-items:end}
+.cta h2{max-width:11ch}
+.cta .btn{font-size:clamp(1.3rem,2.4vw,2.2rem);padding:1.4rem 2.4rem;background:var(--ink)}
+footer{background:var(--ink);color:var(--amber);padding:clamp(2rem,4vw,3rem) var(--m);display:flex;justify-content:space-between;align-items:end;gap:2rem;flex-wrap:wrap}
+footer .big{font-family:var(--display);font-size:clamp(2.5rem,9vw,8rem);line-height:.85;letter-spacing:-.04em}
+footer .links{display:flex;gap:1.5rem;flex-wrap:wrap;font-weight:600}
+@media (max-width:52rem){
+ .hero{min-height:0;padding-bottom:0}
+ .sticker{position:relative;right:auto;bottom:auto;width:92%;margin:2rem 0 0 auto;transform:rotate(-3deg)}
+ .how .row,.faq .cols,.cta{grid-template-columns:1fr}
+ .how .step{min-height:0}
+ .make li:nth-child(even){padding-left:0}
+ nav a:not(.btn){display:none}
+}
+@media (prefers-reduced-motion:no-preference){.btn{transition:background .15s,color .15s}}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+ <defs>
+  <path id="p-moon" d="M100 10A90 90 0 0 0 100 190A120 120 0 0 1 100 10Z M150 40l4 12 12 4-12 4-4 12-4-12-12-4 12-4z M138 128l3 9 9 3-9 3-3 9-3-9-9-3 9-3z"/>
+  <pattern id="holes" width="12" height="12" patternUnits="userSpaceOnUse"><circle cx="6" cy="6" r="3.3" fill="#ffc23a"/></pattern>
+  <clipPath id="clipShade"><use href="#p-moon" transform="translate(4 40) scale(.62)"/></clipPath>
+  <g id="shade-art"><rect width="130" height="250" rx="6" fill="#14121c"/><g clip-path="url(#clipShade)"><rect width="130" height="250" fill="url(#holes)"/></g></g>
+ </defs>
+</svg>
+
+<header>
+ <a class="brand" href="#top">Odd Shadows</a>
+ <nav aria-label="Main"><a href="#how">How it works</a><a href="#make">What you can make</a><a href="#faq">Questions</a><a class="btn" href="#cta">Open the app</a></nav>
+</header>
+
+<main id="top">
+ <div class="hero">
+  <h1>Print a shadow.</h1>
+  <p class="lede">Pick a picture. Odd Shadows turns it into a tealight shade you can print at home. Switch on an LED tealight and the picture appears on the wall.</p>
+  <a class="btn" href="#cta">Start making a shade</a>
+  <small>Free to try in your browser. No account needed to look around.</small>
+  <figure class="sticker">
+   <svg viewBox="0 0 560 400" role="img" aria-label="A printed shade with holes beside the moon and stars it lights on the wall.">
+    <rect width="560" height="400" fill="#14121c"/>
+    <rect y="338" width="560" height="62" fill="#000"/>
+    <use href="#shade-art" x="50" y="95"/>
+    <rect x="50" y="332" width="130" height="8" fill="#ffc23a"/>
+    <use href="#p-moon" fill="#ffc23a" transform="translate(250 22) scale(1.7)"/>
+   </svg>
+  </figure>
+ </div>
+
+ <section id="how" class="how">
+  <h2>Three moves.</h2>
+  <div class="row">
+   <div class="step"><h3>Pick a picture.</h3><p>A photo, a drawing or a logo. Simple shapes with strong contrast cast the cleanest shadows.</p><svg viewBox="0 0 200 200" aria-hidden="true"><rect x="10" y="10" width="180" height="180" fill="#14121c"/><use href="#p-moon" fill="#ffc23a" transform="translate(20 20) scale(.9)"/></svg></div>
+   <div class="step"><h3>Tune the shade.</h3><p>Set the size, wall thickness and flame height. The preview lights it so you see the shadow before you print.</p><svg viewBox="0 0 200 200" aria-hidden="true"><use href="#shade-art" x="55" y="-15" transform="scale(1)"/></svg></div>
+   <div class="step"><h3>Download and print.</h3><p>Send the STL to your slicer. Print in a material that handles the heat, then add an LED tealight.</p><svg viewBox="0 0 200 200" aria-hidden="true"><use href="#p-moon" fill="#14121c" transform="translate(5 5)"/></svg></div>
+  </div>
+ </section>
+
+ <section id="make" class="make">
+  <h2>What you can make.</h2>
+  <ul>
+   <li>A pet that glows.</li>
+   <li>A crest for the shelf.</li>
+   <li>A skyline on the wall.</li>
+   <li>A night sky anywhere.</li>
+  </ul>
+  <p>Right now Odd Shadows makes one thing and aims to make it well: a printed sleeve that stands over an LED tealight.</p>
+ </section>
+
+ <section id="faq" class="faq">
+  <h2>Good questions.</h2>
+  <div class="cols">
+   <div><h3>A real candle?</h3><p>No. Use an LED tealight only. A printed shade can melt or catch fire around a flame.</p></div>
+   <div><h3>Which printer?</h3><p>Any home FDM printer. PLA works with a cool LED tealight; PETG gives you more margin.</p></div>
+   <div><h3>An account?</h3><p>Not to look around. You sign in when you download a file.</p></div>
+   <div><h3>What do you keep?</h3><p>A small greyscale copy of your picture and your settings, in your history, when you download. Nothing else.</p></div>
+  </div>
+ </section>
+
+ <section id="cta" class="cta" style="background:var(--amber)">
+  <h2>See it in light.</h2>
+  <a class="btn" href="#">Open the app</a>
+ </section>
+</main>
+
+<footer>
+ <div class="big">Odd Shadows</div>
+ <div class="links"><a href="#">FAQ</a><a href="#">Privacy</a><a href="#">Legal notice</a><a href="#">Terms</a></div>
+</footer>
+</body>
+</html>

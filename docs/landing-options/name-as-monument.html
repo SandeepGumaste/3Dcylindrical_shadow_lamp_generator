@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Option 2 · Name as monument · Odd Shadows</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@800;900&family=Instrument+Sans:wght@400;600&display=swap" rel="stylesheet" />
+<style>
+:root{--bg:#dcdfe2;--ink:#14121c;--ink2:#3a3744;--lit:#ffc463;--panel:#14121c;--step:#cdd1d5;
+--display:"Big Shoulders Display","Arial Narrow",Impact,sans-serif;--body:"Instrument Sans",system-ui,-apple-system,"Segoe UI",sans-serif;--m:clamp(16px,2.2vw,32px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:400 1.0625rem/1.55 var(--body)}
+a{color:inherit}
+:focus-visible{outline:3px solid var(--ink);outline-offset:3px}
+header{display:flex;justify-content:flex-end;align-items:center;gap:1.75rem;padding:1.25rem var(--m);flex-wrap:wrap}
+header a{text-decoration:none;font-weight:600}
+header a:hover{text-decoration:underline;text-underline-offset:4px}
+.btn{display:inline-block;background:var(--ink);color:var(--lit);font-weight:600;text-decoration:none;padding:.95rem 1.7rem;font-size:1.05rem}
+.btn:hover{background:#2a2738}
+header .btn{padding:.55rem 1.1rem}
+.display{font-family:var(--display);font-weight:900;text-transform:uppercase;line-height:.84;letter-spacing:-.01em;margin:0}
+.hero{display:grid;grid-template-columns:5fr 7fr;gap:var(--m);padding:0 var(--m);align-items:stretch}
+.hero .copy{display:flex;flex-direction:column;justify-content:space-between;gap:2rem;padding:1rem 0 2rem}
+.hero .copy p{font-size:1.35rem;line-height:1.4;max-width:26ch;margin:0}
+.hero .copy small{display:block;margin-top:.9rem;color:var(--ink2)}
+.panel{background:var(--panel);margin:0}
+.panel svg{display:block;width:100%;height:100%}
+.name{padding:var(--m) var(--m) 0;overflow:hidden}
+.name h1{font-size:19vw;white-space:nowrap;display:block}
+section{padding:clamp(4rem,9vw,8rem) var(--m)}
+.lines h2{font-size:clamp(3rem,9vw,9rem);max-width:12ch;margin-bottom:clamp(2rem,5vw,4rem)}
+.how{display:grid;gap:0}
+.how article{display:grid;grid-template-columns:8fr 4fr;gap:var(--m);align-items:end;padding:clamp(1.25rem,2.5vw,2rem) 0}
+.how article:nth-child(odd){background:var(--step);margin-inline:calc(var(--m)*-1);padding-inline:var(--m)}
+.how h3{font-family:var(--display);font-weight:900;text-transform:uppercase;font-size:clamp(2.6rem,8vw,8rem);line-height:.88;margin:0;max-width:14ch}
+.how p{margin:0;max-width:36ch;font-size:1.15rem}
+.make{background:var(--lit)}
+.make h2{font-size:clamp(3rem,9vw,9rem);margin-bottom:clamp(2rem,4vw,3rem)}
+.make ul{margin:0;padding:0;list-style:none;display:grid;grid-template-columns:1fr 1fr;gap:var(--m)}
+.make li{font-family:var(--display);font-weight:800;text-transform:uppercase;font-size:clamp(1.8rem,4.4vw,4.4rem);line-height:.92;padding:1.25rem 0 0}
+.make li span{display:block;font-family:var(--body);font-weight:400;text-transform:none;font-size:1.05rem;line-height:1.5;margin-top:.75rem;max-width:30ch}
+.dark{background:var(--ink);color:#ecebf2}
+.dark h2{font-size:clamp(3rem,9vw,9rem);margin-bottom:clamp(2rem,4vw,3rem)}
+.dark .grid{display:grid;grid-template-columns:1fr 1fr;gap:clamp(1rem,2vw,2rem) var(--m)}
+.dark dl{margin:0;background:#201e2b;padding:1.5rem}
+.dark dt{font-family:var(--display);font-weight:800;text-transform:uppercase;font-size:clamp(1.6rem,2.8vw,2.6rem);line-height:.95;margin-bottom:.7rem}
+.dark dd{margin:0;color:#c9c6d6;max-width:40ch}
+.cta{display:grid;grid-template-columns:8fr 4fr;gap:var(--m);align-items:end}
+.cta h2{font-size:clamp(3rem,8vw,8rem);max-width:12ch}
+.cta .btn{justify-self:start;font-size:1.3rem;padding:1.2rem 2.2rem}
+footer{padding:0 var(--m) var(--m);overflow:hidden}
+footer .links{display:flex;gap:1.5rem;flex-wrap:wrap;margin-bottom:1rem}
+footer .name2{font-size:19vw;white-space:nowrap;color:var(--ink)}
+@media (max-width:52rem){
+ .hero,.how article,.cta,.make ul,.dark .grid{grid-template-columns:1fr}
+ .panel{aspect-ratio:4/3;order:-1}
+ .hero .copy p{max-width:none}
+ header a:not(.btn){display:none}
+}
+@media (prefers-reduced-motion:no-preference){.btn{transition:background .2s}}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+ <defs>
+  <path id="p-moon" d="M100 10A90 90 0 0 0 100 190A120 120 0 0 1 100 10Z M150 40l4 12 12 4-12 4-4 12-4-12-12-4 12-4z M138 128l3 9 9 3-9 3-3 9-3-9-9-3 9-3z"/>
+  <pattern id="holes" width="12" height="12" patternUnits="userSpaceOnUse"><circle cx="6" cy="6" r="3.3" fill="#ffc463"/></pattern>
+  <clipPath id="clipShade"><use href="#p-moon" transform="translate(4 40) scale(.62)"/></clipPath>
+  <g id="shade-art"><rect width="130" height="250" rx="6" fill="#3a3646"/><g clip-path="url(#clipShade)"><rect width="130" height="250" fill="url(#holes)"/></g></g>
+ </defs>
+</svg>
+
+<header>
+ <a href="#how">How it works</a><a href="#make">What you can make</a><a href="#faq">Questions</a><a class="btn" href="#cta">Open the app</a>
+</header>
+
+<main>
+ <div class="hero">
+  <div class="copy">
+   <p>Print a lamp that draws with light. Pick a picture and get a tealight shade you can print at home. Switch on an LED tealight and the picture appears on the wall.</p>
+   <div><a class="btn" href="#cta">Start making a shade</a><small>Free to try in your browser. No account needed to look around.</small></div>
+  </div>
+  <figure class="panel">
+   <svg viewBox="0 0 700 460" role="img" aria-label="A printed shade with holes beside the moon and stars it casts on the wall.">
+    <rect width="700" height="460" fill="#14121c"/>
+    <rect y="390" width="700" height="70" fill="#0a0910"/>
+    <use href="#shade-art" x="90" y="145"/>
+    <rect x="90" y="384" width="130" height="8" fill="#ffc463"/>
+    <use href="#p-moon" fill="#ffc463" transform="translate(300 30) scale(1.9)"/>
+   </svg>
+  </figure>
+ </div>
+ <div class="name"><h1 class="display" id="mono">Odd Shadows</h1></div>
+
+ <section id="how" class="lines">
+  <h2 class="display">From picture to wall</h2>
+  <div class="how">
+   <article><h3>Upload a picture</h3><p>A photo, a drawing or a logo. Simple shapes with strong contrast cast the cleanest shadows.</p></article>
+   <article><h3>Tune the shade</h3><p>Set the size, wall thickness and flame height. The preview lights the shade so you see the shadow before you print.</p></article>
+   <article><h3>Download and print</h3><p>Send the STL to your slicer. Print in a material that handles the heat of your light, then add an LED tealight.</p></article>
+  </div>
+ </section>
+
+ <section id="make" class="make">
+  <h2 class="display">What you can make</h2>
+  <ul>
+   <li>A pet that glows<span>A portrait of the dog or cat on the bedroom wall.</span></li>
+   <li>A crest or a logo<span>For the club shelf, the workshop or a gift.</span></li>
+   <li>A skyline or a mountain<span>The view you miss, or the one you climbed.</span></li>
+   <li>A constellation<span>A night sky wherever you put the lamp.</span></li>
+  </ul>
+ </section>
+
+ <section id="faq" class="dark">
+  <h2 class="display">Questions you might have</h2>
+  <div class="grid">
+   <dl><dt>Can I use a real candle?</dt><dd>No. Use an LED tealight only. A printed shade can melt or catch fire around a flame.</dd></dl>
+   <dl><dt>What printer and material?</dt><dd>Any home FDM printer. PLA works with a cool LED tealight; PETG gives you more margin.</dd></dl>
+   <dl><dt>Do I need an account?</dt><dd>Not to look around. You sign in when you download a file.</dd></dl>
+   <dl><dt>What do you keep?</dt><dd>When you download, a small greyscale copy of your picture and your settings go to your history. Nothing else.</dd></dl>
+  </div>
+ </section>
+
+ <section id="cta" class="cta">
+  <h2 class="display">Ready to see your picture in light?</h2>
+  <a class="btn" href="#">Open the app</a>
+ </section>
+</main>
+
+<footer>
+ <div class="links"><a href="#">FAQ</a><a href="#">Privacy</a><a href="#">Legal notice</a><a href="#">Terms</a></div>
+ <div class="display name2" id="mono2" aria-hidden="true">Odd Shadows</div>
+</footer>
+
+<script>
+(function(){
+ function fit(el){
+  var box=el.parentElement,w=box.clientWidth-parseFloat(getComputedStyle(box).paddingLeft)-parseFloat(getComputedStyle(box).paddingRight);
+  el.style.fontSize="100px";el.style.display="inline-block";
+  var s=100*w/el.getBoundingClientRect().width;el.style.fontSize=s+"px";
+ }
+ function run(){fit(document.getElementById("mono"));fit(document.getElementById("mono2"))}
+ run();window.addEventListener("resize",run);
+ if(document.fonts&&document.fonts.ready)document.fonts.ready.then(run);
+})();
+</script>
+</body>
+</html>

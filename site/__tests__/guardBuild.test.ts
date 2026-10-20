@@ -24,7 +24,8 @@ const run = () =>
   build({root, mode: 'production', logLevel: 'silent', build: {outDir: out, emptyOutDir: true}});
 
 describe('real vite build and placeholders', () => {
-  it('rejects in a production deploy while placeholders remain', async () => {
+  // Skipped while the legal pages are disabled: no built page carries placeholders. Re-enable with them.
+  it.skip('rejects in a production deploy while placeholders remain', async () => {
     process.env.VERCEL_ENV = 'production';
     await expect(run()).rejects.toThrow(/OWNER_EMAIL/);
   }, 120_000);

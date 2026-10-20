@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Option 1 · Dark room · Odd Shadows</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@300;400;600&display=swap" rel="stylesheet" />
+<style>
+:root{--bg:#0d0c14;--step1:#15131f;--step2:#1e1b2c;--ink:#f0e9d8;--muted:#b9b1c4;--lit:#ffc463;--lit-ink:#0d0c14;
+--font:"Hanken Grotesk",system-ui,-apple-system,"Segoe UI",sans-serif;--m:clamp(16px,3vw,40px)}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--ink);font:400 1.0625rem/1.6 var(--font)}
+a{color:inherit}
+:focus-visible{outline:3px solid var(--lit);outline-offset:3px}
+.wrap{padding-inline:var(--m)}
+header{display:flex;justify-content:space-between;align-items:center;gap:1rem;padding:1.25rem var(--m)}
+.brand{font-weight:600;font-size:1.15rem;text-decoration:none}
+nav{display:flex;gap:1.5rem;align-items:center;flex-wrap:wrap}
+nav a{text-decoration:none;color:var(--muted)}
+nav a:hover{color:var(--ink)}
+.btn{display:inline-block;background:var(--lit);color:var(--lit-ink);font-weight:600;text-decoration:none;padding:.9rem 1.6rem;border:0;font:inherit;font-weight:600;cursor:pointer}
+.btn:hover{background:#ffd689}
+nav .btn{padding:.55rem 1.1rem;color:var(--lit-ink)}
+h1,h2,h3{font-weight:300;letter-spacing:-.03em;line-height:1;margin:0;text-wrap:balance}
+.hero{display:grid;grid-template-columns:5fr 7fr;gap:var(--m);align-items:center;padding:clamp(1.5rem,5vw,4rem) var(--m) clamp(3rem,8vw,7rem)}
+.hero h1{font-size:clamp(2.6rem,5.6vw,5.4rem)}
+.hero p{max-width:34ch;margin:1.75rem 0 2rem;font-size:1.2rem}
+.hero small{display:block;margin-top:1rem;color:var(--muted)}
+.scene{margin:0}
+.scene svg{display:block;width:100%;height:auto}
+.picker{display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;margin-top:1rem}
+.picker span{color:var(--muted);margin-right:.5rem}
+.picker button{font:inherit;background:var(--step2);color:var(--ink);border:0;padding:.6rem 1.1rem;cursor:pointer}
+.picker button[aria-pressed="true"]{background:var(--lit);color:var(--lit-ink);font-weight:600}
+section{padding:clamp(4rem,10vw,9rem) var(--m)}
+h2{font-size:clamp(2.2rem,4.6vw,4.4rem);max-width:18ch}
+.stages{margin:clamp(2rem,5vw,4rem) 0 0;padding:0;list-style:none;display:grid;gap:clamp(1.5rem,4vw,3rem)}
+.stage{display:grid;grid-template-columns:1fr 1fr;gap:var(--m);align-items:center}
+.stage:nth-child(even) .art{order:2}
+.stage .art{background:var(--step1);aspect-ratio:3/2;display:flex;align-items:flex-end;justify-content:center}
+.stage .art svg{width:100%;height:100%;display:block}
+.stage h3{font-size:clamp(1.6rem,2.8vw,2.6rem);margin-bottom:1rem}
+.stage p{margin:0;max-width:42ch;font-size:1.15rem}
+.makes{display:grid;grid-template-columns:1fr 1fr;gap:0}
+.make{padding:clamp(1.5rem,3vw,3rem);min-height:20rem;display:flex;flex-direction:column;justify-content:space-between;gap:2rem}
+.make:nth-child(1){background:var(--step1)}.make:nth-child(2){background:var(--step2)}
+.make:nth-child(3){background:var(--step2)}.make:nth-child(4){background:var(--step1)}
+.make svg{width:5.5rem;height:5.5rem}
+.make h3{font-size:clamp(1.5rem,2.4vw,2.2rem);margin-bottom:.5rem}
+.make p{margin:0;max-width:32ch}
+.faq{display:grid;grid-template-columns:5fr 7fr;gap:var(--m)}
+details{background:var(--step1);margin-bottom:.5rem}
+summary{cursor:pointer;padding:1.25rem 1.5rem;font-size:1.25rem;font-weight:400;list-style:none}
+summary::-webkit-details-marker{display:none}
+summary::after{content:"+";float:right;color:var(--lit)}
+details[open] summary::after{content:"\2212"}
+details p{margin:0;padding:0 1.5rem 1.5rem;max-width:56ch;color:var(--muted)}
+.cta{background:var(--lit);color:var(--lit-ink);display:grid;grid-template-columns:7fr 5fr;gap:var(--m);align-items:end}
+.cta h2{max-width:14ch}
+.cta .btn{background:var(--lit-ink);color:var(--lit);justify-self:start;font-size:1.25rem;padding:1.1rem 2rem}
+footer{padding:3rem var(--m) 1.5rem;overflow:hidden}
+footer .name{font-weight:300;letter-spacing:-.05em;line-height:.8;font-size:15.5vw;color:var(--step2);white-space:nowrap;margin:0}
+footer .links{display:flex;gap:1.5rem;flex-wrap:wrap;color:var(--muted);margin-bottom:2rem}
+@media (max-width:52rem){
+ .hero,.stage,.faq,.cta,.makes{grid-template-columns:1fr}
+ .stage:nth-child(even) .art{order:0}
+ .make{min-height:14rem}
+ nav a:not(.btn){display:none}
+}
+@media (prefers-reduced-motion:no-preference){.btn{transition:background .2s,transform .2s}.btn:active{transform:translateY(1px)}}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+ <defs>
+  <path id="p-moon" d="M100 10A90 90 0 0 0 100 190A120 120 0 0 1 100 10Z M150 40l4 12 12 4-12 4-4 12-4-12-12-4 12-4z M138 128l3 9 9 3-9 3-3 9-3-9-9-3 9-3z"/>
+  <path id="p-peaks" d="M0 180L55 70L85 115L125 30L200 180Z M150 50a14 14 0 1 0 0.1 0z"/>
+  <path id="p-heart" d="M100 182C20 125 6 62 52 38C78 26 100 46 100 58C100 46 122 26 148 38C194 62 180 125 100 182Z"/>
+  <pattern id="holes" width="12" height="12" patternUnits="userSpaceOnUse"><circle cx="6" cy="6" r="3.3" fill="#ffc463"/></pattern>
+  <clipPath id="clipShade"><use id="shape-shade" href="#p-moon" transform="translate(4 40) scale(.62)"/></clipPath>
+  <g id="shade-art"><rect width="130" height="250" rx="6" fill="#2b2640"/><g clip-path="url(#clipShade)"><rect width="130" height="250" fill="url(#holes)"/></g></g>
+  <g id="wall-art"><use id="shape-wall" href="#p-moon" fill="#ffc463" transform="scale(1.9)"/></g>
+ </defs>
+</svg>
+
+<header>
+ <a class="brand" href="#top">Odd Shadows</a>
+ <nav aria-label="Main"><a href="#how">How it works</a><a href="#make">What you can make</a><a href="#faq">Questions</a><a class="btn" href="#cta">Open the app</a></nav>
+</header>
+
+<main id="top">
+ <div class="hero">
+  <div>
+   <h1>Print a lamp that draws with light</h1>
+   <p>Pick a picture. Odd Shadows turns it into a tealight shade you can print at home. Switch on an LED tealight and the picture appears on the wall.</p>
+   <a class="btn" href="#cta">Start making a shade</a>
+   <small>Free to try in your browser. No account needed to look around.</small>
+  </div>
+  <figure class="scene">
+   <svg viewBox="0 0 760 520" role="img" aria-label="A printed shade with small holes, and the same picture lit on the wall behind it.">
+    <rect width="760" height="440" fill="#17151f"/>
+    <rect y="440" width="760" height="80" fill="#08070d"/>
+    <use href="#shade-art" x="90" y="190"/>
+    <rect x="90" y="434" width="130" height="8" fill="#ffc463"/>
+    <use href="#wall-art" x="340" y="50"/>
+   </svg>
+   <div class="picker" role="group" aria-label="Choose a picture"><span>Try a picture</span>
+    <button type="button" data-s="moon" aria-pressed="true">Moon</button>
+    <button type="button" data-s="peaks" aria-pressed="false">Peaks</button>
+    <button type="button" data-s="heart" aria-pressed="false">Heart</button>
+   </div>
+  </figure>
+ </div>
+
+ <section id="how">
+  <h2>From picture to wall in three steps</h2>
+  <ol class="stages">
+   <li class="stage">
+    <div class="art"><svg viewBox="0 0 450 300" role="img" aria-label="A picture to upload"><rect x="95" y="30" width="260" height="240" fill="#2b2842"/><use href="#p-moon" fill="#8d88a6" transform="translate(120 50) scale(1.1)"/></svg></div>
+    <div><h3>Upload a picture</h3><p>A photo, a drawing or a logo. Simple shapes with strong contrast cast the cleanest shadows.</p></div>
+   </li>
+   <li class="stage">
+    <div class="art"><svg viewBox="0 0 450 300" role="img" aria-label="The shade preview"><use href="#shade-art" x="160" y="40" transform="translate(0 0)"/><rect x="160" y="284" width="130" height="8" fill="#ffc463"/></svg></div>
+    <div><h3>Tune the shade and preview the shadow</h3><p>Set the size, wall thickness and flame height. The preview lights the shade so you see the shadow before you print anything.</p></div>
+   </li>
+   <li class="stage">
+    <div class="art"><svg viewBox="0 0 450 300" role="img" aria-label="The shadow on the wall"><use href="#wall-art" x="100" y="-10" transform="scale(.8) translate(30 20)"/></svg></div>
+    <div><h3>Download the STL and print</h3><p>Send the file to your slicer and print in a material that handles the heat of your light. Put an LED tealight inside.</p></div>
+   </li>
+  </ol>
+ </section>
+
+ <section id="make" style="padding-inline:0">
+  <h2 style="padding-inline:var(--m);margin-bottom:clamp(2rem,5vw,4rem)">What you can make</h2>
+  <div class="makes">
+   <div class="make"><svg viewBox="0 0 200 200" aria-hidden="true"><use href="#p-heart" fill="#ffc463"/></svg><div><h3>A pet that glows</h3><p>A portrait of the dog or cat, on the bedroom wall at night.</p></div></div>
+   <div class="make"><svg viewBox="0 0 200 200" aria-hidden="true"><use href="#p-peaks" fill="#ffc463"/></svg><div><h3>A skyline or a mountain</h3><p>The view you miss, or the one you climbed.</p></div></div>
+   <div class="make"><svg viewBox="0 0 200 200" aria-hidden="true"><use href="#p-moon" fill="#ffc463"/></svg><div><h3>A favourite constellation</h3><p>Stars where the holes are, a night sky wherever you put it.</p></div></div>
+   <div class="make"><svg viewBox="0 0 200 200" aria-hidden="true"><circle cx="100" cy="100" r="84" fill="#ffc463"/><circle cx="100" cy="100" r="46" fill="#1e1b2c"/></svg><div><h3>A crest or a logo</h3><p>For the club shelf, the workshop or a gift.</p></div></div>
+  </div>
+ </section>
+
+ <section id="faq" class="faq">
+  <h2>Questions you might have</h2>
+  <div>
+   <details open><summary>Can I use a real candle?</summary><p>No. Use an LED tealight only. A printed shade can melt or catch fire around a flame.</p></details>
+   <details><summary>What printer and material do I need?</summary><p>Any home FDM printer. PLA works with a cool LED tealight; PETG gives you more margin.</p></details>
+   <details><summary>Do I need an account?</summary><p>Not to look around. You sign in when you download a file.</p></details>
+   <details><summary>What do you keep?</summary><p>When you download, the app saves a small greyscale copy of your picture and your settings to your history. Nothing else.</p></details>
+  </div>
+ </section>
+
+ <section id="cta" class="cta">
+  <h2>Ready to see your picture in light?</h2>
+  <a class="btn" href="#top">Open the app</a>
+ </section>
+</main>
+
+<footer>
+ <div class="links"><a href="#">FAQ</a><a href="#">Privacy</a><a href="#">Legal notice</a><a href="#">Terms</a></div>
+ <p class="name" aria-hidden="true">Odd Shadows</p>
+</footer>
+
+<script>
+(function(){
+ var m={moon:"#p-moon",peaks:"#p-peaks",heart:"#p-heart"};
+ var tf={moon:["translate(4 40) scale(.62)","scale(1.9)"],peaks:["translate(2 60) scale(.62)","translate(0 20) scale(1.9)"],heart:["translate(2 50) scale(.62)","translate(0 10) scale(1.9)"]};
+ var bs=document.querySelectorAll(".picker button");
+ bs.forEach(function(b){b.addEventListener("click",function(){
+  var k=b.dataset.s;
+  document.getElementById("shape-shade").setAttribute("href",m[k]);
+  document.getElementById("shape-wall").setAttribute("href",m[k]);
+  document.getElementById("shape-shade").setAttribute("transform",tf[k][0]);
+  document.getElementById("shape-wall").setAttribute("transform",tf[k][1]);
+  bs.forEach(function(x){x.setAttribute("aria-pressed",x===b?"true":"false")});
+ })});
+})();
+</script>
+</body>
+</html>

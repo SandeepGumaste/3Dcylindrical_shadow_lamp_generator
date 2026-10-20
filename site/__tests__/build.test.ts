@@ -6,14 +6,11 @@ import {PAGES, pageInputs} from '../lib/pages';
 const root = path.resolve(__dirname, '../..');
 
 describe('site page map', () => {
-  it('has exactly the six routes', () => {
+  // privacy, legal, faq and terms are disabled for now; see site/lib/pages.ts.
+  it('has exactly the two enabled routes', () => {
     expect(PAGES).toEqual({
       '/': 'index.html',
       '/app': 'app/index.html',
-      '/privacy': 'privacy/index.html',
-      '/legal': 'legal/index.html',
-      '/faq': 'faq/index.html',
-      '/terms': 'terms/index.html',
     });
   });
 
@@ -28,7 +25,7 @@ describe('site page map', () => {
     expect(Object.values(inputs).sort()).toEqual(
       Object.values(PAGES).map((f) => path.resolve(root, f)).sort(),
     );
-    expect(Object.keys(inputs).sort()).toEqual(['app', 'faq', 'legal', 'main', 'privacy', 'terms']);
+    expect(Object.keys(inputs).sort()).toEqual(['app', 'main']);
   });
 
   it('vite.config.ts uses pageInputs for the build input', () => {

@@ -11,39 +11,59 @@ h1{line-height:1.2}
 .site-footer{border-top:1px solid var(--line);color:var(--muted)}
 .brand{font-weight:700;text-decoration:none;color:var(--fg)}
 nav{display:flex;flex-wrap:wrap;gap:.5rem 1.25rem}
-.landing-page .site-header,.landing-page .site-footer{max-width:68rem;padding-inline:1rem}
-.landing{max-width:none;padding:0}
-.landing h1,.landing h2,.landing h3{font-family:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;font-weight:700;line-height:1.15;margin:0 0 .75rem}
-.landing p{max-width:60ch}
-.hero{background:#1b182c;color:#f3ece0;display:grid;gap:2rem;align-items:center;padding:3rem 1rem}
-.hero>*{max-width:68rem;margin-inline:auto;width:100%}
-.hero h1{font-size:clamp(2rem,6vw,3.5rem);letter-spacing:-.01em}
-.lede{font-size:1.2rem}
-.hero .note{color:#cdbfa8;font-size:.95rem}
-.hero-art{display:block;width:100%;height:auto;border-radius:.75rem}
-.button{display:inline-block;background:#ffc463;color:#1b182c;font-weight:700;text-decoration:none;padding:.8rem 1.4rem;border-radius:.5rem}
-.button:hover{background:#ffd48a}
-.button:focus-visible{outline:3px solid currentColor;outline-offset:3px}
-.hero .button:focus-visible{outline-color:#fff}
-.band,.cta{max-width:68rem;margin:0 auto;padding:2.5rem 1rem}
-.band h2,.cta h2{font-size:1.75rem}
-.band+.band{border-top:1px solid var(--line)}
-.steps{list-style:none;margin:1.5rem 0 0;padding:0;display:grid;gap:1.5rem;counter-reset:step}
-.steps li{counter-increment:step;padding-left:3.25rem;position:relative}
-.steps li::before{content:counter(step);position:absolute;left:0;top:0;width:2.25rem;height:2.25rem;border-radius:50%;background:#ffc463;color:#1b182c;font:700 1.1rem/2.25rem Georgia,serif;text-align:center}
-.steps h3{font-size:1.2rem}
-.steps p{margin:0}
-.makes{padding-left:1.25rem;margin:1rem 0 0}
-.makes li{margin:.4rem 0}
-.cta{border-top:1px solid var(--line);text-align:left}
-.cta .button{background:var(--fg);color:var(--bg)}
-.cta .button:hover{background:var(--link);color:var(--bg)}
-.cta .button:focus-visible{outline-color:var(--link)}
-@media (min-width:48em){
-  .hero{grid-template-columns:1fr 1fr;padding:4.5rem 1.5rem;gap:3rem}
-  .hero>*{margin-inline:0}
-  .hero{padding-inline:max(1.5rem,calc((100% - 68rem)/2))}
-  .steps{grid-template-columns:repeat(3,1fr)}
-  .band,.cta{padding-inline:1.5rem}
-  .landing-page .site-header,.landing-page .site-footer{padding-inline:1.5rem}
+@font-face{font-family:"Archivo Black";src:url(/fonts/archivo-black.woff2) format("woff2");font-weight:400;font-display:swap}
+@font-face{font-family:Archivo;src:url(/fonts/archivo-400.woff2) format("woff2");font-weight:400;font-display:swap}
+@font-face{font-family:Archivo;src:url(/fonts/archivo-600.woff2) format("woff2");font-weight:600;font-display:swap}
+.landing-page{--amber:#ffc23a;--ink:#14121c;--red:#ff4b2e;--white:#fff;--display:"Archivo Black","Arial Black",Impact,sans-serif;--m:clamp(16px,2.4vw,32px);background:var(--amber);color:var(--ink);font-family:Archivo,system-ui,-apple-system,"Segoe UI",sans-serif;font-size:1.125rem;line-height:1.5}
+.landing-page a{color:inherit}
+.landing-page a:focus-visible{outline:4px solid var(--ink);outline-offset:3px}
+.landing-page .site-header,.landing-page .site-footer{max-width:none;border:0;padding:1rem var(--m);color:var(--ink)}
+.landing-page .site-header{background:var(--amber)}
+.landing-page .brand{font-family:var(--display);font-size:1.4rem;letter-spacing:-.02em;font-weight:400}
+.landing-page .site-header nav a{font-weight:600;text-decoration:none}
+.landing-page .site-header nav a:first-child{background:var(--ink);color:var(--amber);font-family:var(--display);font-weight:400;padding:.6rem 1.1rem}
+.landing-page .site-footer{background:var(--ink);color:var(--amber);padding-block:clamp(2rem,4vw,3rem)}
+.landing-page .site-footer a{color:var(--amber);font-weight:600}
+.landing{max-width:none;padding:0;margin:0}
+.landing h1,.landing h2,.landing h3{font-family:var(--display);font-weight:400;line-height:.88;letter-spacing:-.03em;margin:0;text-wrap:balance}
+.landing p{max-width:60ch;margin:0}
+.button{display:inline-block;background:var(--ink);color:var(--amber);font-family:var(--display);text-decoration:none;padding:1rem 1.8rem;font-size:1.15rem;letter-spacing:-.01em}
+.landing-page .button{color:var(--amber)}
+.landing-page .button:hover{background:var(--red);color:var(--ink)}
+.hero{padding:clamp(1.5rem,4vw,3.5rem) var(--m) clamp(3.5rem,8vw,7rem);display:grid;gap:0}
+.hero h1{font-size:clamp(3.5rem,min(17vw,21dvh),19rem);max-width:none}
+.hero .lede{max-width:30ch;font-size:clamp(1.2rem,2vw,1.9rem);font-weight:600;line-height:1.3;margin:clamp(1.5rem,3vw,2.5rem) 0}
+.hero .note{margin-top:1rem;font-weight:600}
+.hero-row{display:grid;gap:1.5rem;align-items:end;margin-top:clamp(1.5rem,3vw,2.5rem)}
+.hero-row .lede{margin:0}
+.landing section{padding:clamp(3.5rem,8vw,7rem) var(--m)}
+.landing section>h2{font-size:clamp(2.6rem,min(10vw,17dvh),10rem);max-width:10ch}
+.how{background:var(--ink);color:var(--amber)}
+.steps{list-style:none;margin:clamp(2rem,5vw,4rem) 0 0;padding:0;display:grid;gap:var(--m)}
+.steps li{background:var(--amber);color:var(--ink);padding:1.5rem;display:flex;flex-direction:column;gap:1.25rem;min-height:21rem}
+.steps li:nth-child(2){background:var(--red)}
+.steps li:nth-child(3){background:var(--white)}
+.steps h3{font-size:clamp(2.2rem,4vw,3.8rem)}
+.steps p{font-weight:600;max-width:30ch}
+.steps svg{width:4.5rem;height:4.5rem;margin-top:auto}
+.faq{background:var(--white)}
+.cols{display:grid;gap:clamp(1.5rem,3vw,3rem) var(--m);margin-top:clamp(2rem,4vw,3rem)}
+.cols h3{font-size:clamp(1.8rem,3vw,2.8rem);margin-bottom:.7rem}
+.cols p{max-width:40ch}
+.cta{display:grid;gap:var(--m);align-items:end}
+.cta h2{max-width:11ch}
+.cta .button{font-size:clamp(1.3rem,2.4vw,2.2rem);padding:1.4rem 2.4rem}
+@media (min-width:48em) and (min-height:32em){
+  .hero{min-height:calc(100dvh - 4.5rem);align-content:center;padding-block:2rem}
+  .landing section:not(.hero){min-height:100dvh;display:flex;flex-direction:column;justify-content:center;padding-block:clamp(2rem,6dvh,4.5rem)}
+  .landing section.cta{display:grid;align-content:center}
+  .steps li{min-height:0}
+  .steps{margin-top:clamp(1.5rem,4dvh,3rem)}
 }
+@media (min-width:48em){
+  .hero-row{grid-template-columns:1fr auto}
+  .steps{grid-template-columns:repeat(3,1fr)}
+  .cols{grid-template-columns:1fr 1fr}
+  .cta{grid-template-columns:1fr auto}
+}
+@media (prefers-reduced-motion:no-preference){.button{transition:background .15s,color .15s}}

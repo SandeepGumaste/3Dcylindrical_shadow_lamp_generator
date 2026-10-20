@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Odd Shadows app mockup</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Archivo:wght@400;600&display=swap" rel="stylesheet" />
+<style>
+:root{--amber:#ffc23a;--ink:#14121c;--ink2:#25222f;--red:#ff4b2e;--white:#fff;--grey:#eceae4;--muted:#5b5866;
+--display:"Archivo Black","Arial Black",Impact,sans-serif;--body:"Archivo",system-ui,-apple-system,"Segoe UI",sans-serif;--m:clamp(12px,1.6vw,24px)}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--ink);color:var(--ink);font:400 .95rem/1.4 var(--body);font-variant-numeric:tabular-nums}
+button{font:inherit;cursor:pointer;border:0}
+:focus-visible{outline:3px solid var(--amber);outline-offset:2px}
+.app{display:grid;grid-template-rows:auto 1fr;min-height:100dvh}
+.top{background:var(--ink);color:var(--amber);display:flex;align-items:stretch;gap:var(--m);padding:0 var(--m);flex-wrap:wrap}
+.brand{font-family:var(--display);font-size:1.35rem;letter-spacing:-.02em;display:flex;align-items:center;padding:.9rem 0;margin-right:.5rem}
+.modes{display:flex;gap:.35rem;align-items:flex-end;flex:1;flex-wrap:wrap}
+.modes button{background:var(--ink2);color:var(--amber);padding:.8rem 1.1rem;font-weight:600}
+.modes button[aria-selected="true"]{background:var(--amber);color:var(--ink);font-family:var(--display);font-weight:400}
+.acct{display:flex;align-items:center;gap:.9rem;color:#ddd;padding:.5rem 0}
+.acct a{color:var(--amber);font-weight:600;text-decoration:none}
+.acct .who{display:flex;align-items:center;gap:.6rem}
+.acct .av{width:2rem;height:2rem;background:var(--amber);color:var(--ink);font-family:var(--display);display:grid;place-items:center}
+.work{display:grid;grid-template-columns:minmax(300px,380px) 1fr;min-height:0}
+.panel{background:var(--white);display:flex;flex-direction:column;min-height:0}
+.scroll{overflow:auto;padding:var(--m);display:grid;gap:1.6rem;align-content:start}
+.grp h2{font-family:var(--display);font-weight:400;font-size:1.5rem;letter-spacing:-.02em;margin:0 0 .8rem;line-height:1}
+.drop{display:grid;grid-template-columns:5rem 1fr;gap:1rem;align-items:center;background:var(--grey);padding:.75rem}
+.drop .thumb{width:5rem;height:5rem;background:var(--ink)}
+.drop strong{display:block}
+.drop button{background:var(--ink);color:var(--amber);padding:.45rem .9rem;margin-top:.4rem;font-weight:600}
+.ctl{display:grid;grid-template-columns:1fr auto;gap:.15rem .75rem;margin-bottom:.9rem;align-items:baseline}
+.ctl label{font-weight:600}
+.ctl output{font-family:var(--display);font-size:1rem}
+.ctl input[type=range]{grid-column:1/-1;width:100%;margin:.3rem 0 0;-webkit-appearance:none;appearance:none;height:1.25rem;background:transparent}
+.ctl input[type=range]::-webkit-slider-runnable-track{height:.45rem;background:var(--grey)}
+.ctl input[type=range]::-moz-range-track{height:.45rem;background:var(--grey)}
+.ctl input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:1.1rem;height:1.25rem;background:var(--ink);margin-top:-.4rem;border:0;border-radius:0}
+.ctl input[type=range]::-moz-range-thumb{width:1.1rem;height:1.25rem;background:var(--ink);border:0;border-radius:0}
+.toggle{display:flex;gap:.6rem;align-items:center;margin-bottom:.7rem;font-weight:600}
+.toggle input{width:1.15rem;height:1.15rem;accent-color:var(--ink)}
+.foot{background:var(--amber);padding:var(--m);display:grid;gap:.6rem}
+.go{background:var(--ink);color:var(--amber);font-family:var(--display);font-size:1.25rem;padding:1.05rem;letter-spacing:-.01em}
+.go:hover{background:var(--red);color:var(--ink)}
+.more{background:transparent;color:var(--ink);font-weight:600;text-decoration:underline;text-underline-offset:3px;padding:.2rem}
+.foot small{font-weight:600}
+.stage{display:grid;grid-template-rows:minmax(300px,1.5fr) auto;gap:var(--m);padding:var(--m);min-height:0;background:var(--ink)}
+.view{background:var(--ink2);position:relative;min-height:300px}
+.view svg{position:absolute;inset:0;width:100%;height:100%}
+.view .tag{position:absolute;left:1rem;top:1rem;background:var(--amber);color:var(--ink);font-family:var(--display);padding:.35rem .7rem;font-size:.95rem}
+.view .hint{position:absolute;right:1rem;bottom:1rem;color:#bdb9c9;font-size:.85rem}
+.pair{display:grid;grid-template-columns:1fr 1fr 1fr;gap:var(--m)}
+.card{background:var(--amber);color:var(--ink);padding:1rem;display:grid;gap:.6rem;align-content:start}
+.card:nth-child(2){background:var(--white)}
+.card h3{font-family:var(--display);font-weight:400;font-size:1.1rem;margin:0;line-height:1}
+.card svg{width:100%;height:auto;display:block}
+.big{font-family:var(--display);font-size:clamp(2.6rem,6vw,5rem);line-height:.85;letter-spacing:-.04em}
+.card.stat{background:var(--red)}
+.card p{margin:0;font-weight:600}
+@media (max-width:60rem){
+ .work{grid-template-columns:1fr}
+ .panel{order:2}.stage{order:1;grid-template-rows:auto auto}
+ .view{aspect-ratio:4/3;min-height:0}
+ .pair{grid-template-columns:1fr 1fr}.pair .stat{grid-column:1/-1}
+ .acct .name{display:none}
+}
+@media (prefers-reduced-motion:no-preference){.go,.modes button{transition:background .15s,color .15s}}
+</style>
+</head>
+<body>
+<div class="app">
+ <header class="top">
+  <div class="brand">Odd Shadows</div>
+  <div class="modes" role="tablist" aria-label="Lamp mode">
+   <button role="tab" aria-selected="true">Tealight shade</button>
+   <button role="tab" aria-selected="false">Box shadow</button>
+   <button role="tab" aria-selected="false">Shadow wall</button>
+  </div>
+  <div class="acct"><a href="#">Guided steps</a><a href="#">History</a><span class="who"><span class="av" aria-hidden="true">S</span><span class="name">Sandeep</span></span></div>
+ </header>
+
+ <div class="work">
+  <aside class="panel" aria-label="Settings">
+   <div class="scroll">
+    <section class="grp">
+     <h2>Picture</h2>
+     <div class="drop">
+      <svg class="thumb" viewBox="0 0 200 200" aria-hidden="true"><rect width="200" height="200" fill="#14121c"/><use href="#p-moon" fill="#ffc23a" transform="translate(14 14) scale(.9)"/></svg>
+      <div><strong>moon-and-stars.png</strong><span style="color:var(--muted)">512 × 512, greyscale</span><br><button type="button">Replace picture</button></div>
+     </div>
+     <div class="ctl" style="margin-top:1rem"><label for="thr">Threshold</label><output id="o-thr">128</output><input id="thr" type="range" min="0" max="255" value="128"></div>
+     <div class="ctl"><label for="edge">Edge rounding</label><output id="o-edge">2</output><input id="edge" type="range" min="0" max="10" value="2"></div>
+     <label class="toggle"><input type="checkbox"> Invert</label>
+    </section>
+    <section class="grp">
+     <h2>Shade</h2>
+     <div class="ctl"><label for="dia">Inner diameter</label><output id="o-dia">44 mm</output><input id="dia" type="range" min="36" max="70" value="44"></div>
+     <div class="ctl"><label for="hei">Height</label><output id="o-hei">90 mm</output><input id="hei" type="range" min="50" max="140" value="90"></div>
+     <div class="ctl"><label for="wall">Wall thickness</label><output id="o-wall">2.4 mm</output><input id="wall" type="range" min="12" max="40" value="24"></div>
+     <div class="ctl"><label for="flame">Flame height</label><output id="o-flame">18 mm</output><input id="flame" type="range" min="5" max="40" value="18"></div>
+    </section>
+    <section class="grp">
+     <h2>Printing</h2>
+     <label class="toggle"><input type="checkbox" checked> Optimize ribs for printing</label>
+     <label class="toggle"><input type="checkbox" checked> Close bottom with a floor plate</label>
+     <div class="ctl"><label for="span">Max bridge span</label><output id="o-span">8 mm</output><input id="span" type="range" min="2" max="20" value="8"></div>
+    </section>
+   </div>
+   <div class="foot">
+    <button class="go" type="button">Download STL</button>
+    <button class="more" type="button">More formats: SVG map, flat stencil</button>
+    <small>Free to use. You log in with Google to download.</small>
+   </div>
+  </aside>
+
+  <main class="stage">
+   <div class="view">
+    <span class="tag">Lit preview</span>
+    <svg viewBox="0 0 800 460" preserveAspectRatio="xMidYMid slice" role="img" aria-label="The shade lit from inside, throwing its picture on the table.">
+     <rect width="800" height="460" fill="#25222f"/>
+     <rect y="290" width="800" height="170" fill="#14121c"/>
+     <g transform="matrix(1.5 0 -.9 .34 360 300)"><use href="#p-moon" fill="#ffc23a"/></g>
+     <g id="shade">
+      <ellipse id="shade-bot" cx="190" cy="335" rx="70" ry="14" fill="#0a0910"/>
+      <rect id="shade-body" x="120" y="150" width="140" height="185" fill="#3a3646"/>
+      <g id="shade-holes" clip-path="url(#clip-body)"><rect x="120" y="150" width="140" height="185" fill="url(#holes)"/></g>
+      <ellipse id="shade-top" cx="190" cy="150" rx="70" ry="14" fill="#4c475c"/>
+      <ellipse id="shade-in" cx="190" cy="150" rx="62" ry="11" fill="#0a0910"/>
+      <ellipse id="shade-flame" cx="190" cy="152" rx="8" ry="4" fill="#ffc23a"/>
+     </g>
+    </svg>
+    <span class="hint">Drag to orbit. Scroll to zoom.</span>
+   </div>
+   <div class="pair">
+    <div class="card"><h3>Your picture</h3><svg viewBox="0 0 200 200" role="img" aria-label="Your picture"><rect width="200" height="200" fill="#14121c"/><use href="#p-moon" fill="#ffc23a" transform="translate(14 14) scale(.9)"/></svg></div>
+    <div class="card"><h3>Shadow on the wall</h3><svg viewBox="0 0 200 200" role="img" aria-label="Simulated shadow"><rect width="200" height="200" fill="#14121c"/><use href="#p-moon" fill="#ffc23a" opacity=".92" transform="translate(14 14) scale(.9)"/><circle cx="60" cy="100" r="3" fill="#14121c"/></svg></div>
+    <div class="card stat"><h3>Match</h3><div class="big">94%</div><p>Average error 6 of 100. Thin details may close up when printed.</p></div>
+   </div>
+  </main>
+ </div>
+</div>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+ <defs>
+  <path id="p-moon" d="M100 10A90 90 0 0 0 100 190A120 120 0 0 1 100 10Z M150 40l4 12 12 4-12 4-4 12-4-12-12-4 12-4z M138 128l3 9 9 3-9 3-3 9-3-9-9-3 9-3z"/>
+  <pattern id="holes" width="12" height="12" patternUnits="userSpaceOnUse"><circle cx="6" cy="6" r="3.3" fill="#ffc23a"/></pattern>
+  <clipPath id="clip-body"><use href="#p-moon" transform="translate(112 160) scale(.7)"/></clipPath>
+ </defs>
+</svg>
+
+<script>
+(function(){
+ function $(i){return document.getElementById(i)}
+ var map={thr:["o-thr",""],edge:["o-edge",""],dia:["o-dia"," mm"],hei:["o-hei"," mm"],wall:["o-wall",null],flame:["o-flame"," mm"],span:["o-span"," mm"]};
+ Object.keys(map).forEach(function(k){
+  var el=$(k);function upd(){
+   var v=el.value;$(map[k][0]).textContent=k==="wall"?(v/10).toFixed(1)+" mm":v+map[k][1];
+   if(k==="dia"||k==="hei")shade()
+  }
+  el.addEventListener("input",upd);
+ });
+ function shade(){
+  var d=+$("dia").value,h=+$("hei").value,w=d*3.2,ht=h*2.05,x=190-w/2,top=335-ht;
+  $("shade-body").setAttribute("x",x);$("shade-body").setAttribute("width",w);$("shade-body").setAttribute("y",top);$("shade-body").setAttribute("height",ht);
+  ["shade-top","shade-in"].forEach(function(i){$(i).setAttribute("cy",top);$(i).setAttribute("rx",w/2-(i==="shade-in"?8:0))});
+  $("shade-bot").setAttribute("rx",w/2);$("shade-flame").setAttribute("cy",top+2);
+  var r=$("shade-holes").firstElementChild;r.setAttribute("x",x);r.setAttribute("width",w);r.setAttribute("y",top);r.setAttribute("height",ht);
+ }
+})();
+</script>
+</body>
+</html>

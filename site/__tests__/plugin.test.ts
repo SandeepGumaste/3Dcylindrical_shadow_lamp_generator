@@ -65,7 +65,7 @@ describe('sitePages plugin', () => {
     expect(() => resolve(p, 'serve', 'development')).not.toThrow();
   });
 
-  it('emits sitemap and robots with the five static routes and no /app', () => {
+  it('emits sitemap and robots with the enabled static routes and no /app', () => {
     const p = sitePages({siteUrl: 'https://example.com'});
     resolve(p, 'build', 'production');
     const files: Record<string, string> = {};
@@ -74,7 +74,7 @@ describe('sitePages plugin', () => {
     });
     const locs = [...files['sitemap.xml'].matchAll(/<loc>(.*?)<\/loc>/g)].map((m) => m[1]);
     expect(locs.sort()).toEqual(
-      ['/', '/faq', '/legal', '/privacy', '/terms'].map((r) => 'https://example.com' + r).sort(),
+      ['/'].map((r) => 'https://example.com' + r).sort(),
     );
     expect(files['sitemap.xml']).not.toContain('/app');
     expect(files['robots.txt']).toContain('Sitemap: https://example.com/sitemap.xml');
@@ -99,10 +99,9 @@ describe('rewriteCleanUrl (dev and preview)', () => {
     expect(rewriteCleanUrl('/app')).toBe('/app/index.html');
     expect(rewriteCleanUrl('/app/')).toBe('/app/index.html');
     expect(rewriteCleanUrl('/app?x=1')).toBe('/app/index.html?x=1');
-    expect(rewriteCleanUrl('/faq')).toBe('/faq/index.html');
-    expect(rewriteCleanUrl('/privacy/')).toBe('/privacy/index.html');
-    expect(rewriteCleanUrl('/legal')).toBe('/legal/index.html');
-    expect(rewriteCleanUrl('/terms')).toBe('/terms/index.html');
+    // /faq, /privacy, /legal and /terms are disabled, so they are not rewritten.
+    expect(rewriteCleanUrl('/faq')).toBe('/faq');
+    expect(rewriteCleanUrl('/privacy/')).toBe('/privacy/');
   });
   it('leaves the root, assets and source files alone', () => {
     expect(rewriteCleanUrl('/')).toBe('/');
