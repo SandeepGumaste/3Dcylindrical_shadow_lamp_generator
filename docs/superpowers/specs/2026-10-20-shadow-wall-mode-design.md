@@ -26,7 +26,7 @@ Out for now (parked): custom SVG footprint, splitting the wall into flat plates 
 ## Cleanup (v1)
 
 1. Specks: holes and solid pieces smaller than a `minFeature` disc (default 0.8 mm) are flipped (the Tealight rule, periodic in u).
-2. Floating solid pieces (not connected, 4-neighbour with wrap in u, to the foot; touching the top edge does not hold a piece) are removed and counted in a warning; bridging them is parked.
+2. Floating solid pieces (not connected, 4-neighbour with wrap in u, to the foot; touching the top edge does not hold a piece) are bridged: one straight strip (8 directions, width max(minFeature, 0.8 mm)) along the shortest path (at most 32 mm of wall surface, measured with the column spacing and the row heights) to attached material, nearest first, thickest part of the piece wins ties, repeated passes so nested pieces chain (`bridge.ts`). Pieces with nothing in reach are removed; the warning counts bridged and removed pieces.
 
 ## UI
 
@@ -36,7 +36,7 @@ A tab "Shadow wall (table)". A new hook `useShadowWallGenerator` (image presets 
 
 - Dark = solid (Box convention). Tealight's "black = hole" would give a lit silhouette; the source model casts a dark one. The image presets work in both because the silhouettes are black on white.
 - Base plate (added later, see `docs/superpowers/plans/2026-10-20-shadow-wall-base.md`): a base plate under the wall (default on, like Tealight's floor): a plate of `baseThickness` (3 mm) with a centre hole (12.5 mm) for the light and two magnet pockets (8.1 x 2.1 mm, 12 mm either side of the centre, along the footprint's longer axis, y on a tie) on the underside, built in `src/geometry/shadowWall/base.ts` from the shell's bottom rings (`skipBottomBorder`). The wall's z stays measured from the top of the plate and the whole model is shifted up by the thickness at the end; the ground where the shadow lands is the plate's underside, so a wall node (q, z) maps to the table point q * (hf + G) / (hf - z) with G = base thickness (0 without a base), used by the field sampling, the row spacing and the reach warning (`tableScale` in `shadowWall.ts`). `lightHeight` stays measured above the top of the base.
-- Floating pieces are dropped, not bridged, in v1 (the shapes are centred on the axis, so most connect to the foot through the rays near it).
+- Floating pieces are bridged within 32 mm of wall surface and dropped only when nothing is in reach.
 
 ## Reach and Fit shadow to the wall
 

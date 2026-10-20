@@ -15,6 +15,7 @@ import { gaussianBlur, labelComponents } from '../tealightShade';
 import { buildOutline, FootprintParams, Outline } from './footprint';
 import { MeshBuilder, SurfaceMap, buildShell } from '../shellMesh';
 import { checkMesh, MeshCheck } from '../meshCheck';
+import { bridgeFloatingPieces } from './bridge';
 import { BaseSpec, addBase, validateBase } from './base';
 
 export interface ShadowWallParams extends FootprintParams {
@@ -65,6 +66,7 @@ export const DEFAULT_SHADOW_WALL_PARAMS: ShadowWallParams = {
 
 export const FOOT = 3; // mm of solid foot band
 const MAX_ROWS = 1500;
+const BRIDGE_REACH = 32; // mm of wall surface a bridge may span
 
 export interface ShadowWallGeometry {
   outline: Outline;
@@ -197,7 +199,7 @@ export function deriveGeometry(p: ShadowWallParams): ShadowWallGeometry {
 export interface ShadowWallField {
   geometry: ShadowWallGeometry;
   field: Float32Array; // index i + cols * j, > 0 solid
-  report: { specksRemoved: number; floatingRemoved: number };
+  report: { specksRemoved: number; floatingRemoved: number; bridged: number }; // floatingRemoved = floating pieces dropped (nothing in reach), bridged = joined to the wall
 }
 
 /** Luminance 0..1 of the image under table position (X, Y); outside the canvas = 1 (light). */
@@ -248,7 +250,7 @@ export function buildField(img: GrayImage, p: ShadowWallParams): ShadowWallField
     const jl = Math.max(g.bandStart, j - 1), jh = Math.min(g.bandEnd, j + 1);
     return cell * ((zs[jh] - zs[jl]) / 2);
   };
-  const report = { specksRemoved: 0, floatingRemoved: 0 };
+  const report = { specksRemoved: 0, floatingRemoved: 0, bridged: 0 };
 
   // 1. Minimum feature: drop tiny holes and tiny loose solid specks.
   if (p.minFeature > 0) {
@@ -271,13 +273,12 @@ export function buildField(img: GrayImage, p: ShadowWallParams): ShadowWallField
     }
   }
 
-  // 2. Floating solid pieces (not connected to the foot) would fall out: make them holes. Touching the top edge does not hold a piece.
+  // 2. Floating solid pieces (not connected to the foot) would fall out: bridge each to the attached material with a thin strip
+  // (touching only the top edge does not hold a piece); only pieces with nothing within reach are dropped and counted.
   {
-    const { labels, count } = labelComponents(solid(), C, rowsN, 1);
-    const anchored = new Uint8Array(count);
-    for (let idx = 0; idx < labels.length; idx++) if (labels[idx] >= 0 && Math.floor(idx / C) < g.bandStart) anchored[labels[idx]] = 1;
-    for (let idx = 0; idx < labels.length; idx++) if (labels[idx] >= 0 && !anchored[labels[idx]]) flip(idx, false);
-    for (let l = 0; l < count; l++) if (!anchored[l]) report.floatingRemoved++;
+    const r = bridgeFloatingPieces(field, C, zs, g.footRows, cell, Math.max(p.minFeature, 0.8), BRIDGE_REACH);
+    report.bridged = r.bridged;
+    report.floatingRemoved = r.dropped;
   }
 
   return { geometry: g, field, report };
@@ -435,8 +436,12 @@ export function generateShadowWall(img: GrayImage, p: ShadowWallParams, runCheck
     warnings.push("Part of the shadow image lies beyond the wall's reach and is not reproduced (the part closest to the axis is always hidden under the base and foot). Try Fit shadow to the wall.");
   const large = largeModelWarning(indices.length / 3);
   if (large) warnings.push(large);
-  if (report.floatingRemoved > 0)
-    warnings.push(`${report.floatingRemoved} floating solid piece(s) were removed because they would fall out.`);
+  if (report.bridged > 0 || report.floatingRemoved > 0) {
+    const parts: string[] = [];
+    if (report.bridged > 0) parts.push(`${report.bridged} floating solid piece(s) were joined to the wall with thin bridges`);
+    if (report.floatingRemoved > 0) parts.push(`${report.floatingRemoved} floating piece(s) with nothing in reach were removed because they would fall out`);
+    warnings.push(parts.join('; ') + '.');
+  }
   if (p.minFeature > 0 && report.specksRemoved > 0)
     warnings.push(`${report.specksRemoved} feature(s) smaller than ${p.minFeature} mm were dropped.`);
 

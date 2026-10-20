@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import type { GrayImage } from '../../../types';
+import { labelComponents } from '../../tealightShade';
 import {
   DEFAULT_SHADOW_WALL_PARAMS, FOOT, outerHeightAt, ShadowWallParams, buildField, deriveGeometry, validateShadowWallParams, tableScale, groundDrop, DEFAULT_SHADOW_WALL_PARAMS as DEFAULTS,
 } from '../shadowWall';
@@ -186,15 +187,48 @@ describe('buildField', () => {
     checkRow({ ...E, rotation: 0 }, discs([[40, 0, 70]]), 40, 0, 70);
   });
 
-  it('removes and counts an isolated dark blob in the middle of the band', () => {
-    // wall at +x: q = 38.8 mm, ray reaches 63.5 mm on the table at z = 35
-    const img = discs([[63.5, 0, 6]]);
-    const loose = buildField(img, { ...E, minFeature: 0 });
-    expect(loose.report.floatingRemoved).toBeGreaterThanOrEqual(1);
-    expect(solidFrac(loose.field, loose.geometry.bandStart, loose.geometry.bandEnd, loose.geometry.outline.cols)).toBe(0);
+  /** True when every solid node is connected (periodic in u) to the foot rows. */
+  const allAttached = (field: Float32Array, C: number, rows: number) => {
+    const mask = new Uint8Array(field.length);
+    for (let n = 0; n < mask.length; n++) mask[n] = field[n] > 0 ? 1 : 0;
+    const { labels, count } = labelComponents(mask, C, rows, 1);
+    return count === 1 && labels[0] >= 0;
+  };
+
+  it('bridges an isolated dark blob in the middle of the band to the foot instead of dropping it', () => {
+    // wall at +x: q = 38.8 mm, ray reaches 63.5 mm on the table at z = 35, about 32 mm above the foot
+    const img = discs([[46.6, 0, 4]]); // z about 8 to 21 mm: close to the foot
+    const r = buildField(img, { ...E, minFeature: 0 });
+    expect(r.report.bridged).toBe(1);
+    expect(r.report.floatingRemoved).toBe(0);
+    expect(allAttached(r.field, r.geometry.outline.cols, r.geometry.zs.length)).toBe(true);
   });
 
-  /** Table-space dark blob on the +x axis; with no base the wall's +x column maps z = 70 (the top edge) to x = 38.8 * 90 / 20 = 174.6 mm. */
+  it('chains two floating pieces: the upper one has nothing else within reach', () => {
+    const img = discs([[49.9, 0, 5], [83.1, 0, 3]]); // z 12..26 and z 46..49: the upper is 43 mm above the foot
+    const r = buildField(img, { ...E, minFeature: 0 });
+    expect(r.report.bridged).toBe(2);
+    expect(r.report.floatingRemoved).toBe(0);
+    expect(allAttached(r.field, r.geometry.outline.cols, r.geometry.zs.length)).toBe(true);
+  });
+
+  it('drops and counts a blob with nothing within reach (high up, 50 mm above the foot)', () => {
+    const r = buildField(discs([[110, 0, 5]]), { ...E, minFeature: 0 }); // z about 55..60
+    expect(r.report.floatingRemoved).toBeGreaterThanOrEqual(1);
+    expect(r.report.bridged).toBe(0);
+    expect(solidFrac(r.field, r.geometry.bandStart, r.geometry.zs.length - 1, r.geometry.outline.cols)).toBe(0);
+  });
+
+  it('inverted centred disc: the lit ring above it is bridged to the foot (or dropped and reported)', () => {
+    const r = buildField(discs([[0, 0, 60]]), { ...E, invert: true, minFeature: 0 });
+    expect(r.report.bridged + r.report.floatingRemoved).toBeGreaterThanOrEqual(1);
+    expect(r.report.bridged).toBe(1); // the ring starts about 28 mm above the foot, within reach
+    expect(r.report.floatingRemoved).toBe(0);
+    const C = r.geometry.outline.cols;
+    expect(solidFrac(r.field, r.geometry.zs.length - 1, r.geometry.zs.length - 1, C)).toBe(1);
+    expect(allAttached(r.field, C, r.geometry.zs.length)).toBe(true);
+  });
+
   it('a dark strip from the foot to the top edge stays, solid on its top row only', () => {
     const strip: GrayImage = { width: N, height: N, pixels: new Float32Array(N * N).fill(1) };
     for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {

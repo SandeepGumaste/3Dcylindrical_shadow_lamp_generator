@@ -190,12 +190,27 @@ describe('ray-exact outer surface', () => {
 });
 
 describe('warnings', () => {
-  it('a removed-only image gets the floating warning, not the blank one', () => {
+  it('a bridged-only image names the bridges, not the blank warning', () => {
     const img = flat(1);
-    // a dark spot in the middle of the pattern, not touching the foot or rim, becomes floating and is removed
     const k = 400 / N;
     const g = deriveGeometry(P);
-    const zMid = (g.blendBottom + g.blendTop) / 2;
+    const zLow = 12; // 9 mm above the foot: bridged
+    const r = (P.width / 2 - 1) * P.lightHeight / (P.lightHeight - zLow);
+    for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) if (Math.hypot(x + 0.5 - N / 2 - r / k, y + 0.5 - N / 2) < 3 / k) img.pixels[y * N + x] = 0;
+    const res = generateShadowWall(img, { ...P, minFeature: 0 });
+    expect(g.blendBottom).toBeLessThan(zLow);
+    expect(res.report.bridged).toBeGreaterThan(0);
+    expect(res.report.floatingRemoved).toBe(0);
+    expect(res.report.check.watertight).toBe(true);
+    expect(res.report.warnings.some((w) => /joined to the wall/i.test(w))).toBe(true);
+    expect(res.report.warnings.some((w) => /nothing is shadowed/i.test(w))).toBe(false);
+  });
+  it('a removed-only image gets the floating warning, not the blank one', () => {
+    const img = flat(1);
+    // a dark spot high on the pattern, far from the foot, cannot be bridged and is removed
+    const k = 400 / N;
+    const g = deriveGeometry(P);
+    const zMid = 62; // far above the foot: out of bridging reach
     const r = (P.width / 2 - 1) * P.lightHeight / (P.lightHeight - zMid);
     for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) if (Math.hypot(x + 0.5 - N / 2 - r / k, y + 0.5 - N / 2) < 5 / k) img.pixels[y * N + x] = 0;
     const res = generateShadowWall(img, { ...P, minFeature: 0 });
