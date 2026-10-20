@@ -10,7 +10,7 @@ import { rgbaToGrayscale } from './image/grayscale';
 import { ThreeViewport } from './components/ThreeViewport';
 import { ShadowPreview } from './components/ShadowPreview';
 import { ControlsPanel } from './components/ControlsPanel';
-import defaultShapeSvg from './assets/default-shape.svg?raw';
+import defaultImageUrl from './assets/batman.jpg';
 import { runGeneration, GenerationResult } from './workers/lampRunner';
 import { downloadSTL } from './geometry/stl';
 import { generateCircularMapSvg, generateUnwrappedMapSvg, downloadSVG } from './geometry/svg';
@@ -97,9 +97,9 @@ export default function App() {
   // Debounced light change tracker
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Loads the bundled default silhouette (SVG) as the initial/default image
+  // Loads the bundled default silhouette (Batman logo) as the initial/default image
   const loadDefaultImage = useCallback(async () => {
-    const { grayImage: loaded, previewUrl } = await loadImageToGray(defaultShapeSvg, {
+    const { grayImage: loaded, previewUrl } = await loadImageToGray(defaultImageUrl, {
       targetResolution: 512,
       adjustments,
     });

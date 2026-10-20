@@ -219,12 +219,38 @@ describe('image offset', () => {
 });
 
 describe('unwrapped map svg', () => {
-  it('is a mm-sized svg with hole rectangles', () => {
+  it('is a mm-sized svg with one closed path per hole shape (not a pile of rectangles)', () => {
     const p = P();
     const res = generateTealightShade(TEALIGHT_SAMPLES[0].make(512), p);
     const svg = generateTealightMapSvg(res, p);
     expect(svg).toMatch(/<svg[^>]+width="[\d.]+mm" height="70mm"/);
-    expect((svg.match(/<rect /g) ?? []).length).toBeGreaterThan(50);
+    const paths = svg.match(/<path [^>]*d="[^"]+"/g) ?? [];
+    expect(paths.length).toBeGreaterThan(5);
+    expect(svg.match(/<rect /g) ?? []).toHaveLength(1);                       // only the black wall background
+    for (const d of paths) {
+      const subpaths = d.match(/M/g)!.length;
+      expect(d.match(/Z/g)!.length).toBe(subpaths);                             // every loop is closed
+      expect(d).not.toMatch(/[HVL]/);                                           // smooth curves, no per-cell strokes
+    }
+    expect(svg).toContain('fill-rule="evenodd"');
+  });
+  it('has far fewer segments than one rectangle per run of cells', () => {
+    const p = P();
+    const res = generateTealightShade(TEALIGHT_SAMPLES[0].make(512), p);
+    const svg = generateTealightMapSvg(res, p);
+    const segments = (svg.match(/C/g) ?? []).length;
+    let runs = 0;
+    const g = res.geometry, C = g.cols;
+    for (let j = g.bandStart; j < g.bandEnd; j++) {
+      let inRun = false;
+      for (let i = 0; i < C; i++) {
+        const i1 = (i + 1) % C;
+        const hole = res.field[i + C * j] + res.field[i1 + C * j] + res.field[i + C * (j + 1)] + res.field[i1 + C * (j + 1)] <= 0;
+        if (hole && !inRun) runs++;
+        inRun = hole;
+      }
+    }
+    expect(segments).toBeLessThan(runs * 2);
   });
 });
 
@@ -285,5 +311,59 @@ describe('rib optimizer', () => {
     const r = suggestRibs(ring, P({ maxBridge: 12 }));
     const res = generateTealightShade(ring, P({ ribs: r.ribs, ribAngles: r.angles }));
     expect(res.report.check.watertight).toBe(true);
+  });
+});
+
+describe('open bands above and below the pattern', () => {
+  const img = () => TEALIGHT_SAMPLES[0].make(512);
+  const holeRows = (g: ReturnType<typeof deriveGeometry>, lo: number, hi: number) =>
+    Array.from({ length: g.zs.length }, (_, j) => j).filter((j) => g.zs[j] >= lo - 1e-9 && g.zs[j] <= hi + 1e-9);
+  it('default to no extra openings', () => {
+    expect(DEFAULT_TEALIGHT_PARAMS.patternGapTop).toBe(0);
+    expect(DEFAULT_TEALIGHT_PARAMS.patternGapBottom).toBe(0);
+    const g = deriveGeometry(P());
+    expect(g.zs.length - 1 - g.bandEnd).toBe(1);                       // only the rim node above the pattern
+  });
+  it('a top gap adds an open band of that height above the pattern, below a solid rim', () => {
+    const base = deriveGeometry(P());
+    const g = deriveGeometry(P({ patternGapTop: 6 }));
+    expect(g.zmax).toBeCloseTo(base.zmax, 6);                          // the pattern itself does not move
+    const { field } = buildTealightField(img(), P({ patternGapTop: 6, ribs: 0, autoRibs: false }));
+    const rows = holeRows(g, g.zmax + 1e-6, g.zmax + 6).filter((j) => j > g.bandEnd);
+    expect(rows.length).toBeGreaterThan(5);
+    for (const j of rows) for (let i = 0; i < g.cols; i++) expect(field[i + g.cols * j]).toBeLessThanOrEqual(0);
+    for (let i = 0; i < g.cols; i++) expect(field[i + g.cols * (g.zs.length - 1)]).toBeGreaterThan(0);   // top rim solid
+  });
+  it('a bottom gap raises the pattern and opens a band of that height above the foot', () => {
+    const base = deriveGeometry(P());
+    const g = deriveGeometry(P({ patternGapBottom: 5 }));
+    expect(g.baseBand).toBeCloseTo(base.baseBand + 5, 6);
+    const { field } = buildTealightField(img(), P({ patternGapBottom: 5, ribs: 0, autoRibs: false }));
+    const rows = holeRows(g, base.baseBand, g.baseBand).filter((j) => g.zs[j] < g.baseBand - 1e-9);
+    expect(rows.length).toBeGreaterThan(5);
+    for (const j of rows) for (let i = 0; i < g.cols; i++) expect(field[i + g.cols * j]).toBeLessThanOrEqual(0);
+    for (let i = 0; i < g.cols; i++) expect(field[i]).toBeGreaterThan(0);                              // foot stays solid
+  });
+  it('keeps the rib strips solid through the open bands so nothing floats', () => {
+    const p = P({ patternGapTop: 6, patternGapBottom: 5, ribs: 6, autoRibs: false });
+    const { geometry: g, field } = buildTealightField(img(), p);
+    for (let j = 0; j < g.zs.length; j++) expect(field[0 + g.cols * j]).toBeGreaterThan(0);          // column at angle 0 is a rib centre
+  });
+  it('builds a watertight shade with no loose pieces when ribs bridge the openings', () => {
+    const p = P({ patternGapTop: 6, patternGapBottom: 5, ribs: 24, autoRibs: false });
+    const res = generateTealightShade(img(), p);
+    expect(res.report.check.watertight).toBe(true);
+    expect(res.report.islandsRemaining).toBe(0);
+  });
+  it('auto ribs account for the openings', () => {
+    const p = P({ patternGapTop: 6 });
+    const s = suggestRibs(img(), p);
+    expect(s.ribs).toBeGreaterThanOrEqual(8);   // a full-width flat-roofed opening needs many bridges
+  });
+  it('validates the gaps', () => {
+    expect(validateTealightParams(P({ patternGapTop: -1 }))).not.toEqual([]);
+    expect(validateTealightParams(P({ patternGapBottom: -1 }))).not.toEqual([]);
+    expect(validateTealightParams(P({ patternGapTop: 6, autoRibs: false, ribs: 2 }))).not.toEqual([]);
+    expect(validateTealightParams(P({ patternGapTop: 6, autoRibs: false, ribs: 12 }))).toEqual([]);
   });
 });
