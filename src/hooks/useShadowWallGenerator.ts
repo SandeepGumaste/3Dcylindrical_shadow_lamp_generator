@@ -19,7 +19,7 @@ export const shouldGenerate = (lastImageKey: string | null, imageKey: string) =>
 /** Identifies the inputs of a build: every setting plus which image (bundled id, or upload load id). */
 export const inputKey = (params: ShadowWallParams, sampleId: string, uploadId: number) => JSON.stringify([params, sampleId, uploadId]);
 
-export function useShadowWallGenerator() {
+export function useShadowWallGenerator(active = true) {
   const [params, setParamsState] = useState<ShadowWallParams>({ ...DEFAULT_SHADOW_WALL_PARAMS });
   const [sampleId, setSampleId] = useState<string>(DEFAULT_WALL_IMAGE_ID);
   const [uploaded, setUploaded] = useState<{ name: string; image: GrayImage; id: number } | null>(null);
@@ -67,10 +67,10 @@ export function useShadowWallGenerator() {
   const lastImageKey = useRef<string | null>(null);
   const imageKey = `${sampleId}:${uploadId}`;
   useEffect(() => {
-    if (!image || !shouldGenerate(lastImageKey.current, imageKey)) return;
+    if (!active || !image || !shouldGenerate(lastImageKey.current, imageKey)) return;
     lastImageKey.current = imageKey;
     generateRef.current();
-  }, [image, imageKey]);
+  }, [active, image, imageKey]);
 
   const upload = async (file: File) => {
     const { grayImage } = await loadImageToGray(file, { targetResolution: 512, adjustments: { ...NEUTRAL } });
