@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import type { GrayImage } from '../../../types';
 import {
-  DEFAULT_SHADOW_WALL_PARAMS, FOOT, RIM, outerHeightAt, ShadowWallParams, buildField, deriveGeometry, validateShadowWallParams, tableScale, groundDrop, DEFAULT_SHADOW_WALL_PARAMS as DEFAULTS,
+  DEFAULT_SHADOW_WALL_PARAMS, FOOT, outerHeightAt, ShadowWallParams, buildField, deriveGeometry, validateShadowWallParams, tableScale, groundDrop, DEFAULT_SHADOW_WALL_PARAMS as DEFAULTS,
 } from '../shadowWall';
 
 // The base is covered in base.test.ts and the 'with a base' blocks; these tests describe the bare wall.
@@ -37,10 +37,10 @@ describe('validateShadowWallParams', () => {
     expect(validateShadowWallParams({ ...P, shadowSize: -5 }).join(' ')).toMatch(/Shadow Size/);
     expect(validateShadowWallParams({ ...P, imageScale: 5 }).join(' ')).toMatch(/Image Size/);
   });
-  it('rejects heights that do not fit the light or the foot and rim', () => {
+  it('rejects heights that do not fit the light or the foot', () => {
     expect(validateShadowWallParams({ ...P, height: 90 }).join(' ')).toMatch(/Light Height must be at least 1 mm above Height/);
     expect(validateShadowWallParams({ ...P, height: 89.5 }).join(' ')).toMatch(/Light Height/);
-    expect(validateShadowWallParams({ ...P, height: 8 }).join(' ')).toMatch(/No room for the foot, rim/);
+    expect(validateShadowWallParams({ ...P, height: 8 }).join(' ')).toMatch(/at least 20 mm/);
     expect(validateShadowWallParams({ ...P, height: 15 }).join(' ')).toMatch(/at least 20 mm/);
   });
   it('rejects non-positive and too pointed ellipses before building anything', () => {
@@ -68,7 +68,7 @@ describe('tall foot for strongly curved shapes', () => {
       const need = Math.max(FOOT, 1.25 * (sMax - 1) * p.lightHeight);
       expect(g.blendBottom).toBeCloseTo(need, 9);
       expect(g.zs[g.bandStart]).toBeCloseTo(need, 9);
-      expect(g.zs[g.bandEnd]).toBeCloseTo(p.height - RIM, 9);
+      expect(g.zs[g.bandEnd]).toBeCloseTo(p.height, 9);
       for (let j = 1; j < g.zs.length; j++) expect(g.zs[j]).toBeGreaterThan(g.zs[j - 1]);
       for (let i = 0; i < o.cols; i++) {
         let prev = -Infinity;
@@ -83,26 +83,25 @@ describe('tall foot for strongly curved shapes', () => {
   it('rejects only when the enlarged foot leaves no room', () => {
     // thin 12 mm wide wall run: huge ray scale at the ends makes the foot swallow the height
     const p: ShadowWallParams = { ...P, width: 100, length: 13, cornerRadius: 3, wallThickness: 1.4, height: 20 };
-    expect(validateShadowWallParams(p).join(' ')).toMatch(/No room for the foot, rim/);
+    expect(validateShadowWallParams(p).join(' ')).toMatch(/No room for the foot and 5 mm of pattern/);
   });
 });
 
 describe('deriveGeometry rows', () => {
   for (const [name, p] of [['rectangle', P], ['ellipse', { ...P, kind: 'ellipse', width: 100, length: 60 } as ShadowWallParams]] as const) {
-    it(`${name}: rows rise strictly from 0 to height, foot and rim uniform`, () => {
+    it(`${name}: rows rise strictly from 0 to height, the foot uniform and the band runs to the top edge`, () => {
       const g = deriveGeometry(p);
       const zs = g.zs;
       expect(zs[0]).toBe(0);
       expect(zs[zs.length - 1]).toBeCloseTo(p.height, 9);
       for (let j = 1; j < zs.length; j++) expect(zs[j]).toBeGreaterThan(zs[j - 1]);
       expect(zs[g.bandStart]).toBeCloseTo(g.blendBottom, 9);
-      expect(zs[g.bandEnd]).toBeCloseTo(p.height - RIM, 9);
-      expect(g.rimStart).toBe(g.bandEnd + 1);
+      expect(zs[g.bandEnd]).toBeCloseTo(p.height, 9);
+      expect(g.bandEnd).toBe(zs.length - 1);
+      expect(g.blendTop).toBe(p.height);
       expect(g.footRows).toBe(g.bandStart);
       const footStep = zs[1] - zs[0];
       for (let j = 1; j < g.bandStart; j++) expect(zs[j] - zs[j - 1]).toBeCloseTo(footStep, 9);
-      const rimStep = zs[g.rimStart] - zs[g.bandEnd];
-      for (let j = g.rimStart; j < zs.length; j++) expect(zs[j] - zs[j - 1]).toBeCloseTo(rimStep, 9);
       expect(g.bandEnd - g.bandStart + 1).toBeLessThanOrEqual(1500);
       expect(zs.length).toBeLessThanOrEqual(1700);
     });
@@ -125,23 +124,32 @@ describe('deriveGeometry rows', () => {
 describe('buildField', () => {
   const E = { ...P, edgeRounding: 0 };
 
-  it('a centred dark disc gives a solid lower patch, light above, and a solid foot and rim', () => {
+  it('a centred dark disc gives a solid lower patch, light above, a solid foot and an open top row', () => {
     const img = discs([[0, 0, 80]]);
     const { geometry: g, field } = buildField(img, E);
     const C = g.outline.cols;
     expect(solidFrac(field, 0, g.bandStart - 1, C)).toBe(1);
-    expect(solidFrac(field, g.rimStart, g.zs.length - 1, C)).toBe(1);
+    expect(solidFrac(field, g.zs.length - 1, g.zs.length - 1, C)).toBe(0); // no forced rim: the top row follows the image
     expect(solidFrac(field, rowNear(g.zs, 10), rowNear(g.zs, 10), C)).toBe(1);
     expect(solidFrac(field, rowNear(g.zs, 60), rowNear(g.zs, 60), C)).toBe(0);
   });
 
   it('invert swaps solid and hole in the band', () => {
-    const img = discs([[0, 0, 80]]);
-    const { geometry: g, field } = buildField(img, { ...E, invert: true });
-    const C = g.outline.cols;
-    expect(solidFrac(field, rowNear(g.zs, 10), rowNear(g.zs, 10), C)).toBe(0);
-    expect(solidFrac(field, rowNear(g.zs, 60), rowNear(g.zs, 60), C)).toBe(1);
-    expect(solidFrac(field, 0, g.bandStart - 1, C)).toBe(1);
+    // dark half-plane x > 0 on the table: solid on the +x side, hole on the -x side; invert flips both
+    const half: GrayImage = { width: N, height: N, pixels: new Float32Array(N * N).fill(1) };
+    for (let y = 0; y < N; y++) for (let x = 0; x < N / 2; x++) half.pixels[y * N + N / 2 + x] = 0;
+    const plain = buildField(half, E), inv = buildField(half, { ...E, invert: true });
+    const g = plain.geometry, o = g.outline, C = o.cols, j = rowNear(g.zs, 40);
+    let pos = 0, neg = 0;
+    for (let i = 0; i < C; i++) {
+      if (Math.abs(o.qx[i]) < 5) continue;
+      const a = plain.field[i + C * j] > 0, b = inv.field[i + C * j] > 0;
+      expect(b).toBe(!a);
+      if (o.qx[i] > 0) { expect(a).toBe(true); pos++; } else { expect(a).toBe(false); neg++; }
+    }
+    expect(pos).toBeGreaterThan(50);
+    expect(neg).toBeGreaterThan(50);
+    expect(solidFrac(inv.field, 0, g.bandStart - 1, C)).toBe(1);
   });
 
   it('pixels outside the canvas count as light', () => {
@@ -184,6 +192,40 @@ describe('buildField', () => {
     const loose = buildField(img, { ...E, minFeature: 0 });
     expect(loose.report.floatingRemoved).toBeGreaterThanOrEqual(1);
     expect(solidFrac(loose.field, loose.geometry.bandStart, loose.geometry.bandEnd, loose.geometry.outline.cols)).toBe(0);
+  });
+
+  /** Table-space dark blob on the +x axis; with no base the wall's +x column maps z = 70 (the top edge) to x = 38.8 * 90 / 20 = 174.6 mm. */
+  it('a dark strip from the foot to the top edge stays, solid on its top row only', () => {
+    const strip: GrayImage = { width: N, height: N, pixels: new Float32Array(N * N).fill(1) };
+    for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+      const X = (x + 0.5 - N / 2) * (400 / N), Y = -(y + 0.5 - N / 2) * (400 / N);
+      if (X > 0 && Math.abs(Y) < 15) strip.pixels[y * N + x] = 0;
+    }
+    const { geometry: g, field, report } = buildField(strip, { ...E, minFeature: 0 });
+    const C = g.outline.cols;
+    const col = Array.from({ length: C }, (_, i) => i).reduce((b, i) => (Math.hypot(g.outline.qy[i], g.outline.qx[i] - 38.8) < Math.hypot(g.outline.qy[b], g.outline.qx[b] - 38.8) ? i : b), 0);
+    expect(field[col + C * (g.zs.length - 1)]).toBeGreaterThan(0); // the top row is solid where the strip is
+    expect(report.floatingRemoved).toBe(0);
+    expect(solidFrac(field, g.zs.length - 1, g.zs.length - 1, C)).toBeLessThan(0.5);
+  });
+
+  it('a dark blob that reaches the top edge but is not connected to the foot is removed and counted', () => {
+    const { geometry: g, field, report } = buildField(discs([[174.6, 0, 6]]), { ...E, minFeature: 0 });
+    expect(report.floatingRemoved).toBeGreaterThanOrEqual(1);
+    expect(solidFrac(field, g.bandStart, g.zs.length - 1, g.outline.cols)).toBe(0);
+  });
+
+  it('a blob connected to the foot and touching the top row is kept', () => {
+    // wide dark disc on the axis plus a dark column up the +x side to the top edge
+    const img = discs([[0, 0, 80]]);
+    const k = 400 / N;
+    for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+      const X = (x + 0.5 - N / 2) * k, Y = -(y + 0.5 - N / 2) * k;
+      if (X > 0 && Math.abs(Y) < 10) img.pixels[y * N + x] = 0;
+    }
+    const { geometry: g, field, report } = buildField(img, { ...E, minFeature: 0 });
+    expect(report.floatingRemoved).toBe(0);
+    expect(solidFrac(field, g.zs.length - 1, g.zs.length - 1, g.outline.cols)).toBeGreaterThan(0);
   });
 
   it('edge rounding widens soft edges', () => {

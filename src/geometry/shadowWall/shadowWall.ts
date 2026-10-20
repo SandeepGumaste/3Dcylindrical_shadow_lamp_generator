@@ -64,7 +64,6 @@ export const DEFAULT_SHADOW_WALL_PARAMS: ShadowWallParams = {
 };
 
 export const FOOT = 3; // mm of solid foot band
-export const RIM = 2;  // mm of solid top rim
 const MAX_ROWS = 1500;
 
 export interface ShadowWallGeometry {
@@ -72,15 +71,14 @@ export interface ShadowWallGeometry {
   zs: Float64Array;       // node row heights, strictly increasing from 0 to height
   footRows: number;       // rows 0 .. footRows - 1 are the foot
   bandStart: number;      // first node row of the pattern band (z = FOOT)
-  bandEnd: number;        // last node row of the pattern band (z = height - RIM)
-  rimStart: number;       // first rim row
+  bandEnd: number;        // last node row = the top edge of the wall (z = height); the pattern runs all the way up
   blendBottom: number;    // top of the solid foot = top of the foot blend zone (max(FOOT, 1.25 (sMax - 1) hf))
-  blendTop: number;       // top of the pattern band
+  blendTop: number;       // top of the pattern band = the height (no top blend)
 }
 
-/** Blend weight of the ray taper: 0 at the table, 1 across the pattern band, back to 0 at the top. */
-export function blendWeight(g: Pick<ShadowWallGeometry, 'blendBottom' | 'blendTop'>, p: Pick<ShadowWallParams, 'height'>, z: number): number {
-  return z < g.blendBottom ? z / g.blendBottom : z <= g.blendTop ? 1 : Math.max(0, (p.height - z) / (p.height - g.blendTop));
+/** Blend weight of the ray taper: 0 at the table, 1 from the top of the foot all the way to the top edge. */
+export function blendWeight(g: Pick<ShadowWallGeometry, 'blendBottom' | 'blendTop'>, _p: Pick<ShadowWallParams, 'height'>, z: number): number {
+  return z < g.blendBottom ? z / g.blendBottom : 1;
 }
 
 /** Outer-surface height for an inner-surface height z at a column whose ray scale is s (the ray from the light through the inner point leaves the outer outline at s * q). */
@@ -122,7 +120,7 @@ export function validateShadowWallParams(p: ShadowWallParams): string[] {
       e.push('The ellipse is too pointed at its ends: make it rounder or reduce Wall Thickness (end radius must be at least twice the wall).');
   }
   if (!(p.height >= 20)) e.push('Height must be at least 20 mm.');
-  if (p.height < FOOT + RIM + 5) e.push(`No room for the foot, rim and 5 mm of pattern: raise Height above ${FOOT + RIM + 5} mm.`);
+  if (p.height < FOOT + 5) e.push(`No room for the foot and 5 mm of pattern: raise Height above ${FOOT + 5} mm.`);
   if (!(p.lightHeight > 0)) e.push('Light Height must be positive.');
   else if (p.height >= p.lightHeight - 1) e.push('Light Height must be at least 1 mm above Height.');
   if (!(p.shadowSize > 0)) e.push('Shadow Size must be positive.');
@@ -138,8 +136,8 @@ export function validateShadowWallParams(p: ShadowWallParams): string[] {
     if (be.length) return be;
   }
   const foot = footHeightFor(outline, p.lightHeight);
-  if (foot + RIM + 5 > p.height)
-    return [`No room for the foot, rim and 5 mm of pattern: this shape needs a ${foot.toFixed(1)} mm foot; raise Height above ${(foot + RIM + 5).toFixed(1)} mm or make the shape rounder / the wall thinner.`];
+  if (foot + 5 > p.height)
+    return [`No room for the foot and 5 mm of pattern: this shape needs a ${foot.toFixed(1)} mm foot; raise Height above ${(foot + 5).toFixed(1)} mm or make the shape rounder / the wall thinner.`];
   const g = deriveGeometry(p);
   const o = g.outline;
   // The ray taper must keep the outer surface monotone in z, in every column.
@@ -167,7 +165,7 @@ export function deriveGeometry(p: ShadowWallParams): ShadowWallGeometry {
   const hf = p.lightHeight, G = groundDrop(p);
   let dMax = 0;
   for (let i = 0; i < outline.cols; i++) dMax = Math.max(dMax, outline.dIn[i]);
-  const zTop = p.height - RIM;
+  const zTop = p.height;
   const foot = footHeightFor(outline, hf);
 
   const zs: number[] = [];
@@ -175,7 +173,7 @@ export function deriveGeometry(p: ShadowWallParams): ShadowWallGeometry {
   for (let q = 0; q < nFoot; q++) zs.push((foot * q) / nFoot);
   const bandStart = zs.length;
 
-  // Band: the table position moves at most one cell per row in every direction (dz = cell (hf - z)^2 / (dMax hf)).
+  // Band, up to the top edge: the table position moves at most one cell per row in every direction (dz = cell (hf - z)^2 / (dMax (hf + G))).
   const band = (factor: number): number[] => {
     const out = [foot];
     let z = foot;
@@ -192,12 +190,8 @@ export function deriveGeometry(p: ShadowWallParams): ShadowWallGeometry {
   while (rows.length > MAX_ROWS - 100 && factor < 1e6) { factor *= 1.15; rows = band(factor); }
   for (const z of rows) zs.push(z);
   const bandEnd = zs.length - 1;
-  const rimStart = zs.length;
-  const nRim = Math.max(2, Math.ceil(RIM / cell));
-  for (let q = 1; q <= nRim; q++) zs.push(zTop + (RIM * q) / nRim);
-  zs[zs.length - 1] = p.height;
 
-  return { outline, zs: Float64Array.from(zs), footRows: nFoot, bandStart, bandEnd, rimStart, blendBottom: foot, blendTop: zTop };
+  return { outline, zs: Float64Array.from(zs), footRows: nFoot, bandStart, bandEnd, blendBottom: foot, blendTop: zTop };
 }
 
 export interface ShadowWallField {
@@ -266,7 +260,7 @@ export function buildField(img: GrayImage, p: ShadowWallParams): ShadowWallField
       for (let idx = 0; idx < labels.length; idx++) {
         const l = labels[idx];
         if (l < 0) continue;
-        if (!inBand(Math.floor(idx / C))) touchesOutside[l] = 1; else area[l] += nodeArea(idx);
+        if (!inBand(Math.floor(idx / C))) touchesOutside[l] = 1; else area[l] += nodeArea(idx); // touches the foot
       }
       for (let idx = 0; idx < labels.length; idx++) {
         const l = labels[idx];
@@ -277,11 +271,11 @@ export function buildField(img: GrayImage, p: ShadowWallParams): ShadowWallField
     }
   }
 
-  // 2. Floating solid pieces (not connected to the foot or the rim) would fall out: make them holes.
+  // 2. Floating solid pieces (not connected to the foot) would fall out: make them holes. Touching the top edge does not hold a piece.
   {
     const { labels, count } = labelComponents(solid(), C, rowsN, 1);
     const anchored = new Uint8Array(count);
-    for (let idx = 0; idx < labels.length; idx++) if (labels[idx] >= 0 && !inBand(Math.floor(idx / C))) anchored[labels[idx]] = 1;
+    for (let idx = 0; idx < labels.length; idx++) if (labels[idx] >= 0 && Math.floor(idx / C) < g.bandStart) anchored[labels[idx]] = 1;
     for (let idx = 0; idx < labels.length; idx++) if (labels[idx] >= 0 && !anchored[labels[idx]]) flip(idx, false);
     for (let l = 0; l < count; l++) if (!anchored[l]) report.floatingRemoved++;
   }
@@ -307,8 +301,8 @@ export interface ShadowWallResult {
 /**
  * Inner and outer surface maps (theta, z) -> point. theta = 2 pi u / cols with u a (fractional) sample
  * index, periodic; points between samples are linear. Across the pattern band the outer point is where the
- * ray from the light through the inner point leaves the outer outline; at the foot and rim it blends to
- * the outer outline point p at the same height.
+ * ray from the light through the inner point leaves the outer outline; at the foot it blends to the
+ * outer outline point p at the same height. There is no top blend: the surface follows the ray to the top edge.
  */
 export function surfaceMaps(g: ShadowWallGeometry, p: Pick<ShadowWallParams, 'height' | 'lightHeight'>): { inner: SurfaceMap; outer: SurfaceMap } {
   const o = g.outline, C = o.cols;
@@ -336,17 +330,16 @@ export function largeModelWarning(triangles: number): string | null {
   return `Very large model (${(triangles / 1e6).toFixed(1)} million triangles): slicing and the preview will be slow; increase the footprint's cell size by making the shape smaller, or reduce the wall height.`;
 }
 
-/** Fraction of the image's dark pixels that lie farther from the axis than the wall can reach in their direction. */
-function unreachedFraction(img: GrayImage, p: ShadowWallParams, g: ShadowWallGeometry): number {
-  const o = g.outline, C = o.cols, hf = p.lightHeight;
-  const BINS = 720;
-  const reach = new Float64Array(BINS);
-  const scale = tableScale(hf, groundDrop(p), p.height - RIM);
-  for (let b = 0; b < BINS; b++) {
-    const dx = Math.cos((2 * Math.PI * b) / BINS), dy = Math.sin((2 * Math.PI * b) / BINS);
+const REACH_BINS = 720;
+/** Table reach per direction bin: the inner outline's distance in that direction, projected from the light to the top edge (z = height). */
+function reachProfile(p: ShadowWallParams, o: Outline): Float64Array {
+  const reach = new Float64Array(REACH_BINS);
+  const scale = tableScale(p.lightHeight, groundDrop(p), p.height);
+  for (let b = 0; b < REACH_BINS; b++) {
+    const dx = Math.cos((2 * Math.PI * b) / REACH_BINS), dy = Math.sin((2 * Math.PI * b) / REACH_BINS);
     let best = Infinity;
-    for (let i = 0; i < C; i++) {
-      const j = (i + 1) % C;
+    for (let i = 0; i < o.cols; i++) {
+      const j = (i + 1) % o.cols;
       const ex = o.qx[j] - o.qx[i], ey = o.qy[j] - o.qy[i];
       const den = dx * ey - dy * ex;
       if (Math.abs(den) < 1e-12) continue;
@@ -356,21 +349,59 @@ function unreachedFraction(img: GrayImage, p: ShadowWallParams, g: ShadowWallGeo
     }
     reach[b] = best * scale;
   }
+  return reach;
+}
+
+/** Dark pixels (the mask the warning and the fit use: threshold and invert on the raw pixels) as table offsets from the image centre, before the image offsets and at the current size. */
+function darkOffsets(img: GrayImage, p: ShadowWallParams): { rx: Float64Array; ry: Float64Array } {
   const k = (p.shadowSize * (p.imageScale / 100)) / Math.max(img.width, img.height);
   const a = (p.rotation * Math.PI) / 180, c = Math.cos(a), sn = Math.sin(a);
-  let dark = 0, far = 0;
+  const rx: number[] = [], ry: number[] = [];
   for (let y = 0; y < img.height; y++)
     for (let x = 0; x < img.width; x++) {
       const v = img.pixels[y * img.width + x] * 255 - p.threshold; // > 0 light
       if (p.invert ? !(v > 0) : !(v < 0)) continue;
-      dark++;
       const ix = (x + 0.5 - img.width / 2) * k, iy = -(y + 0.5 - img.height / 2) * k;
-      const X = ix * c - iy * sn + p.offsetX, Y = ix * sn + iy * c + p.offsetY;
-      let ang = Math.atan2(Y, X);
-      if (ang < 0) ang += 2 * Math.PI;
-      if (Math.hypot(X, Y) > reach[Math.round((ang / (2 * Math.PI)) * BINS) % BINS]) far++;
+      rx.push(ix * c - iy * sn); ry.push(ix * sn + iy * c);
     }
-  return dark === 0 ? 0 : far / dark;
+  return { rx: Float64Array.from(rx), ry: Float64Array.from(ry) };
+}
+
+/** Fraction of the dark pixels beyond reach once the shadow is scaled by `ratio` about the axis (offsets stay in millimetres); a pixel counts as beyond reach past `margin` * reach. */
+function farFraction(d: { rx: Float64Array; ry: Float64Array }, reach: Float64Array, p: ShadowWallParams, ratio: number, margin: number): number {
+  let far = 0;
+  for (let n = 0; n < d.rx.length; n++) {
+    const X = d.rx[n] * ratio + p.offsetX, Y = d.ry[n] * ratio + p.offsetY;
+    let ang = Math.atan2(Y, X);
+    if (ang < 0) ang += 2 * Math.PI;
+    if (Math.hypot(X, Y) > reach[Math.round((ang / (2 * Math.PI)) * REACH_BINS) % REACH_BINS] * margin) far++;
+  }
+  return d.rx.length === 0 ? 0 : far / d.rx.length;
+}
+
+/** Fraction of the image's dark pixels that lie farther from the axis than the wall can reach (up to its top edge) in their direction. */
+function unreachedFraction(img: GrayImage, p: ShadowWallParams, g: ShadowWallGeometry): number {
+  return farFraction(darkOffsets(img, p), reachProfile(p, g.outline), p, 1, 1);
+}
+
+export const MIN_SHADOW_SIZE = 100; // the Shadow Size control's lower limit
+/** Clearance kept when fitting, so the edge pixels are safely inside the reach. */
+const FIT_MARGIN = 0.99;
+
+/**
+ * Largest Shadow Size (5 mm steps, never above the current one) at which no dark pixel lies beyond the wall's
+ * reach (up to its top edge). The current size is kept when it already fits. `ok` is false when even the
+ * smallest size (100 mm) cannot fit, e.g. a shape moved far off the axis; the size is then that smallest one.
+ * The part nearest the axis is always hidden under the base and the foot: a physical limit that shrinking does not change.
+ */
+export function fitShadowSize(img: GrayImage, p: ShadowWallParams): { shadowSize: number; ok: boolean } {
+  const reach = reachProfile(p, buildOutline(p));
+  const d = darkOffsets(img, p);
+  const fits = (size: number) => farFraction(d, reach, p, size / p.shadowSize, FIT_MARGIN) === 0;
+  if (fits(p.shadowSize)) return { shadowSize: p.shadowSize, ok: true };
+  for (let size = Math.floor((p.shadowSize - 1e-9) / 5) * 5; size >= MIN_SHADOW_SIZE; size -= 5)
+    if (fits(size)) return { shadowSize: size, ok: true };
+  return { shadowSize: Math.min(MIN_SHADOW_SIZE, p.shadowSize), ok: false };
 }
 
 export function generateShadowWall(img: GrayImage, p: ShadowWallParams, runChecks = true): ShadowWallResult {
@@ -401,7 +432,7 @@ export function generateShadowWall(img: GrayImage, p: ShadowWallParams, runCheck
     for (let i = 0; i < C; i++) if (field[i + C * j] > 0) { anySolid = true; break; }
   if (!anySolid && report.floatingRemoved === 0) warnings.push('Nothing is shadowed: the image has no dark area inside the wall (check Threshold, Invert, Image Size and Offsets).');
   if (unreachedFraction(img, p, g) > 0.02)
-    warnings.push("Part of the shadow image lies beyond the wall's reach and is not reproduced.");
+    warnings.push("Part of the shadow image lies beyond the wall's reach and is not reproduced (the part closest to the axis is always hidden under the base and foot). Try Fit shadow to the wall.");
   const large = largeModelWarning(indices.length / 3);
   if (large) warnings.push(large);
   if (report.floatingRemoved > 0)

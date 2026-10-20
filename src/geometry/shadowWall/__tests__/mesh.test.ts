@@ -18,6 +18,17 @@ function disc(rMm: number): GrayImage {
   return img;
 }
 
+/** White image with a dark strip along +x (|y| < 20 mm): solid from the foot right up to the top edge of the wall. */
+function strip(): GrayImage {
+  const img = flat(1);
+  const k = 400 / N;
+  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+    const X = (x + 0.5 - N / 2) * k, Y = -(y + 0.5 - N / 2) * k;
+    if (X > 0 && Math.abs(Y) < 20) img.pixels[y * N + x] = 0;
+  }
+  return img;
+}
+
 const shapes: [string, ShadowWallParams][] = [
   ['rectangle', { ...P }],
   ['ellipse', { ...P, kind: 'ellipse', width: 90, length: 70 }],
@@ -35,6 +46,7 @@ describe('generateShadowWall', () => {
         expect(res.triangleCount).toBe(res.indices.length / 3);
       });
       it('fits the footprint and the height', () => {
+        const res = generateShadowWall(strip(), p);
         let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity, z0 = Infinity, z1 = -Infinity;
         for (let v = 0; v < res.positions.length; v += 3) {
           x0 = Math.min(x0, res.positions[v]); x1 = Math.max(x1, res.positions[v]);
@@ -60,14 +72,14 @@ describe('generateShadowWall', () => {
     });
   }
 
-  it('a blank image gives only the foot and rim, with a warning', () => {
+  it('a blank image gives only the foot (no top rim), with a warning', () => {
     const res = generateShadowWall(flat(1), P);
     const g = res.geometry, C = g.outline.cols;
-    for (let j = 0; j < g.zs.length; j++) {
-      const solid = j < g.footRows || j >= g.rimStart;
-      for (let i = 0; i < C; i++) if (j > g.bandStart && j < g.bandEnd) expect(res.field[i + C * j]).toBeLessThan(0);
-      if (solid) expect(res.field[C * j]).toBeGreaterThan(0);
-    }
+    for (let j = 0; j < g.zs.length; j++)
+      for (let i = 0; i < C; i++) {
+        if (j < g.footRows) expect(res.field[i + C * j]).toBeGreaterThan(0);
+        else expect(res.field[i + C * j]).toBeLessThan(0);
+      }
     expect(res.report.check.watertight).toBe(true);
     expect(res.report.warnings.some((w) => /nothing is shadowed/i.test(w))).toBe(true);
   });
@@ -77,6 +89,25 @@ describe('generateShadowWall', () => {
     expect(res.report.check.watertight).toBe(true);
     expect(res.report.check.signedVolume).toBeGreaterThan(0);
     expect(res.report.warnings.some((w) => /nothing is shadowed/i.test(w))).toBe(false);
+  });
+
+  it('stays watertight and reaches the full height with dark pixels at the top edge (with and without a base)', () => {
+    // dark strip along +x: from the foot to the top edge of the wall
+    const img = strip();
+    for (const p of [P, { ...P, base: true }]) {
+      const res = generateShadowWall(img, p);
+      expect(res.report.check.errors).toEqual([]);
+      expect(res.report.check.watertight).toBe(true);
+      expect(res.report.check.signedVolume).toBeGreaterThan(0);
+      const g = res.geometry, C = g.outline.cols, top = g.zs.length - 1;
+      let solidTop = 0;
+      for (let i = 0; i < C; i++) if (res.field[i + C * top] > 0) solidTop++;
+      expect(solidTop).toBeGreaterThan(5);
+      expect(solidTop).toBeLessThan(C / 2);
+      let zMax = -Infinity;
+      for (let v = 2; v < res.positions.length; v += 3) zMax = Math.max(zMax, res.positions[v]);
+      expect(zMax).toBeCloseTo(p.height + (p.base ? p.baseThickness : 0), 3);
+    }
   });
 
   it('throws on invalid parameters', () => {
@@ -185,6 +216,21 @@ describe('warnings', () => {
   });
 });
 
+describe('reach to the top edge', () => {
+  const blob = (cx: number) => {
+    const img = flat(1);
+    const k = 400 / N;
+    for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) if (Math.hypot((x + 0.5 - N / 2) * k - cx, (y + 0.5 - N / 2) * k) < 4) img.pixels[y * N + x] = 0;
+    return img;
+  };
+  // +x inner wall at 38.8 mm: reach = 38.8 * 90 / (90 - 70) = 174.6 mm up to the top edge
+  it('a blob just inside the top-edge reach does not warn, one just beyond does', () => {
+    const reach = (img: GrayImage) => generateShadowWall(img, { ...P, minFeature: 0 }, false).report.warnings.some((w) => /beyond the wall's reach/.test(w));
+    expect(reach(blob(170))).toBe(false);
+    expect(reach(blob(182))).toBe(true);
+  });
+});
+
 describe('largeModelWarning', () => {
   it('is silent up to 3 million triangles and names the size above', () => {
     expect(largeModelWarning(3_000_000)).toBeNull();
@@ -198,8 +244,8 @@ describe('largeModelWarning', () => {
 describe('generateShadowWall with a base', () => {
   for (const [name, bare] of shapes) {
     describe(name, () => {
-      const p: ShadowWallParams = { ...bare, base: true };
-      const res = generateShadowWall(disc(60), p);
+      const p: ShadowWallParams = { ...bare, base: true, shadowSize: 600 }; // the wide canvas keeps the top edge's reach (~210 mm) on the image
+      const res = generateShadowWall(strip(), p);
       const T = p.baseThickness;
       const bounds = (pos: Float32Array) => {
         let z0 = Infinity, z1 = -Infinity, x0 = Infinity, x1 = -Infinity;
@@ -213,7 +259,7 @@ describe('generateShadowWall with a base', () => {
         expect(res.report.check.signedVolume).toBeGreaterThan(0);
       });
       it('rests on z = 0, reaches height + T and keeps the wall footprint', () => {
-        const b = bounds(res.positions), bb = bounds(generateShadowWall(disc(60), bare).positions);
+        const b = bounds(res.positions), bb = bounds(generateShadowWall(strip(), { ...bare, shadowSize: 600 }).positions);
         expect(b.z0).toBeCloseTo(0, 4);
         expect(Math.abs(b.z1 - (p.height + T))).toBeLessThan(1e-6);
         expect(b.x1 - b.x0).toBeCloseTo(bb.x1 - bb.x0, 4);
@@ -231,7 +277,7 @@ describe('generateShadowWall with a base', () => {
         expect(near(-mx, -my, p.magnetDepth)).toBe(true);
       });
       it('changes the volume by exactly the hole and pocket volumes (same field, so same shell)', () => {
-        const vol = (q: ShadowWallParams) => generateShadowWall(disc(60), q).report.check.signedVolume;
+        const vol = (q: ShadowWallParams) => generateShadowWall(strip(), q).report.check.signedVolume;
         const pockets = 2 * Math.PI * (p.magnetDiameter / 2) ** 2 * p.magnetDepth;
         expect(Math.abs(vol({ ...p, magnetHoles: false }) - res.report.check.signedVolume - pockets)).toBeLessThan(0.02 * pockets);
         const small = 4, holeDiff = Math.PI * ((p.baseHoleDiameter / 2) ** 2 - (small / 2) ** 2) * T;

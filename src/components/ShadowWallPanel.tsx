@@ -106,6 +106,12 @@ export const ShadowWallPanel: React.FC<{ c: ShadowWallController }> = ({ c }) =>
 
       <Group title="Shadow">
         <Num label="Shadow Size (width)" unit="mm" value={p.shadowSize} min={100} max={1000} step={10} onChange={(v) => c.setParams({ shadowSize: v })} />
+        <button onClick={c.fitShadow} disabled={bad || !c.image}
+          title="Shrinks the shadow just enough that no part of the image lies beyond the wall's reach"
+          className="w-full px-2 py-2 lg:py-1.5 rounded-md border border-slate-700 hover:bg-slate-800 disabled:opacity-40 text-slate-200">
+          Fit shadow to the wall
+        </button>
+        {c.fitNote && <p className="text-[10px] text-amber-300">{c.fitNote}</p>}
         <Num label="Image Size in shadow" unit="%" value={p.imageScale} min={10} max={300} step={5} onChange={(v) => c.setParams({ imageScale: v })} />
         <Num label="Rotation" unit="°" value={p.rotation} min={-180} max={180} step={1} onChange={(v) => c.setParams({ rotation: v })} />
         <Num label="Image Offset X" unit="mm" value={p.offsetX} min={-p.shadowSize} max={p.shadowSize} step={1} onChange={(v) => c.setParams({ offsetX: v })} />

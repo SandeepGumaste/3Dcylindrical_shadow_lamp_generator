@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { GrayImage } from '../types';
-import { DEFAULT_SHADOW_WALL_PARAMS, ShadowWallParams, validateShadowWallParams } from '../geometry/shadowWall/shadowWall';
+import { DEFAULT_SHADOW_WALL_PARAMS, ShadowWallParams, fitShadowSize, validateShadowWallParams } from '../geometry/shadowWall/shadowWall';
 import { BUNDLED_IMAGES, DEFAULT_IMAGE_ID } from './useTealightGenerator';
 import { loadImageToGray } from '../image/loadImage';
 import { runShadowWall } from '../workers/shadowWallRunner';
@@ -19,6 +19,15 @@ export const shouldGenerate = (lastImageKey: string | null, imageKey: string) =>
 /** Identifies the inputs of a build: every setting plus which image (bundled id, or upload load id). */
 export const inputKey = (params: ShadowWallParams, sampleId: string, uploadId: number) => JSON.stringify([params, sampleId, uploadId]);
 
+/** The parameters with the Shadow Size shrunk so none of the image is cut off; `ok` is false when no size fits. Untouched while the settings are invalid. */
+export function fitForImage(image: GrayImage, params: ShadowWallParams): { params: ShadowWallParams; ok: boolean } {
+  if (validateShadowWallParams(params).length) return { params, ok: true };
+  const fit = fitShadowSize(image, params);
+  return { params: fit.shadowSize === params.shadowSize ? params : { ...params, shadowSize: fit.shadowSize }, ok: fit.ok };
+}
+
+export const FIT_NOTE = 'No size fits: the part of the image nearest the axis is hidden under the base and foot, or the shape is moved too far off the axis. The size was set to the smallest.';
+
 export function useShadowWallGenerator(active = true) {
   const [params, setParamsState] = useState<ShadowWallParams>({ ...DEFAULT_SHADOW_WALL_PARAMS });
   const [sampleId, setSampleId] = useState<string>(DEFAULT_WALL_IMAGE_ID);
@@ -27,7 +36,11 @@ export function useShadowWallGenerator(active = true) {
   const [generatedKey, setGeneratedKey] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [runError, setRunError] = useState<string | null>(null);
+  const [fitNote, setFitNote] = useState<string | null>(null);
   const token = useRef(0);
+  const paramsRef = useRef(params);
+  paramsRef.current = params;
+  const pendingGenerate = useRef(false);
 
   const [bundled, setBundled] = useState<Record<string, GrayImage>>({});
   useEffect(() => {
@@ -69,8 +82,24 @@ export function useShadowWallGenerator(active = true) {
   useEffect(() => {
     if (!active || !image || !shouldGenerate(lastImageKey.current, imageKey)) return;
     lastImageKey.current = imageKey;
-    generateRef.current();
+    // Fit the shadow to the wall first, so a new image is never cut off; the model is generated once the size has applied.
+    const fit = fitForImage(image, paramsRef.current);
+    setFitNote(fit.ok ? null : FIT_NOTE);
+    if (fit.params !== paramsRef.current) { pendingGenerate.current = true; setParamsState(fit.params); }
+    else generateRef.current();
   }, [active, image, imageKey]);
+  useEffect(() => {
+    if (!pendingGenerate.current) return;
+    pendingGenerate.current = false;
+    generateRef.current();
+  }, [params]);
+
+  const fitShadow = () => {
+    if (!image) return;
+    const fit = fitForImage(image, params);
+    setFitNote(fit.ok ? null : FIT_NOTE);
+    if (fit.params !== params) setParamsState(fit.params);
+  };
 
   const upload = async (file: File) => {
     const { grayImage } = await loadImageToGray(file, { targetResolution: 512, adjustments: { ...NEUTRAL } });
@@ -88,7 +117,7 @@ export function useShadowWallGenerator(active = true) {
     params, errors,
     setParams: (patch: Partial<ShadowWallParams>) => setParamsState((p) => ({ ...p, ...patch })),
     sampleId, selectSample: setSampleId, upload, imageName, image,
-    result, busy, stale, runError, generate, download,
+    result, busy, stale, runError, generate, download, fitShadow, fitNote,
     reset: () => setParamsState({ ...DEFAULT_SHADOW_WALL_PARAMS }),
   };
 }
