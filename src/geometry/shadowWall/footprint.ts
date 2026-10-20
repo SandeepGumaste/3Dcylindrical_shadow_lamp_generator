@@ -23,6 +23,7 @@ export interface Outline {
   nx: Float64Array; ny: Float64Array;    // unit outward normals
   qx: Float64Array; qy: Float64Array;    // inner points = p - wallThickness * n
   dOut: Float64Array; dIn: Float64Array; // distances of p and q from the centre (0, 0)
+  sRay: Float64Array;                    // scale s with s * q on the outer outline: the ray from the axis through q leaves the outer outline there
 }
 
 const MIN_COLS = 60;
@@ -113,5 +114,24 @@ export function buildOutline(p: FootprintParams): Outline {
     dOut[i] = Math.hypot(x, y);
     dIn[i] = Math.hypot(qx[i], qy[i]);
   }
-  return { cols, perimeter, px, py, nx, ny, qx, qy, dOut, dIn };
+  // Ray scale: the outline is star-shaped about the origin, so the ray through q(i) meets the outer polygon
+  // once; search the segments around i, nearest first.
+  const sRay = new Float64Array(cols);
+  const reach = Math.min(cols, 40);
+  for (let i = 0; i < cols; i++) {
+    let best = dOut[i] / dIn[i];
+    search: for (let d = 0; d <= reach; d++) {
+      for (const k of d === 0 ? [i] : [i - d, i + d]) {
+        const a = ((k % cols) + cols) % cols, b = (a + 1) % cols;
+        const ex = px[b] - px[a], ey = py[b] - py[a];
+        const den = qx[i] * ey - qy[i] * ex; // q x e
+        if (Math.abs(den) < 1e-12) continue;
+        const s = (px[a] * ey - py[a] * ex) / den;
+        const u = (px[a] * qy[i] - py[a] * qx[i]) / den;
+        if (s > 0 && u >= -1e-12 && u <= 1 + 1e-12) { best = s; break search; }
+      }
+    }
+    sRay[i] = best;
+  }
+  return { cols, perimeter, px, py, nx, ny, qx, qy, dOut, dIn, sRay };
 }

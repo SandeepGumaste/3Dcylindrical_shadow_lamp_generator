@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import type { GrayImage } from '../../../types';
-import { DEFAULT_SHADOW_WALL_PARAMS, ShadowWallParams, generateShadowWall } from '../shadowWall';
+import { DEFAULT_SHADOW_WALL_PARAMS, ShadowWallParams, deriveGeometry, generateShadowWall, surfaceMaps } from '../shadowWall';
 
 const P = DEFAULT_SHADOW_WALL_PARAMS;
 const N = 256;
@@ -55,25 +55,6 @@ describe('generateShadowWall', () => {
         }
         expect(n).toBeGreaterThan(100);
       });
-      it('sends the outer surface along the ray from the light', () => {
-        const g = res.geometry, o = g.outline, hf = p.lightHeight;
-        let i = -1, j = g.bandStart + 2;
-        for (; j < g.bandEnd && i < 0; j++) for (let c = 0; c < o.cols; c++) if (res.field[c + o.cols * j] > 0) { i = c; break; }
-        j--;
-        expect(i).toBeGreaterThanOrEqual(0);
-        const z = g.zs[j];
-        let found = false;
-        for (let v = 0; v + 1 < res.positions.length / 3; v += 2) {
-          const a = 3 * v, b = 3 * (v + 1);
-          if (Math.abs(res.positions[a + 2] - z) > 1e-4 || Math.hypot(res.positions[a] - o.qx[i], res.positions[a + 1] - o.qy[i]) > 1e-4) continue;
-          const s = o.dOut[i] / o.dIn[i];
-          expect(res.positions[b]).toBeCloseTo(o.qx[i] * s, 3);
-          expect(res.positions[b + 1]).toBeCloseTo(o.qy[i] * s, 3);
-          expect(res.positions[b + 2]).toBeCloseTo(hf - (hf - z) * s, 3);
-          found = true;
-        }
-        expect(found).toBe(true);
-      });
     });
   }
 
@@ -98,5 +79,106 @@ describe('generateShadowWall', () => {
 
   it('throws on invalid parameters', () => {
     expect(() => generateShadowWall(flat(1), { ...P, wallThickness: -1 })).toThrow();
+  });
+});
+
+/** Distance from (x, y) to the closed polygon through the outer outline samples. */
+function distToOuter(o: { px: Float64Array; py: Float64Array; cols: number }, x: number, y: number): number {
+  let best = Infinity;
+  for (let i = 0; i < o.cols; i++) {
+    const j = (i + 1) % o.cols;
+    const ex = o.px[j] - o.px[i], ey = o.py[j] - o.py[i];
+    const t = Math.min(1, Math.max(0, ((x - o.px[i]) * ex + (y - o.py[i]) * ey) / (ex * ex + ey * ey)));
+    best = Math.min(best, Math.hypot(x - o.px[i] - t * ex, y - o.py[i] - t * ey));
+  }
+  return best;
+}
+/** Miss distance of the straight line from the light through the inner point to the outer point. */
+function rayMiss(hf: number, a: number[], b: number[]): number {
+  const d = [a[0], a[1], a[2] - hf], r = [b[0], b[1], b[2] - hf];
+  const cx = d[1] * r[2] - d[2] * r[1], cy = d[2] * r[0] - d[0] * r[2], cz = d[0] * r[1] - d[1] * r[0];
+  return Math.hypot(cx, cy, cz) / Math.hypot(d[0], d[1], d[2]);
+}
+
+describe('ray-exact outer surface', () => {
+  const cases: [string, ShadowWallParams][] = [
+    ['rectangle r10', { ...P }],
+    ['rectangle r2.4', { ...P, cornerRadius: 2.4 }],
+    ['ellipse 90x70', { ...P, kind: 'ellipse', width: 90, length: 70 }],
+  ];
+  for (const [name, p] of cases) {
+    it(`${name}: every column's outer node is on the ray and on the outer outline`, () => {
+      const g = deriveGeometry(p), o = g.outline;
+      const { inner, outer } = surfaceMaps(g, p);
+      const zs = [g.blendBottom + 0.5, (g.blendBottom + g.blendTop) / 2, g.blendTop - 0.5];
+      for (const z of zs) {
+        let worstRay = 0, worstOutline = 0;
+        for (let i = 0; i < o.cols; i++) {
+          const th = (2 * Math.PI * i) / o.cols;
+          const a = inner(th, z), b = outer(th, z);
+          worstRay = Math.max(worstRay, rayMiss(p.lightHeight, a, b));
+          worstOutline = Math.max(worstOutline, distToOuter(o, b[0], b[1]));
+        }
+        expect(worstRay).toBeLessThan(1e-9);
+        expect(worstOutline).toBeLessThan(1e-6);
+      }
+    });
+  }
+  it('holds on a straight side away from the axis and between samples', () => {
+    const p = P;
+    const g = deriveGeometry(p), o = g.outline;
+    const { inner, outer } = surfaceMaps(g, p);
+    // the column whose inner point is nearest (40 - t, -30)
+    let best = 0, bd = Infinity;
+    for (let i = 0; i < o.cols; i++) { const d = Math.hypot(o.qx[i] - (40 - p.wallThickness), o.qy[i] + 30); if (d < bd) { bd = d; best = i; } }
+    expect(Math.abs(o.nx[best] * o.qy[best] - o.ny[best] * o.qx[best])).toBeGreaterThan(10); // normal is far from radial
+    for (const u of [best, best + 0.37, best + 0.5]) {
+      for (const z of [g.blendBottom + 1, (g.blendBottom + g.blendTop) / 2, g.blendTop - 1]) {
+        const th = (2 * Math.PI * u) / o.cols;
+        expect(rayMiss(p.lightHeight, inner(th, z), outer(th, z))).toBeLessThan(1e-9);
+      }
+    }
+    const th = (2 * Math.PI * best) / o.cols;
+    const b = outer(th, g.blendBottom + 1);
+    expect(distToOuter(o, b[0], b[1])).toBeLessThan(1e-6);
+  });
+  it('the mesh uses these maps (float32 mesh vertices stay on the ray)', () => {
+    const res = generateShadowWall(flat(0), P);
+    const g = res.geometry;
+    let n = 0;
+    for (let v = 0; v + 1 < res.positions.length / 3; v += 2) {
+      const a = 3 * v, b = 3 * (v + 1), z = res.positions[a + 2];
+      if (z < g.blendBottom + 0.5 || z > g.blendTop - 0.5) continue;
+      expect(rayMiss(P.lightHeight, [res.positions[a], res.positions[a + 1], z], [res.positions[b], res.positions[b + 1], res.positions[b + 2]])).toBeLessThan(2e-3);
+      n++;
+    }
+    expect(n).toBeGreaterThan(100);
+  });
+});
+
+describe('warnings', () => {
+  it('a removed-only image gets the floating warning, not the blank one', () => {
+    const img = flat(1);
+    // a dark spot in the middle of the pattern, not touching the foot or rim, becomes floating and is removed
+    const k = 400 / N;
+    const g = deriveGeometry(P);
+    const zMid = (g.blendBottom + g.blendTop) / 2;
+    const r = (P.width / 2 - 1) * P.lightHeight / (P.lightHeight - zMid);
+    for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) if (Math.hypot(x + 0.5 - N / 2 - r / k, y + 0.5 - N / 2) < 5 / k) img.pixels[y * N + x] = 0;
+    const res = generateShadowWall(img, { ...P, minFeature: 0 });
+    expect(res.report.floatingRemoved).toBeGreaterThan(0);
+    expect(res.report.warnings.some((w) => /floating/i.test(w))).toBe(true);
+    expect(res.report.warnings.some((w) => /nothing is shadowed/i.test(w))).toBe(false);
+  });
+  it('a dark ring far outside the wall reach warns; a small central disc does not', () => {
+    const ring = flat(1);
+    for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+      const r = Math.hypot(x + 0.5 - N / 2, y + 0.5 - N / 2) * (400 / N);
+      if (r > 150 && r < 190) ring.pixels[y * N + x] = 0;
+    }
+    const far = generateShadowWall(ring, P, false);
+    expect(far.report.warnings.some((w) => /beyond the wall's reach/.test(w))).toBe(true);
+    const near = generateShadowWall(disc(20), P, false);
+    expect(near.report.warnings.some((w) => /beyond the wall's reach/.test(w))).toBe(false);
   });
 });

@@ -63,7 +63,7 @@ describe('tall foot for strongly curved shapes', () => {
       expect(validateShadowWallParams(p)).toEqual([]);
       const g = deriveGeometry(p), o = g.outline;
       let sMax = 1;
-      for (let i = 0; i < o.cols; i++) sMax = Math.max(sMax, o.dOut[i] / o.dIn[i]);
+      for (let i = 0; i < o.cols; i++) sMax = Math.max(sMax, o.sRay[i]);
       const need = Math.max(FOOT, 1.25 * (sMax - 1) * p.lightHeight);
       expect(g.blendBottom).toBeCloseTo(need, 9);
       expect(g.zs[g.bandStart]).toBeCloseTo(need, 9);
@@ -72,7 +72,7 @@ describe('tall foot for strongly curved shapes', () => {
       for (let i = 0; i < o.cols; i++) {
         let prev = -Infinity;
         for (let q = 0; q <= 400; q++) {
-          const cur = outerHeightAt(g, p, o.dOut[i], o.dIn[i], (p.height * q) / 400);
+          const cur = outerHeightAt(g, p, o.sRay[i], (p.height * q) / 400);
           expect(cur).toBeGreaterThan(prev);
           prev = cur;
         }
@@ -80,7 +80,7 @@ describe('tall foot for strongly curved shapes', () => {
     });
   }
   it('rejects only when the enlarged foot leaves no room', () => {
-    // thin 12 mm wide wall run: huge dOut / dIn at the ends makes the foot swallow the height
+    // thin 12 mm wide wall run: huge ray scale at the ends makes the foot swallow the height
     const p: ShadowWallParams = { ...P, width: 100, length: 13, cornerRadius: 3, wallThickness: 1.4, height: 20 };
     expect(validateShadowWallParams(p).join(' ')).toMatch(/No room for the foot, rim/);
   });
