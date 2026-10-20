@@ -23,10 +23,14 @@ import { TableInset } from './components/TableInset';
 import { GuidedApp } from './components/guided/GuidedApp';
 import { WelcomeChoice } from './components/guided/WelcomeChoice';
 import { readExperience, saveExperience, type Experience } from './ui/experience';
+import { useBoxGenerator } from './hooks/useBoxGenerator';
+import { BoxPanel } from './components/BoxPanel';
+import { BoxViewport } from './components/BoxViewport';
 
-type AppMode = 'cylinder' | 'tealight' | 'bowl';
+type AppMode = 'cylinder' | 'tealight' | 'bowl' | 'box';
 const MODES: { id: AppMode; label: string }[] = [
   { id: 'tealight', label: 'Tealight shade (table)' },
+  { id: 'box', label: 'Box shadow (wall)' },
 ];
 
 export default function App() {
@@ -35,6 +39,7 @@ export default function App() {
   const tea = useTealightGenerator(tableMode);
   const [experience, setExperience] = useState<Experience | null>(() => readExperience());
   const choose = (value: Experience) => { saveExperience(value); setExperience(value); };
+  const box = useBoxGenerator(appMode === 'box');
 
   // 1. Core States
   const [lamp, setLamp] = useState<LampConfig>({
@@ -268,13 +273,28 @@ export default function App() {
             hasGeometry={Boolean(generationResult?.positions && generationResult.positions.length > 0)}
             triangleCount={generationResult?.triangleCount ?? 0}
           />
+          ) : appMode === 'box' ? (
+            <BoxPanel c={box} />
           ) : (
             <TealightPanel c={tea} />
           )}
         </div>
       </div>
 
-      {appMode !== 'cylinder' ? (
+      {appMode === 'box' ? (
+        <div className="max-lg:contents lg:order-2 lg:flex-1 lg:h-full flex flex-col overflow-y-auto lg:overflow-hidden custom-scrollbar lg:p-6 gap-5 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
+          <div className="order-1 sticky top-0 z-30 w-full h-[40dvh] min-h-[240px] p-2 bg-slate-950 lg:static lg:z-auto lg:p-0 lg:bg-transparent lg:flex-1 lg:min-h-[380px] shrink-0 lg:shrink">
+            <BoxViewport
+              preview={box.result?.preview ?? null}
+              light={box.result?.light ?? null}
+              shadowSize={box.params.shadowSize * (box.params.imageScale / 100)}
+              busy={box.busy}
+              stale={box.stale}
+              onGenerate={box.generate}
+            />
+          </div>
+        </div>
+      ) : appMode !== 'cylinder' ? (
         <div className="max-lg:contents lg:order-2 lg:flex-1 lg:h-full flex flex-col overflow-y-auto lg:overflow-hidden custom-scrollbar lg:p-6 gap-5 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
           <div className="order-1 sticky top-0 z-30 w-full h-[40dvh] min-h-[240px] p-2 bg-slate-950 lg:static lg:z-auto lg:p-0 lg:bg-transparent lg:flex-1 lg:min-h-[380px] shrink-0 lg:shrink">
             <TealightViewport
