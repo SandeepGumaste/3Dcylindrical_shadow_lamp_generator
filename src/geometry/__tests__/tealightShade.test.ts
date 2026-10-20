@@ -219,12 +219,38 @@ describe('image offset', () => {
 });
 
 describe('unwrapped map svg', () => {
-  it('is a mm-sized svg with hole rectangles', () => {
+  it('is a mm-sized svg with one closed path per hole shape (not a pile of rectangles)', () => {
     const p = P();
     const res = generateTealightShade(TEALIGHT_SAMPLES[0].make(512), p);
     const svg = generateTealightMapSvg(res, p);
     expect(svg).toMatch(/<svg[^>]+width="[\d.]+mm" height="70mm"/);
-    expect((svg.match(/<rect /g) ?? []).length).toBeGreaterThan(50);
+    const paths = svg.match(/<path [^>]*d="[^"]+"/g) ?? [];
+    expect(paths.length).toBeGreaterThan(5);
+    expect(svg.match(/<rect /g) ?? []).toHaveLength(1);                       // only the black wall background
+    for (const d of paths) {
+      const subpaths = d.match(/M/g)!.length;
+      expect(d.match(/Z/g)!.length).toBe(subpaths);                             // every loop is closed
+      expect(d).not.toMatch(/[HV]/);                                            // plain polygon, no per-cell strokes
+    }
+    expect(svg).toContain('fill-rule="evenodd"');
+  });
+  it('has far fewer segments than one rectangle per run of cells', () => {
+    const p = P();
+    const res = generateTealightShade(TEALIGHT_SAMPLES[0].make(512), p);
+    const svg = generateTealightMapSvg(res, p);
+    const segments = (svg.match(/[ML]/g) ?? []).length;
+    let runs = 0;
+    const g = res.geometry, C = g.cols;
+    for (let j = g.bandStart; j < g.bandEnd; j++) {
+      let inRun = false;
+      for (let i = 0; i < C; i++) {
+        const i1 = (i + 1) % C;
+        const hole = res.field[i + C * j] + res.field[i1 + C * j] + res.field[i + C * (j + 1)] + res.field[i1 + C * (j + 1)] <= 0;
+        if (hole && !inRun) runs++;
+        inRun = hole;
+      }
+    }
+    expect(segments).toBeLessThan(runs * 2);
   });
 });
 

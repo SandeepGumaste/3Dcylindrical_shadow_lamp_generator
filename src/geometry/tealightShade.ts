@@ -5,6 +5,7 @@
  * Coordinates: table is z = 0, axis is z, theta runs counter-clockwise seen from above (x right,
  * y up in the table view), so the shadow is not mirrored.
  */
+import { traceShapes } from './outline';
 import type { GrayImage } from '../types';
 import { MeshBuilder, buildShell } from './shellMesh';
 import { checkMesh, MeshCheck } from './meshCheck';
@@ -707,26 +708,31 @@ export function generateTealightMapSvg(res: Pick<TealightResult, 'field' | 'geom
   const W = 2 * Math.PI * rMid, Hh = g.H;
   const cw = W / C;
   const f = (n: number) => +n.toFixed(3);
-  const rects: string[] = [];
-  for (let j = g.bandStart; j < g.bandEnd; j++) {
-    const y = Hh - zs[j + 1], h = zs[j + 1] - zs[j];
-    let run = -1;
-    for (let i = 0; i <= C; i++) {
+  // Rows top to bottom: cell row r is band row j = bandEnd - 1 - r (z grows with j, y grows downwards).
+  const R = g.bandEnd - g.bandStart;
+  const mask = new Uint8Array(C * R);
+  for (let r = 0; r < R; r++) {
+    const j = g.bandEnd - 1 - r;
+    for (let i = 0; i < C; i++) {
       const i1 = (i + 1) % C;
-      const hole = i < C && field[i + C * j] + field[i1 + C * j] + field[i + C * (j + 1)] + field[i1 + C * (j + 1)] <= 0;
-      if (hole && run < 0) run = i;
-      if (!hole && run >= 0) {
-        rects.push(`<rect x="${f(run * cw)}" y="${f(y)}" width="${f((i - run) * cw)}" height="${f(h)}"/>`);
-        run = -1;
-      }
+      if (field[i + C * j] + field[i1 + C * j] + field[i + C * (j + 1)] + field[i1 + C * (j + 1)] <= 0) mask[i + C * r] = 1;
     }
   }
+  const xs = Array.from({ length: C + 1 }, (_, i) => i * cw);
+  const ys = Array.from({ length: R + 1 }, (_, k) => Hh - zs[g.bandEnd - k]);
+  const avgRow = (zs[g.bandEnd] - zs[g.bandStart]) / Math.max(1, R);
+  // the sampling grid cannot place an edge more precisely than its coarser axis
+  // Each hole becomes one closed path (its outline plus any islands) with the cell staircase smoothed
+  // to within half a cell (of the coarser axis), so CAD imports one sketch entity chain per shape instead of hundreds.
+  const shapes = traceShapes(mask, C, R, xs, ys, 0.5 * Math.max(cw, avgRow));
+  const loop = (pts: [number, number][]) => `M${pts.map((q) => `${f(q[0])} ${f(q[1])}`).join('L')}Z`;
+  const paths = shapes.map((s) => `<path d="${[s.outer, ...s.holes].map(loop).join('')}"/>`);
   return `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="${f(W)}mm" height="${f(Hh)}mm" viewBox="0 0 ${f(W)} ${f(Hh)}">
 <title>Tealight shade unwrapped map (${p.innerDiameter} mm base, ${p.height} mm high)</title>
 <rect width="${f(W)}" height="${f(Hh)}" fill="#000"/>
-<g fill="#fff">
-${rects.join('\n')}
+<g fill="#fff" fill-rule="evenodd">
+${paths.join('\n')}
 </g>
 </svg>
 `;
