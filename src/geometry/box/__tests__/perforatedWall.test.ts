@@ -23,7 +23,7 @@ const plate = (id: WallId, top: number, hole?: { c0: number; c1: number; r0: num
 };
 const flat = (h: number): RimProfile => {
   const heights = Object.fromEntries(WALL_IDS.map((id) => [id, new Float32Array(Math.round(wallSpan(id) / PROFILE_STEP) + 1).fill(h)])) as RimProfile['heights'];
-  return { heights, rawHeights: heights, darkAt: () => true, step: PROFILE_STEP, warnings: [], clamped: false };
+  return { heights, rawHeights: heights, darkAt: () => true, step: PROFILE_STEP, warnings: [], clamped: false, scale: { min: 1, max: Infinity } };
 };
 const bbox = (p: Float32Array) => {
   const mn = [Infinity, Infinity, Infinity], mx = [-Infinity, -Infinity, -Infinity];

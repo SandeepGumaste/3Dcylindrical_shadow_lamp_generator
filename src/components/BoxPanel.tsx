@@ -64,6 +64,12 @@ export const BoxPanel: React.FC<{ c: BoxController }> = ({ c }) => {
         <Check label="Inner details" value={p.innerDetails} onChange={(v) => c.setParams({ innerDetails: v })}
           hint="Cuts openings in the walls so lit areas inside the shape show. Thin strokes are thickened and floating pieces joined with small bridges." />
         <Num label="Shadow size (width on the wall)" unit="mm" value={p.shadowSize} min={150} max={3000} step={25} onChange={(v) => c.setParams({ shadowSize: v })} />
+        <button onClick={c.fitShadow} disabled={bad}
+          title="Enlarges the shadow just enough that every part of the shape is bigger than the smallest shadow the box itself casts"
+          className="w-full px-2 py-2 lg:py-1.5 rounded-md border border-slate-700 hover:bg-slate-800 disabled:opacity-40 text-slate-200">
+          Fit shadow to the box
+        </button>
+        {c.fitNote && <p className="text-[10px] text-amber-300">{c.fitNote}</p>}
         <Num label="Image size in shadow" unit="%" value={p.imageScale} min={20} max={300} step={5} onChange={(v) => c.setParams({ imageScale: v })} />
         <Num label="Light height above the panel" unit="mm" value={p.lightHeight} min={lo} max={hi} step={1} onChange={(v) => c.setParams({ lightHeight: v })} />
       </Group>

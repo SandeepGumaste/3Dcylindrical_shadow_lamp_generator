@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { GrayImage } from '../types';
-import { DEFAULT_BOX_PARAMS, validateBoxParams, type BoxParams } from '../geometry/box/rimProfile';
+import { DEFAULT_BOX_PARAMS, fitShadowSize, validateBoxParams, type BoxParams } from '../geometry/box/rimProfile';
 import hanumanUrl from '../assets/hanuman.png';
 import catUrl from '../assets/cat.png';
 import { loadImageToGray } from '../image/loadImage';
@@ -32,8 +32,19 @@ export function useBoxGenerator(active: boolean) {
   const [generatedKey, setGeneratedKey] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [fitNote, setFitNote] = useState<string | null>(null);
   const token = useRef(0);
   const nextId = useRef(1);
+
+  /** Size the shadow so every part of the shape is bigger than the smallest shadow the box casts. */
+  const fitTo = useCallback((image: GrayImage, current: BoxParams) => {
+    if (validateBoxParams(current).length) return;
+    const fit = fitShadowSize(image, current);
+    if (fit.shadowSize !== current.shadowSize) setParamsState((q) => ({ ...q, shadowSize: fit.shadowSize }));
+    setFitNote(fit.ok ? null : 'No shadow size clears the box for the smallest part and stays within the tallest wall; the size was set to clear the box, so the tallest parts are shortened.');
+  }, []);
+  const paramsRef = useRef(params);
+  paramsRef.current = params;
 
   const load = useCallback(async (source: File | string, name: string): Promise<Loaded> => {
     const { grayImage } = await loadImageToGray(source, { targetResolution: 512, adjustments: { ...NEUTRAL } });
@@ -43,8 +54,8 @@ export function useBoxGenerator(active: boolean) {
   // Default images: Hanuman casts the shadow, the cat is the panel picture.
   useEffect(() => {
     if (!active || shadow) return;
-    load(hanumanUrl, 'hanuman').then(setShadow).catch((e: Error) => setError(`Could not load the shadow image: ${e.message}`));
-  }, [active, shadow, load]);
+    load(hanumanUrl, 'hanuman').then((l) => { fitTo(l.image, paramsRef.current); setShadow(l); }).catch((e: Error) => setError(`Could not load the shadow image: ${e.message}`));
+  }, [active, shadow, load, fitTo]);
   useEffect(() => {
     if (!active || panel) return;
     load(catUrl, 'cat').then(setPanel).catch((e: Error) => setError(`Could not load the panel picture: ${e.message}`));
@@ -93,7 +104,9 @@ export function useBoxGenerator(active: boolean) {
     params, errors,
     setParams: (patch: Partial<BoxParams>) => setParamsState((p) => ({ ...p, ...patch })),
     shadowName: shadow?.name ?? '', panelName: panel?.name ?? '',
-    selectShadow: async (file: File) => { try { setShadow(await load(file, fileName(file.name))); } catch (e: any) { setError(e.message); } },
+    selectShadow: async (file: File) => { try { const l = await load(file, fileName(file.name)); fitTo(l.image, paramsRef.current); setShadow(l); } catch (e: any) { setError(e.message); } },
+    fitShadow: () => { if (shadow) fitTo(shadow.image, params); },
+    fitNote,
     selectPanel: async (file: File) => { try { setPanel(await load(file, fileName(file.name))); } catch (e: any) { setError(e.message); } },
     result, busy, stale, error, generate, downloadKit, downloadPart,
   };

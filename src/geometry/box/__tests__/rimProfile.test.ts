@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildRimProfile, DEFAULT_BOX_PARAMS, MIN_RIM_HEIGHT, PROFILE_STEP, type BoxParams } from '../rimProfile';
+import { buildRimProfile, fitShadowSize, DEFAULT_BOX_PARAMS, MIN_RIM_HEIGHT, PROFILE_STEP, type BoxParams } from '../rimProfile';
 import { heightForReach, rimPoint } from '../shadowModel';
 import { KIT, WALL_IDS } from '../kitSpec';
 import type { GrayImage } from '../../../types';
@@ -183,5 +183,36 @@ describe('smallest shadow the box can cast', () => {
     expect(high![0]).toBeLessThan(low![0]);
     expect(smallDisc(30).warnings.join(' ')).toMatch(/raise the light/i);
     expect(smallDisc(30).warnings.join(' ')).not.toMatch(/lower the light/i);
+  });
+});
+
+describe('fitting the shadow to the box', () => {
+  const small = () => raster((x, y) => Math.hypot(x, y) < 60);   // 60 mm disc at the default 450 mm frame: smaller than the box's own shadow
+  const tooSmall = (w: string[]) => w.join(' ').includes('smaller than the smallest shadow');
+
+  it('grows a shadow that is smaller than the box so every direction clears it', () => {
+    const p = P();
+    expect(tooSmall(buildRimProfile(small(), p).warnings)).toBe(true);
+    const fit = fitShadowSize(small(), p);
+    expect(fit.ok).toBe(true);
+    expect(fit.shadowSize).toBeGreaterThan(p.shadowSize);
+    const after = buildRimProfile(small(), { ...p, shadowSize: fit.shadowSize });
+    expect(tooSmall(after.warnings)).toBe(false);
+    expect(after.clamped).toBe(false);
+  });
+
+  it('keeps the size when the shadow already clears the box', () => {
+    const p = P({ shadowSize: 450 });
+    const big = disc(200);
+    expect(tooSmall(buildRimProfile(big, p).warnings)).toBe(false);
+    const fit = fitShadowSize(big, p);
+    expect(fit.ok).toBe(true);
+    expect(fit.shadowSize).toBe(p.shadowSize);
+  });
+
+  it('reports when no size can satisfy both the smallest and the tallest wall', () => {
+    // a dot beside the light and a long arm the other way: clearing the box for the dot makes the arm too tall for the walls
+    const img = raster((x, y) => Math.hypot(x + 15, y) < 8 || (x > 0 && x < 225 && Math.abs(y) < 3));
+    expect(fitShadowSize(img, P()).ok).toBe(false);
   });
 });

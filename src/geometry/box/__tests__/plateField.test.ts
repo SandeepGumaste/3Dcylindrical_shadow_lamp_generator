@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildPlateField, PLATE_CELL, type PlateField } from '../plateField';
+import { buildPlateField, bridgeFloatingPieces, PLATE_CELL, type PlateField } from '../plateField';
 import { buildRimProfile, DEFAULT_BOX_PARAMS, MIN_WALL_HEIGHT, PROFILE_STEP, type BoxParams } from '../rimProfile';
 import { KIT, WALL_IDS, type WallId } from '../kitSpec';
 import { wallSpan } from '../shadowModel';
@@ -132,5 +132,57 @@ describe('plate field', () => {
 
   it('does not report ordinary corners and tips as thin strokes', () => {
     expect(field(raster((x, y) => Math.hypot(x, y) < 200)).report.thickened).toBeLessThanOrEqual(2);
+  });
+});
+
+describe('bridges for floating pieces', () => {
+  const COLS = 160, ROWS = 70;
+  /** A grid with a solid foot (rows 0 to 9) and the given solid rectangles [x0, x1, y0, y1], inclusive. */
+  const grid = (rects: number[][]) => {
+    const solid = new Uint8Array(COLS * ROWS);
+    const fill = (x0: number, x1: number, y0: number, y1: number) => { for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) solid[y * COLS + x] = 1; };
+    fill(0, COLS - 1, 0, 9);
+    for (const r of rects) fill(r[0], r[1], r[2], r[3]);
+    return solid;
+  };
+  const bridgeCells = (solid: Uint8Array, x0: number, x1: number, y0: number, y1: number) => {
+    const out: number[][] = [];
+    for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) if (solid[y * COLS + x]) out.push([x, y]);
+    return out;
+  };
+
+  it('joins a floating strip at the middle of its facing edge, not at an end', () => {
+    // a strip 60 cells long hanging 10 cells above the foot: every point of its lower edge is equally close
+    const solid = grid([[40, 99, 20, 23]]);
+    expect(bridgeFloatingPieces(solid, COLS, ROWS, 3)).toBe(1);
+    const cells = bridgeCells(solid, 0, COLS - 1, 10, 19);
+    expect(cells.length).toBeGreaterThan(0);
+    const xs = cells.map((c) => c[0]);
+    expect(Math.min(...xs)).toBeGreaterThanOrEqual(60);
+    expect(Math.max(...xs)).toBeLessThanOrEqual(80);
+  });
+
+  it('joins a piece at its nearest point, not at a far one', () => {
+    // a near block 4 cells above the foot, and a long strip beside it that is 20 cells up
+    const solid = grid([[30, 33, 14, 17]]);
+    expect(bridgeFloatingPieces(solid, COLS, ROWS, 3)).toBe(1);
+    expect(bridgeCells(solid, 28, 36, 10, 13).length).toBeGreaterThan(0);      // joined right under the block
+  });
+
+  it('puts one bridge on an ordinary piece, however sharp its ends', () => {
+    const solid = grid([[40, 70, 20, 25], [40, 40, 14, 19]]);      // a block with a one-cell spike hanging from its corner
+    expect(bridgeFloatingPieces(solid, COLS, ROWS, 3)).toBe(1);
+  });
+
+  it('keeps several bridges for a piece as long as the wall', () => {
+    const solid = grid([[2, COLS - 3, 25, 40]]);
+    expect(bridgeFloatingPieces(solid, COLS, ROWS, 3)).toBeGreaterThanOrEqual(2);
+  });
+
+  it('leaves a piece with nothing in reach for the caller to drop', () => {
+    const rows = 200, solid = new Uint8Array(COLS * rows);
+    for (let x = 0; x < COLS; x++) solid[x] = 1;
+    for (let y = 150; y < 155; y++) for (let x = 40; x < 60; x++) solid[y * COLS + x] = 1;
+    expect(bridgeFloatingPieces(solid, COLS, rows, 3)).toBe(0);
   });
 });

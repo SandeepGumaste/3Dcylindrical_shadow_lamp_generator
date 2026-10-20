@@ -20,7 +20,7 @@ export interface PlateField {
     openings: number;
     /** Thin dark strokes that were thickened. */
     thickened: number;
-    /** Small bridges added to hold floating pieces to the wall (long pieces get several), and pieces dropped because nothing was in reach. */
+    /** Small bridges added to hold floating pieces to the wall (one each at the nearest point; a piece as long as the wall gets several), and pieces dropped because nothing was in reach. */
     bridged: number;
     dropped: number;
   };
@@ -93,54 +93,8 @@ export function buildPlateField(id: WallId, profile: RimProfile, p: BoxParams): 
   };
   fillNarrowOpenings();
 
-  // Floating pieces: hold each to the wall with bridges, one every ~24 mm of its length, or drop it.
-  const strip = mS;
-  const MAX_REACH = 80, SPACING = 60; // cells
-  for (let pass = 0; pass < 8; pass++) {
-    const { labels, count } = labelComponents(solid, cols, rows, 1);
-    const anchored = new Uint8Array(count);
-    for (let c = 0; c < cols; c++) if (labels[c] >= 0) anchored[labels[c]] = 1;
-    const cellsOf = new Map<number, number[]>();
-    for (let l = 0; l < count; l++) if (!anchored[l]) cellsOf.set(l, []);
-    for (let i = 0; i < labels.length; i++) if (labels[i] >= 0 && !anchored[labels[i]]) cellsOf.get(labels[i])!.push(i);
-    if (!cellsOf.size) break;
-    let progress = false;
-    for (const [l, cells] of cellsOf) {
-      const found: { dist: number; i: number; dx: number; dy: number }[] = [];
-      for (const i of cells) {
-        const x0 = i % cols, y0 = (i - x0) / cols;
-        for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) {
-          for (let m = 1; m <= MAX_REACH; m++) {
-            const x = x0 + dx * m, y = y0 + dy * m;
-            if (x < 0 || y < 0 || x >= cols || y >= rows) break;
-            const q = y * cols + x;
-            if (labels[q] === l) continue;
-            if (solid[q] && labels[q] >= 0) { if (anchored[labels[q]]) found.push({ dist: m, i, dx, dy }); break; }
-          }
-        }
-      }
-      if (!found.length) continue;
-      found.sort((a, b) => a.dist - b.dist);
-      const nearest = found[0].dist, chosen: typeof found = [];
-      for (const cand of found) {
-        if (cand.dist > nearest * 2 + 5) break;
-        const cx = cand.i % cols, cy = (cand.i - cx) / cols;
-        if (chosen.every((o) => Math.hypot(cx - (o.i % cols), cy - Math.floor(o.i / cols)) >= SPACING)) chosen.push(cand);
-      }
-      for (const best of chosen) {
-        const x0 = best.i % cols, y0 = (best.i - x0) / cols;
-        for (let m = 1; m < best.dist; m++) {
-          for (let w = -Math.floor((strip - 1) / 2); w <= Math.ceil((strip - 1) / 2); w++) {
-            const x = x0 + best.dx * m + (best.dx === 0 ? w : 0), y = y0 + best.dy * m + (best.dy === 0 ? w : 0);
-            if (x >= 0 && y >= 0 && x < cols && y < rows) solid[y * cols + x] = 1;
-          }
-        }
-        report.bridged++;
-      }
-      progress = true;
-    }
-    if (!progress) break;
-  }
+  // Floating pieces: hold each to the wall with a bridge at its nearest point, or drop it (below).
+  report.bridged = bridgeFloatingPieces(solid, cols, rows, mS);
   fillNarrowOpenings(); // bridges can leave one-cell pockets in corners
   // The rim profile is a ceiling: cleanup may widen things but never lift the top edge, so walls still meet at the corners.
   for (let c = 0; c < cols; c++) for (let r = 0; r < rows; r++) if ((r + 0.5) * pitchH > topOf[c]) solid[r * cols + c] = 0;
@@ -162,6 +116,86 @@ export function buildPlateField(id: WallId, profile: RimProfile, p: BoxParams): 
   for (let l = 0; l < openCount; l++) if (!outside[l]) report.openings++;
 
   return { cols, rows, solid, topHs: topOf, report };
+}
+
+const MAX_REACH = 80;   // cells: a bridge never spans more than 32 mm
+const SPACING = 60;     // cells: extra bridges on a very long piece are at least this far apart
+const DIRECTIONS: readonly [number, number, number][] = [
+  [1, 0, 1], [-1, 0, 1], [0, 1, 1], [0, -1, 1],
+  [1, 1, Math.SQRT2], [1, -1, Math.SQRT2], [-1, 1, Math.SQRT2], [-1, -1, Math.SQRT2],
+];
+
+/**
+ * Joins every piece of material that is not attached to the plate (4-connected to its bottom row, the seat)
+ * by laying a strip `strip` cells wide along the shortest straight line to attached material, in any of 8
+ * directions, within reach. Where several points are equally close (a long edge facing the wall) the
+ * thickest part of the piece wins, nearest its middle, so bridges never sit on a thin tip or at an end.
+ * An ordinary piece gets one bridge; a piece at least two spacings long gets more, spaced out along it.
+ * Pieces with nothing in reach are left for the caller to drop. Edits `solid` in place; returns the
+ * number of bridges laid.
+ */
+export function bridgeFloatingPieces(solid: Uint8Array, cols: number, rows: number, strip: number): number {
+  let bridged = 0;
+  const lo = -Math.floor((strip - 1) / 2), hi = Math.ceil((strip - 1) / 2);
+  for (let pass = 0; pass < 8; pass++) {
+    const { labels, count } = labelComponents(solid, cols, rows, 1);
+    const anchored = new Uint8Array(count);
+    for (let c = 0; c < cols; c++) if (labels[c] >= 0) anchored[labels[c]] = 1;
+    const cellsOf = new Map<number, number[]>();
+    for (let l = 0; l < count; l++) if (!anchored[l]) cellsOf.set(l, []);
+    for (let i = 0; i < labels.length; i++) if (labels[i] >= 0 && !anchored[labels[i]]) cellsOf.get(labels[i])!.push(i);
+    if (!cellsOf.size) break;
+    let progress = false;
+    for (const [l, cells] of cellsOf) {
+      let minX = Infinity, maxX = -Infinity, sumX = 0, sumY = 0;
+      for (const i of cells) { const x = i % cols, y = (i - x) / cols; minX = Math.min(minX, x); maxX = Math.max(maxX, x); sumX += x; sumY += y; }
+      const cx = sumX / cells.length, cy = sumY / cells.length;
+      const found: { dist: number; x0: number; y0: number; dx: number; dy: number; steps: number }[] = [];
+      for (const i of cells) {
+        const x0 = i % cols, y0 = (i - x0) / cols;
+        const edge = (x0 === 0 || labels[i - 1] !== l) || (x0 === cols - 1 || labels[i + 1] !== l)
+          || (y0 === 0 || labels[i - cols] !== l) || (y0 === rows - 1 || labels[i + cols] !== l);
+        if (!edge) continue;
+        for (const [dx, dy, len] of DIRECTIONS) {
+          for (let m = 1; m <= MAX_REACH; m++) {
+            const x = x0 + dx * m, y = y0 + dy * m;
+            if (x < 0 || y < 0 || x >= cols || y >= rows) break;
+            const q = y * cols + x;
+            if (labels[q] === l) continue;
+            if (solid[q] && labels[q] >= 0) { if (anchored[labels[q]]) found.push({ dist: m * len, x0, y0, dx, dy, steps: m }); break; }
+          }
+        }
+      }
+      if (!found.length) continue;
+      const nearest = found.reduce((m, f) => Math.min(m, f.dist), Infinity);
+      // roominess of the piece around a point: more cells around it means a thicker part, fewer a tip or an end
+      const R = strip + 1;
+      const roomAround = (x0: number, y0: number) => {
+        let n = 0;
+        for (let y = Math.max(0, y0 - R); y <= Math.min(rows - 1, y0 + R); y++) for (let x = Math.max(0, x0 - R); x <= Math.min(cols - 1, x0 + R); x++) if (labels[y * cols + x] === l) n++;
+        return n;
+      };
+      const rank = (f: (typeof found)[number]) => ({ f, room: roomAround(f.x0, f.y0), toCentre: Math.hypot(f.x0 - cx, f.y0 - cy) });
+      const best = (list: (typeof found)) => list.map(rank).sort((a, b) => b.room - a.room || a.toCentre - b.toCentre)[0].f;
+      const chosen = [best(found.filter((f) => f.dist <= nearest + 0.75))];
+      if (maxX - minX + 1 >= 2 * SPACING) {
+        const extra = found.filter((f) => f.dist <= nearest * 2 + 5).map(rank).sort((a, b) => a.f.dist - b.f.dist || b.room - a.room);
+        for (const { f } of extra) if (chosen.every((o) => Math.hypot(f.x0 - o.x0, f.y0 - o.y0) >= SPACING)) chosen.push(f);
+      }
+      for (const b of chosen) {
+        for (let m = 1; m < b.steps; m++) {
+          for (let wx = lo; wx <= hi; wx++) for (let wy = lo; wy <= hi; wy++) {
+            const x = b.x0 + b.dx * m + wx, y = b.y0 + b.dy * m + wy;
+            if (x >= 0 && y >= 0 && x < cols && y < rows) solid[y * cols + x] = 1;
+          }
+        }
+        bridged++;
+      }
+      progress = true;
+    }
+    if (!progress) break;
+  }
+  return bridged;
 }
 
 /** 4-connected components of cells equal to `value`; labels are -1 elsewhere. Does not wrap. */

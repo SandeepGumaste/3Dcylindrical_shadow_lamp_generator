@@ -1,6 +1,6 @@
 import type { GrayImage } from '../../types';
 import { KIT, WALL_IDS, type WallId } from './kitSpec';
-import { heightForReach, rimPoint, wallSpan } from './shadowModel';
+import { heightForReach, reachForHeight, rimPoint, wallSpan } from './shadowModel';
 import type { TrayId } from './kitParts';
 
 export interface BoxParams {
@@ -63,6 +63,12 @@ export interface RimProfile {
   warnings: string[];
   /** Some of the shape needed a taller wall than the light height or the part allows. */
   clamped: boolean;
+  /**
+   * Factors by which the shadow can be scaled about the light axis: at least `scaleMin` for every part of the
+   * shape to be bigger than the smallest shadow the box casts, at most `scaleMax` before a wall would need to be
+   * taller than allowed. 1 and Infinity when nothing is shaped.
+   */
+  scale: { min: number; max: number };
 }
 
 const maxHeightOf = (id: WallId, L: number) => Math.min(KIT.walls[id].maxHeight - KIT.panelPlaneX, L - 1);
@@ -139,6 +145,7 @@ export function buildRimProfile(img: GrayImage, p: BoxParams): RimProfile {
   };
 
   let clamped = false, anyDark = false, tooSmall = 0, shaped = 0, rMinLo = Infinity, rMinHi = 0;
+  let scaleMin = 0, scaleMax = Infinity;
   const raw = new Float64Array(n);
   for (let i = 0; i < n; i++) {
     const { id, s } = ring[i];
@@ -146,7 +153,12 @@ export function buildRimProfile(img: GrayImage, p: BoxParams): RimProfile {
     const reach = reachAt(angle);
     const rMin = (d * (L + T)) / (L - MIN_RIM_HEIGHT); // the smallest shadow the box can cast in this direction
     rMinLo = Math.min(rMinLo, rMin); rMinHi = Math.max(rMinHi, rMin);
-    if (reach > 0) { anyDark = true; shaped++; if (reach < rMin) tooSmall++; }
+    if (reach > 0) {
+      anyDark = true; shaped++; if (reach < rMin) tooSmall++;
+      scaleMin = Math.max(scaleMin, rMin / reach);
+      const rMax = reachForHeight(maxHeightOf(id, L), d, L, T); // the largest shadow this wall can cast
+      scaleMax = Math.min(scaleMax, rMax / reach);
+    }
     const h = reach > 0 ? heightForReach(reach, d, L, T) : -Infinity;
     if (h > maxHeightOf(id, L) + 1e-9) clamped = true;
     raw[i] = Math.min(Math.max(h, MIN_RIM_HEIGHT), maxHeightOf(id, L));
@@ -197,7 +209,20 @@ export function buildRimProfile(img: GrayImage, p: BoxParams): RimProfile {
   warnings.push(p.innerDetails
     ? 'Details smaller than the minimum feature size, or closer to the light than the box\'s own shadow, are not reproduced.'
     : 'Only shapes with one reach per direction from the light can be reproduced; anything else is simplified.');
-  return { heights, rawHeights, darkAt, step: PROFILE_STEP, warnings, clamped };
+  return { heights, rawHeights, darkAt, step: PROFILE_STEP, warnings, clamped, scale: { min: shaped ? Math.max(scaleMin, 0) : 1, max: shaped ? scaleMax : Infinity } };
+}
+
+/**
+ * The smallest shadow size (frame width on the wall, 5 mm steps, never below the current one) at which every
+ * part of the shape is bigger than the smallest shadow the box can cast. `ok` is false when no size also keeps
+ * every wall within the tallest the kit allows; the size then is the one that clears the box.
+ */
+export function fitShadowSize(img: GrayImage, p: BoxParams): { shadowSize: number; ok: boolean } {
+  const { scale } = buildRimProfile(img, p);
+  if (scale.min <= 1) return { shadowSize: p.shadowSize, ok: scale.max >= 1 };
+  const size = Math.ceil((p.shadowSize * scale.min * 1.01) / 5) * 5;       // 1 % margin, then up to the next 5 mm
+  const factor = size / p.shadowSize;
+  return { shadowSize: size, ok: factor <= scale.max };
 }
 
 /** Messages for settings the kit cannot be built with; empty when the parameters are usable. */
