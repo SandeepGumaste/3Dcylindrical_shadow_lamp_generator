@@ -13,6 +13,8 @@ import type { GrayImage } from '../../types';
 import { sampleBilinear } from '../../image/sampling';
 import { gaussianBlur, labelComponents } from '../tealightShade';
 import { buildOutline, FootprintParams, Outline } from './footprint';
+import { MeshBuilder, buildShell } from '../shellMesh';
+import { checkMesh, MeshCheck } from '../meshCheck';
 
 export interface ShadowWallParams extends FootprintParams {
   height: number;        // mm, total wall height
@@ -244,4 +246,69 @@ export function buildField(img: GrayImage, p: ShadowWallParams): ShadowWallField
   }
 
   return { geometry: g, field, report };
+}
+
+// ---- meshing ---------------------------------------------------------------------------------
+
+export interface ShadowWallResult {
+  positions: Float32Array;
+  indices: Uint32Array;
+  triangleCount: number;
+  geometry: ShadowWallGeometry;
+  field: Float32Array;
+  report: ShadowWallField['report'] & {
+    check: MeshCheck;
+    warnings: string[];
+    ms: number;
+  };
+}
+
+export function generateShadowWall(img: GrayImage, p: ShadowWallParams, runChecks = true): ShadowWallResult {
+  const t0 = typeof performance !== 'undefined' ? performance.now() : Date.now();
+  const errors = validateShadowWallParams(p);
+  if (errors.length) throw new Error(errors.join(' '));
+
+  const { geometry: g, field, report } = buildField(img, p);
+  const o = g.outline;
+  const C = o.cols;
+  const mb = new MeshBuilder();
+
+  // theta = 2 pi u / cols: u is a (fractional) sample index, periodic.
+  const at = (arr: Float64Array, theta: number): number => {
+    const u = (theta / (2 * Math.PI)) * C;
+    const i0 = Math.round(Math.floor(u + 1e-9)) % C, i1 = (i0 + 1) % C;
+    const t = Math.min(Math.max(u - Math.floor(u + 1e-9), 0), 1);
+    return arr[i0] * (1 - t) + arr[i1] * t;
+  };
+  const innerMap = (th: number, z: number): [number, number, number] => [at(o.qx, th), at(o.qy, th), z];
+  const outerMap = (th: number, z: number): [number, number, number] => {
+    const dOut = at(o.dOut, th), dIn = at(o.dIn, th);
+    return [at(o.px, th), at(o.py, th), outerHeightAt(g, p, dOut, dIn, z)];
+  };
+
+  buildShell(mb, { cols: C, zs: g.zs, field, inner: innerMap, outer: outerMap }, {});
+  const { positions, indices } = mb.toArrays();
+  const check = runChecks
+    ? checkMesh(positions, indices)
+    : { triangleCount: indices.length / 3, watertight: true, badEdges: 0, degenerateTriangles: 0, signedVolume: 0, errors: [] };
+
+  const warnings: string[] = [];
+  let anySolid = false;
+  for (let j = g.bandStart; j <= g.bandEnd && !anySolid; j++)
+    for (let i = 0; i < C; i++) if (field[i + C * j] > 0) { anySolid = true; break; }
+  if (!anySolid) warnings.push('Nothing is shadowed: the image has no dark area inside the wall (check Threshold, Invert, Image Size and Offsets).');
+  if (report.floatingRemoved > 0)
+    warnings.push(`${report.floatingRemoved} floating solid piece(s) were removed because they would fall out.`);
+  if (p.minFeature > 0 && report.specksRemoved > 0)
+    warnings.push(`${report.specksRemoved} feature(s) smaller than ${p.minFeature} mm were dropped.`);
+
+  const t1 = typeof performance !== 'undefined' ? performance.now() : Date.now();
+  return {
+    positions,
+    indices,
+    triangleCount: indices.length / 3,
+    geometry: g,
+    field,
+    report: { ...report, check, warnings, ms: t1 - t0 },
+  };
 }
