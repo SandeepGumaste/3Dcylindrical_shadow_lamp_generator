@@ -21,6 +21,7 @@ Out for now (parked): custom SVG footprint, splitting the wall into flat plates 
 - Rows (z nodes): uniform in the foot, then adaptive in the band: dz = cell * (hf - z)^2 / (dMax * hf) so that the table position moves at most one cell per row in every direction (capped at 1500 rows), then uniform in the rim.
 - The solid foot is max(FOOT, 1.25 * (sMax - 1) * hf) tall (sMax = largest sRay over the columns, as Tealight's foot band) so the taper cannot fold the outer surface; validation rejects only when foot + rim + 5 mm exceeds the height.
 - Validation: width and length above 2 * (t + 5) mm, corner radius between 2 t and min(width, length) / 2, ellipse needs both axes; height between 20 and hf - 1; `lightHeight` above the height; foot + rim + 5 mm below the height; outer height map strictly increasing (the same fold check as Tealight, per column).
+- Warnings (not errors): blank image, floating pieces removed, features dropped, image beyond the wall's reach, and a model above 3 million triangles (slow to slice and preview).
 
 ## Cleanup (v1)
 

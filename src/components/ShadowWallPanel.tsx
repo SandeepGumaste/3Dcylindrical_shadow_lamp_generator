@@ -57,7 +57,7 @@ export const ShadowWallPanel: React.FC<{ c: ShadowWallController }> = ({ c }) =>
       <Group title="Image">
         <div className="grid grid-cols-3 gap-1.5">
           {BUNDLED_IMAGES.map((s) => (
-            <button key={s.id} onClick={() => c.selectSample(s.id)}
+            <button key={s.id} onClick={() => { setUploadError(null); c.selectSample(s.id); }}
               className={`px-2 py-2.5 lg:py-1.5 rounded-md border text-center ${c.sampleId === s.id ? 'border-amber-500/60 bg-amber-500/15 text-amber-200' : 'border-slate-700 hover:bg-slate-800'}`}>
               {s.name}
             </button>
@@ -69,7 +69,7 @@ export const ShadowWallPanel: React.FC<{ c: ShadowWallController }> = ({ c }) =>
         <input ref={file} type="file" accept="image/*,.svg" hidden
           onChange={(e) => {
             const f = e.target.files?.[0];
-            if (f) { setUploadError(null); c.upload(f).catch((err: Error) => setUploadError(`Could not load that image: ${err.message}`)); }
+            if (f) { setUploadError(null); c.upload(f).then(() => setUploadError(null)).catch((err: Error) => setUploadError(`Could not load that image: ${err.message}`)); }
             e.target.value = '';
           }} />
         {uploadError && <p className="text-red-300 text-[11px]">{uploadError}</p>}
@@ -90,7 +90,7 @@ export const ShadowWallPanel: React.FC<{ c: ShadowWallController }> = ({ c }) =>
 
       <Group title="Wall">
         <Num label="Wall Thickness" unit="mm" value={p.wallThickness} min={0.8} max={4} step={0.1} onChange={(v) => c.setParams({ wallThickness: v })} />
-        <Num label="Height" unit="mm" value={p.height} min={20} max={200} onChange={(v) => c.setParams({ height: v })} />
+        <Num label="Height" unit="mm" value={p.height} min={20} max={Math.max(20, Math.min(200, p.lightHeight - 1))} onChange={(v) => c.setParams({ height: v })} />
         <Num label="Light Height" unit="mm" value={p.lightHeight} min={25} max={300} onChange={(v) => c.setParams({ lightHeight: v })} />
       </Group>
 

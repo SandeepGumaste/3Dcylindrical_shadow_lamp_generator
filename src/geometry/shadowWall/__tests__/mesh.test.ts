@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import type { GrayImage } from '../../../types';
-import { DEFAULT_SHADOW_WALL_PARAMS, ShadowWallParams, deriveGeometry, generateShadowWall, surfaceMaps } from '../shadowWall';
+import { DEFAULT_SHADOW_WALL_PARAMS, ShadowWallParams, deriveGeometry, generateShadowWall, largeModelWarning, surfaceMaps } from '../shadowWall';
 
 const P = DEFAULT_SHADOW_WALL_PARAMS;
 const N = 256;
@@ -180,5 +180,15 @@ describe('warnings', () => {
     expect(far.report.warnings.some((w) => /beyond the wall's reach/.test(w))).toBe(true);
     const near = generateShadowWall(disc(20), P, false);
     expect(near.report.warnings.some((w) => /beyond the wall's reach/.test(w))).toBe(false);
+  });
+});
+
+describe('largeModelWarning', () => {
+  it('is silent up to 3 million triangles and names the size above', () => {
+    expect(largeModelWarning(3_000_000)).toBeNull();
+    expect(largeModelWarning(3_400_000)).toMatch(/Very large model \(3\.4 million triangles\)/);
+  });
+  it('does not fire on the defaults', () => {
+    expect(generateShadowWall(disc(60), P, false).report.warnings.some((w) => /Very large model/.test(w))).toBe(false);
   });
 });

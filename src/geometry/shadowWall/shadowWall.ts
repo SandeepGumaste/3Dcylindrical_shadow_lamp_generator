@@ -292,6 +292,13 @@ export function surfaceMaps(g: ShadowWallGeometry, p: Pick<ShadowWallParams, 'he
   };
 }
 
+const LARGE_MODEL = 3_000_000;
+
+export function largeModelWarning(triangles: number): string | null {
+  if (triangles <= LARGE_MODEL) return null;
+  return `Very large model (${(triangles / 1e6).toFixed(1)} million triangles): slicing and the preview will be slow; increase the footprint's cell size by making the shape smaller, or reduce the wall height.`;
+}
+
 /** Fraction of the image's dark pixels that lie farther from the axis than the wall can reach in their direction. */
 function unreachedFraction(img: GrayImage, p: ShadowWallParams, g: ShadowWallGeometry): number {
   const o = g.outline, C = o.cols, hf = p.lightHeight;
@@ -354,6 +361,8 @@ export function generateShadowWall(img: GrayImage, p: ShadowWallParams, runCheck
   if (!anySolid && report.floatingRemoved === 0) warnings.push('Nothing is shadowed: the image has no dark area inside the wall (check Threshold, Invert, Image Size and Offsets).');
   if (unreachedFraction(img, p, g) > 0.02)
     warnings.push("Part of the shadow image lies beyond the wall's reach and is not reproduced.");
+  const large = largeModelWarning(indices.length / 3);
+  if (large) warnings.push(large);
   if (report.floatingRemoved > 0)
     warnings.push(`${report.floatingRemoved} floating solid piece(s) were removed because they would fall out.`);
   if (p.minFeature > 0 && report.specksRemoved > 0)

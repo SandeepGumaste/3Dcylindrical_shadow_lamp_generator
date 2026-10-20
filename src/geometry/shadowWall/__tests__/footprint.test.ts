@@ -95,3 +95,34 @@ describe('buildOutline', () => {
     }
   });
 });
+
+describe('sRay on elongated shapes', () => {
+  const cases: [string, FootprintParams][] = [
+    ['300x20 rect', { kind: 'rectangle', width: 300, length: 20, cornerRadius: 3, wallThickness: 1.2 }],
+    ['300x13 rect', { kind: 'rectangle', width: 300, length: 13, cornerRadius: 3, wallThickness: 1.2 }],
+    ['300x60 rect, wall 4', { kind: 'rectangle', width: 300, length: 60, cornerRadius: 10, wallThickness: 4 }],
+    ['200x40 rect, wall 3', { kind: 'rectangle', width: 200, length: 40, cornerRadius: 8, wallThickness: 3 }],
+    ['280x30 ellipse', { kind: 'ellipse', width: 280, length: 30, cornerRadius: 0, wallThickness: 1.2 }],
+  ];
+  for (const [name, p] of cases) {
+    it(`${name}: every column's sRay equals a brute-force exit search, and the wall keeps its thickness`, () => {
+      const o = buildOutline(p);
+      for (let i = 0; i < o.cols; i++) {
+        let best = Infinity;
+        for (let k = 0; k < o.cols; k++) {
+          const b = (k + 1) % o.cols;
+          const ex = o.px[b] - o.px[k], ey = o.py[b] - o.py[k];
+          const den = o.qx[i] * ey - o.qy[i] * ex;
+          if (Math.abs(den) < 1e-12) continue;
+          const s = (o.px[k] * ey - o.py[k] * ex) / den, u = (o.px[k] * o.qy[i] - o.py[k] * o.qx[i]) / den;
+          if (s > 0 && u >= -1e-12 && u <= 1 + 1e-12) best = Math.max(best === Infinity ? 0 : best, s);
+        }
+        // the outline is star-shaped: exactly one hit
+        expect(Math.abs(o.sRay[i] - best)).toBeLessThan(1e-9);
+        // the band's inner-to-outer distance along the ray is at least the wall thickness
+        const d = Math.hypot(o.qx[i] * o.sRay[i] - o.qx[i], o.qy[i] * o.sRay[i] - o.qy[i]);
+        expect(d).toBeGreaterThanOrEqual(0.9 * p.wallThickness);
+      }
+    });
+  }
+});

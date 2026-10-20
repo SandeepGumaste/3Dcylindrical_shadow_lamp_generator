@@ -117,20 +117,21 @@ export function buildOutline(p: FootprintParams): Outline {
   // Ray scale: the outline is star-shaped about the origin, so the ray through q(i) meets the outer polygon
   // once; search the segments around i, nearest first.
   const sRay = new Float64Array(cols);
-  const reach = Math.min(cols, 40);
+  const hit = (i: number, k: number): number => {
+    const a = ((k % cols) + cols) % cols, b = (a + 1) % cols;
+    const ex = px[b] - px[a], ey = py[b] - py[a];
+    const den = qx[i] * ey - qy[i] * ex; // q x e
+    if (Math.abs(den) < 1e-12) return -1;
+    const s = (px[a] * ey - py[a] * ex) / den;
+    const u = (px[a] * qy[i] - py[a] * qx[i]) / den;
+    return s > 0 && u >= -1e-12 && u <= 1 + 1e-12 ? s : -1;
+  };
   for (let i = 0; i < cols; i++) {
-    let best = dOut[i] / dIn[i];
-    search: for (let d = 0; d <= reach; d++) {
-      for (const k of d === 0 ? [i] : [i - d, i + d]) {
-        const a = ((k % cols) + cols) % cols, b = (a + 1) % cols;
-        const ex = px[b] - px[a], ey = py[b] - py[a];
-        const den = qx[i] * ey - qy[i] * ex; // q x e
-        if (Math.abs(den) < 1e-12) continue;
-        const s = (px[a] * ey - py[a] * ex) / den;
-        const u = (px[a] * qy[i] - py[a] * qx[i]) / den;
-        if (s > 0 && u >= -1e-12 && u <= 1 + 1e-12) { best = s; break search; }
-      }
-    }
+    let best = -1;
+    // Usually within a few samples; on elongated shapes the exit can be far along the outline, so fall back to all segments.
+    for (let d = 0; d <= 40 && best < 0; d++) best = d === 0 ? hit(i, i) : Math.max(hit(i, i - d), hit(i, i + d));
+    for (let k = 0; k < cols && best < 0; k++) best = hit(i, k);
+    if (best < 0) throw new Error('Outline is not star-shaped about the light axis.');
     sRay[i] = best;
   }
   return { cols, perimeter, px, py, nx, ny, qx, qy, dOut, dIn, sRay };
