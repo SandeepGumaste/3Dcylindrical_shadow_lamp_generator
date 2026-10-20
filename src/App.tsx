@@ -10,7 +10,7 @@ import { rgbaToGrayscale } from './image/grayscale';
 import { ThreeViewport } from './components/ThreeViewport';
 import { ShadowPreview } from './components/ShadowPreview';
 import { ControlsPanel } from './components/ControlsPanel';
-import defaultShapeSvg from './assets/default-shape.svg?raw';
+import defaultImageUrl from './assets/batman.jpg';
 import { runGeneration, GenerationResult } from './workers/lampRunner';
 import { downloadSTL } from './geometry/stl';
 import { generateCircularMapSvg, generateUnwrappedMapSvg, downloadSVG } from './geometry/svg';
@@ -18,6 +18,7 @@ import { CheckCircle2, Download, Flame, HelpCircle } from 'lucide-react';
 import { useTealightGenerator } from './hooks/useTealightGenerator';
 import { TealightPanel } from './components/TealightPanel';
 import { TealightViewport } from './components/TealightViewport';
+import { Brand } from './components/Brand';
 import { TableInset } from './components/TableInset';
 import { useBoxGenerator } from './hooks/useBoxGenerator';
 import { BoxPanel } from './components/BoxPanel';
@@ -96,9 +97,9 @@ export default function App() {
   // Debounced light change tracker
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Loads the bundled default silhouette (SVG) as the initial/default image
+  // Loads the bundled default silhouette (Batman logo) as the initial/default image
   const loadDefaultImage = useCallback(async () => {
-    const { grayImage: loaded, previewUrl } = await loadImageToGray(defaultShapeSvg, {
+    const { grayImage: loaded, previewUrl } = await loadImageToGray(defaultImageUrl, {
       targetResolution: 512,
       adjustments,
     });
@@ -224,8 +225,9 @@ export default function App() {
 
   return (
     <div className="flex flex-col lg:flex-row min-h-dvh w-full lg:h-dvh lg:w-screen bg-slate-950 text-slate-100 lg:overflow-hidden font-sans antialiased">
-      {/* Left Sidebar: mode switch + controls */}
+      {/* Left Sidebar: brand + mode switch + controls */}
       <div className="order-2 lg:order-1 w-full lg:w-[380px] xl:w-[420px] lg:h-full shrink-0 flex flex-col z-20 shadow-2xl bg-slate-900">
+        <Brand />
         {MODES.length > 1 && <div className="shrink-0 p-2 border-b border-slate-800 bg-slate-950/60 grid grid-cols-3 gap-1" role="tablist" aria-label="Lamp mode">
           {MODES.map((m) => (
             <button
