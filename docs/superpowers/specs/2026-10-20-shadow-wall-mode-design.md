@@ -1,0 +1,45 @@
+# Shadow wall mode (rectangle and ellipse)
+
+Date: 2026-10-20. Status: approved scope (owner: "yes" to rectangle and ellipse, standing wall only, no base or splitting, new tab on dev).
+
+## Goal
+
+A third mode next to Tealight shade and Box shadow. A standing thin wall around a point light, whose footprint is a (rounded) rectangle or an ellipse instead of Tealight's round cone. Where a ray from the light toward a dark part of the shadow image meets the wall, the wall is solid; everywhere else it is open. The printed wall throws the image's silhouette on the table. The idea comes from the MakerWorld "Light Shadow Art Generator V4.0" (an OpenSCAD model with no licence notice): the geometry is re-derived here from the idea (rays through a footprint); no code is copied.
+
+## Scope
+
+In: rectangle (corner radius) and ellipse footprints; vertical walls; the shadow image placed on the table around the axis; dark = shadow = solid (the Box shadow convention, not Tealight's); a solid foot (no top rim: the pattern runs to the wall's top edge); printability cleanup (small features, floating pieces); lit preview, STL download.
+Out for now (parked): custom SVG footprint, splitting the wall into flat plates (lying / overhang layouts), inner pattern layer, ribs, LED socket, vents, SVG export.
+
+## Geometry
+
+- The light is on the vertical axis through the footprint centre at height `lightHeight` (hf). The footprint is the OUTER outline; the inner outline is the outer offset inward by `wallThickness` t along the outline normals.
+- Perimeter parameter: u in [0, 1) by arc length, `cols` samples (cell about 0.4 mm along the outline, 60 to 2400). Per sample: outer point p, outward normal n, inner point q = p - t n, distances dIn = |q|, dOut = |p|.
+- Wall point (u, z) on the inner surface lands on the table at q(u) * hf / (hf - z) (the ray from the light through it). The shadow image is a square canvas (512 px, whole image fitted) centred on the axis, `shadowSize` mm wide at 100 % `imageScale`, rotated by `rotation`, shifted by `offsetX/offsetY`. Outside the canvas counts as light (open).
+- Field value per node (u, z) = (threshold - blurredLuminance * 255) in the Box convention: > 0 solid where the pixel is dark. Blur radius = `edgeRounding` / 10 pixels of the node grid (as Tealight). The foot (z < FOOT = 3 mm, or taller, see below) is forced solid; there is no forced top rim, so the top row follows the image and the shell closes along the top border with cap faces wherever it is solid.
+- Outer surface keeps each hole straight along its ray: per column, sRay is the scale at which the ray from the axis through the inner point q(u) meets the outer outline (exact segment-ray intersection on the outline samples). Across the pattern band the outer point of (u, z) is s * q(u) at height zo = hf - (hf - z) * s with s = sRay, i.e. exactly on the straight line from the light through the inner point and on the outer outline. At the foot it blends (weight w: z / foot top below, 1 from there to the top edge; there is no top blend) to the outer outline point p(u) at height z, so s' = 1 + w (sRay - 1) for the height and the xy is p + w (s q - p). The shell is built with the existing marching-squares `buildShell` (periodic in u), so it is closed by construction.
+- Rows (z nodes): uniform in the foot, then adaptive in the band: dz = cell * (hf - z)^2 / (dMax * hf) so that the table position moves at most one cell per row in every direction (capped at 1500 rows), up to the top edge.
+- The solid foot is max(FOOT, 1.25 * (sMax - 1) * hf) tall (sMax = largest sRay over the columns, as Tealight's foot band) so the taper cannot fold the outer surface; validation rejects only when foot + 5 mm exceeds the height.
+- Validation: width and length above 2 * (t + 5) mm, corner radius between 2 t and min(width, length) / 2, ellipse needs both axes; height between 20 and hf - 1; `lightHeight` above the height; foot + 5 mm below the height; outer height map strictly increasing (the same fold check as Tealight, per column).
+- Warnings (not errors): blank image, floating pieces removed, features dropped, image beyond the wall's reach, and a model above 3 million triangles (slow to slice and preview).
+
+## Cleanup (v1)
+
+1. Specks: holes and solid pieces smaller than a `minFeature` disc (default 0.8 mm) are flipped (the Tealight rule, periodic in u).
+2. Floating solid pieces (not connected, 4-neighbour with wrap in u, to the foot; touching the top edge does not hold a piece) are bridged: one straight strip (8 directions, width max(minFeature, 0.8 mm)) along the shortest path (at most 32 mm of wall surface, measured with the column spacing and the row heights) to attached material, nearest first, thickest part of the piece wins ties, repeated passes so nested pieces chain (`bridge.ts`). Pieces with nothing in reach are removed; the warning counts bridged and removed pieces.
+
+## UI
+
+A tab "Shadow wall (table)". A new hook `useShadowWallGenerator` (image presets and upload shared with Tealight's image list, but with its own `invert` default off), a panel (image, footprint, size, wall, light, shadow, printability), the existing `TealightViewport` for the lit preview (ground radius = half the shadow size), STL download. Same interaction rules as Tealight: generate on first load and image change, settings changes only show the out-of-date banner.
+
+## Rulings made while designing
+
+- Dark = solid (Box convention). Tealight's "black = hole" would give a lit silhouette; the source model casts a dark one. The image presets work in both because the silhouettes are black on white.
+- Base plate (added later, see `docs/superpowers/plans/2026-10-20-shadow-wall-base.md`): a base plate under the wall (default on, like Tealight's floor): a plate of `baseThickness` (3 mm) with a centre hole (12.5 mm) for the light and two magnet pockets (8.1 x 2.1 mm, 12 mm either side of the centre, along the footprint's longer axis, y on a tie) on the underside, built in `src/geometry/shadowWall/base.ts` from the shell's bottom rings (`skipBottomBorder`). The wall's z stays measured from the top of the plate and the whole model is shifted up by the thickness at the end; the ground where the shadow lands is the plate's underside, so a wall node (q, z) maps to the table point q * (hf + G) / (hf - z) with G = base thickness (0 without a base), used by the field sampling, the row spacing and the reach warning (`tableScale` in `shadowWall.ts`). `lightHeight` stays measured above the top of the base.
+- Floating pieces are bridged within 32 mm of wall surface and dropped only when nothing is in reach.
+
+## Reach and Fit shadow to the wall
+
+- Reach: the wall reaches up to its top edge, so in a direction with inner-outline distance d the farthest table point it can shadow is d (hf + G) / (hf - height) (G = base thickness, 0 without a base). Dark pixels (threshold and invert on the raw image) beyond that are not reproduced and trigger the reach warning (more than 2 % of the dark pixels). The part nearest the axis is hidden under the base and the foot; that is a physical limit.
+- `fitShadowSize(img, params)` returns the largest Shadow Size in 5 mm steps, never above the current one, at which no dark pixel lies beyond 99 % of the reach (the current size is kept if it already fits; 100 mm is the floor and `ok` is false if even that does not fit). Offsets stay in millimetres while the image scales about the axis.
+- It runs automatically when a new image is loaded or uploaded (before the first generate) and from a "Fit shadow to the wall" button under Shadow Size, with a one-line note when `ok` is false. The reach warning remains for manual settings.

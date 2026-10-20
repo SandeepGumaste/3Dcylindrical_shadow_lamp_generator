@@ -26,11 +26,15 @@ import { readExperience, saveExperience, type Experience } from './ui/experience
 import { useBoxGenerator } from './hooks/useBoxGenerator';
 import { BoxPanel } from './components/BoxPanel';
 import { BoxViewport } from './components/BoxViewport';
+import { useShadowWallGenerator } from './hooks/useShadowWallGenerator';
+import { ShadowWallPanel } from './components/ShadowWallPanel';
+import { previewHeights } from './geometry/shadowWall/shadowWall';
 
-type AppMode = 'cylinder' | 'tealight' | 'bowl' | 'box';
+type AppMode = 'cylinder' | 'tealight' | 'bowl' | 'box' | 'wall';
 const MODES: { id: AppMode; label: string }[] = [
   { id: 'tealight', label: 'Tealight shade (table)' },
   { id: 'box', label: 'Box shadow (wall)' },
+  { id: 'wall', label: 'Shadow wall (table)' },
 ];
 
 export default function App() {
@@ -40,6 +44,7 @@ export default function App() {
   const [experience, setExperience] = useState<Experience | null>(() => readExperience());
   const choose = (value: Experience) => { saveExperience(value); setExperience(value); };
   const box = useBoxGenerator(appMode === 'box');
+  const wall = useShadowWallGenerator(appMode === 'wall');
 
   // 1. Core States
   const [lamp, setLamp] = useState<LampConfig>({
@@ -275,6 +280,8 @@ export default function App() {
           />
           ) : appMode === 'box' ? (
             <BoxPanel c={box} />
+          ) : appMode === 'wall' ? (
+            <ShadowWallPanel c={wall} />
           ) : (
             <TealightPanel c={tea} />
           )}
@@ -291,6 +298,22 @@ export default function App() {
               busy={box.busy}
               stale={box.stale}
               onGenerate={box.generate}
+            />
+          </div>
+        </div>
+      ) : appMode === 'wall' ? (
+        <div className="max-lg:contents lg:order-2 lg:flex-1 lg:h-full flex flex-col overflow-y-auto lg:overflow-hidden custom-scrollbar lg:p-6 gap-5 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
+          <div className="order-1 sticky top-0 z-30 w-full h-[40dvh] min-h-[240px] p-2 bg-slate-950 lg:static lg:z-auto lg:p-0 lg:bg-transparent lg:flex-1 lg:min-h-[380px] shrink-0 lg:shrink">
+            <TealightViewport
+              positions={wall.result?.positions ?? null}
+              indices={wall.result?.indices ?? null}
+              lightZ={wall.result?.lightZ ?? previewHeights(wall.params).lightZ}
+              topZ={wall.result?.topZ ?? previewHeights(wall.params).topZ}
+              groundRadius={wall.result?.groundRadius ?? (wall.params.shadowSize * wall.params.imageScale) / 200}
+              triangleCount={wall.result?.triangleCount ?? 0}
+              busy={wall.busy}
+              stale={wall.stale}
+              onGenerate={wall.generate}
             />
           </div>
         </div>
