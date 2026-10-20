@@ -83,6 +83,8 @@ export const TealightPanel: React.FC<{ c: TealightController }> = ({ c }) => {
             <Num label="Wall Thickness" unit="mm" value={t.wallThickness} min={0.8} max={4} step={0.1} onChange={(v) => c.setTealight({ wallThickness: v })} />
             <Num label="Resolution (cols)" value={t.cols} min={120} max={720} step={20} onChange={(v) => c.setTealight({ cols: v })} />
             <Num label="Flame Height" unit="mm" value={t.flameHeight} min={8} max={100} disabled={t.useLed} onChange={(v) => c.setTealight({ flameHeight: v })} />
+            <Num label="Solid band above pattern" unit="mm" value={t.patternGapTop} min={0} max={60} step={1} onChange={(v) => c.setTealight({ patternGapTop: v })} />
+            <Num label="Solid band below pattern" unit="mm" value={t.patternGapBottom} min={0} max={60} step={1} onChange={(v) => c.setTealight({ patternGapBottom: v })} />
             <Num label="Shadow Size (radius)" unit="mm" value={t.shadowRadius} min={60} max={400} onChange={(v) => c.setTealight({ shadowRadius: v })} />
             <Num label="Image Size in shadow" unit="%" value={t.imageScale} min={20} max={200} step={5} onChange={(v) => c.setTealight({ imageScale: v })} />
             <Num label="Image Offset X (light → image)" unit="mm" value={t.imageOffsetX} min={-t.shadowRadius} max={t.shadowRadius} step={1} onChange={(v) => c.setTealight({ imageOffsetX: v })} />

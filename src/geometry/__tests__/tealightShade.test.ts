@@ -313,3 +313,47 @@ describe('rib optimizer', () => {
     expect(res.report.check.watertight).toBe(true);
   });
 });
+
+describe('solid bands above and below the pattern', () => {
+  const img = () => TEALIGHT_SAMPLES[0].make(512);
+  it('default to nothing extra', () => {
+    expect(DEFAULT_TEALIGHT_PARAMS.patternGapTop).toBe(0);
+    expect(DEFAULT_TEALIGHT_PARAMS.patternGapBottom).toBe(0);
+  });
+  it('a top gap stops the pattern that far below the rim', () => {
+    const base = deriveGeometry(P());
+    const gap = base.H - base.zmax + 8;
+    const g = deriveGeometry(P({ patternGapTop: gap }));
+    expect(g.H - g.zmax).toBeCloseTo(gap, 6);
+    expect(g.zmax).toBeLessThan(base.zmax);
+  });
+  it('a bottom gap lifts the pattern that far above the base', () => {
+    const base = deriveGeometry(P());
+    const g = deriveGeometry(P({ patternGapBottom: base.baseBand + 6 }));
+    expect(g.baseBand).toBeCloseTo(base.baseBand + 6, 6);
+    expect(g.zs[g.bandStart]).toBeCloseTo(g.baseBand, 6);
+  });
+  it('never makes the gaps smaller than the existing solid foot and rim', () => {
+    const base = deriveGeometry(P());
+    const g = deriveGeometry(P({ patternGapTop: 0.1, patternGapBottom: 0.1 }));
+    expect(g.baseBand).toBeCloseTo(base.baseBand, 6);
+    expect(g.zmax).toBeCloseTo(base.zmax, 6);
+  });
+  it('leaves no holes in the gap bands', () => {
+    const p = P({ patternGapTop: 25, patternGapBottom: 14 });
+    const { geometry: g, field } = buildTealightField(img(), p);
+    for (let j = 0; j < g.zs.length; j++) {
+      if (g.zs[j] < p.patternGapBottom - 1e-9 || g.zs[j] > g.H - p.patternGapTop + 1e-9)
+        for (let i = 0; i < g.cols; i++) expect(field[i + g.cols * j]).toBeGreaterThan(0);
+    }
+  });
+  it('still builds a watertight shade', () => {
+    const res = generateTealightShade(img(), P({ patternGapTop: 20, patternGapBottom: 12 }));
+    expect(res.report.check.watertight).toBe(true);
+  });
+  it('rejects gaps that leave no room for the pattern', () => {
+    expect(validateTealightParams(P({ patternGapTop: 69 }))).not.toEqual([]);
+    expect(validateTealightParams(P({ patternGapTop: -1 }))).not.toEqual([]);
+    expect(validateTealightParams(P({ patternGapBottom: -1 }))).not.toEqual([]);
+  });
+});

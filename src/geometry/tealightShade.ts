@@ -24,6 +24,8 @@ export interface TealightParams {
   imageOffsetX: number;     // mm, shifts the image on the table (+x right); moves the light relative to the image
   imageOffsetY: number;     // mm, (+y up)
   imageScale: number;       // % of the shadow disk the image's shorter side spans (100 = fills it)
+  patternGapTop: number;    // mm of plain solid wall kept between the pattern and the top rim (0 = none extra)
+  patternGapBottom: number; // mm of plain solid wall kept between the base and the pattern (0 = none extra)
   ribs: number;             // 0 = off
   ribWidth: number;         // mm
   autoRibs: boolean;        // choose the rib count automatically so no roof spans more than maxBridge
@@ -55,6 +57,8 @@ export const DEFAULT_TEALIGHT_PARAMS: TealightParams = {
   imageScale: 100,
   imageOffsetX: 0,
   imageOffsetY: 0,
+  patternGapTop: 0,
+  patternGapBottom: 0,
   ribs: 6,
   ribWidth: 2,
   autoRibs: true,
@@ -148,10 +152,10 @@ export function deriveGeometry(p: TealightParams): TealightGeometry {
   const hf = p.useLed ? H + lipT - p.ledTipHeight : p.flameHeight;
   const s = 1 + wall / (Rb + k * hf);
   const ventNeed = p.vents > 0 ? p.ventSize + 1.5 : 0;
-  const baseBand = Math.max(FOOT_MIN, ventNeed, 1.25 * (s - 1) * hf);
+  const baseBand = Math.max(FOOT_MIN, ventNeed, 1.25 * (s - 1) * hf, p.patternGapBottom);
 
   let zmax = zMaxFormula(Rb, k, hf, p.shadowRadius);
-  zmax = Math.min(zmax, hf - 1, H - 2);
+  zmax = Math.min(zmax, hf - 1, H - 2, H - p.patternGapTop);
 
   const cols = p.cols;
   const zs: number[] = [];
@@ -181,6 +185,7 @@ export function validateTealightParams(p: TealightParams): string[] {
   if (p.innerDiameter <= p.tealightDiameter + 4)
     e.push(`Inner Diameter must exceed tealight diameter + 4 mm (> ${p.tealightDiameter + 4} mm).`);
   if (!(p.wallThickness > 0)) e.push('Wall Thickness must be positive.');
+  if (p.patternGapTop < 0 || p.patternGapBottom < 0) e.push('Pattern gaps cannot be negative.');
   if (p.topDiameter <= 0) e.push('Top Diameter must be positive.');
   if (p.height <= 10) e.push('Height must be above 10 mm.');
   if (p.cols < 60 || p.cols > 1440) e.push('Resolution must be between 60 and 1440 columns.');
@@ -205,7 +210,7 @@ export function validateTealightParams(p: TealightParams): string[] {
   const g = deriveGeometry(p);
   if (g.hf < g.baseBand + 3) e.push('Light is too low: raise Flame Height (or lower LED Tip Height).');
   else if (g.zmax - g.baseBand < 1)
-    e.push('Shadow Radius is too small for this flame height / foot band; increase Shadow Radius.');
+    e.push('No room left for the pattern: increase Shadow Radius, or reduce the top / bottom gap or the foot band.');
   else {
     // The ray taper must keep the outer surface monotone in z.
     let prev = outerHeight(g, 0);
