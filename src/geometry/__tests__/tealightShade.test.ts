@@ -230,7 +230,7 @@ describe('unwrapped map svg', () => {
     for (const d of paths) {
       const subpaths = d.match(/M/g)!.length;
       expect(d.match(/Z/g)!.length).toBe(subpaths);                             // every loop is closed
-      expect(d).not.toMatch(/[HV]/);                                            // plain polygon, no per-cell strokes
+      expect(d).not.toMatch(/[HVL]/);                                           // smooth curves, no per-cell strokes
     }
     expect(svg).toContain('fill-rule="evenodd"');
   });
@@ -238,7 +238,7 @@ describe('unwrapped map svg', () => {
     const p = P();
     const res = generateTealightShade(TEALIGHT_SAMPLES[0].make(512), p);
     const svg = generateTealightMapSvg(res, p);
-    const segments = (svg.match(/[ML]/g) ?? []).length;
+    const segments = (svg.match(/C/g) ?? []).length;
     let runs = 0;
     const g = res.geometry, C = g.cols;
     for (let j = g.bandStart; j < g.bandEnd; j++) {
