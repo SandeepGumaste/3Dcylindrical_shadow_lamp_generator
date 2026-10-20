@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { rgbaToGrayscale } from '../grayscale';
 import { sampleBilinear } from '../sampling';
+import { fitInSquare } from '../loadImage';
 
 describe('SVG and Grayscale Processing', () => {
   it('correctly blends transparent alpha to white background for vector silhouettes', () => {
@@ -47,5 +48,22 @@ describe('SVG and Grayscale Processing', () => {
     expect(sampleBilinear(img, 1, 0)).toBe(1);
     expect(sampleBilinear(img, 0, 1)).toBe(1);
     expect(sampleBilinear(img, 1, 1)).toBe(0);
+  });
+});
+
+describe('fitInSquare', () => {
+  it('fits a portrait image wholly inside the square, so nothing is cropped', () => {
+    const { drawW, drawH } = fitInSquare(387, 516, 512);
+    expect(drawH).toBeCloseTo(512, 6);
+    expect(drawW).toBeCloseTo((512 * 387) / 516, 6);
+    expect(drawW).toBeLessThan(512);
+  });
+  it('fits a landscape image wholly inside the square', () => {
+    const { drawW, drawH } = fitInSquare(800, 400, 512);
+    expect(drawW).toBeCloseTo(512, 6);
+    expect(drawH).toBeCloseTo(256, 6);
+  });
+  it('leaves a square image as it is', () => {
+    expect(fitInSquare(300, 300, 512)).toEqual({ drawW: 512, drawH: 512 });
   });
 });

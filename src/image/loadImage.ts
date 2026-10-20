@@ -7,6 +7,12 @@ export interface ProcessImageOptions {
   cropAspect?: number; // width / height
 }
 
+/** Size an image is drawn at to fit wholly inside a res x res square, keeping its aspect ratio. */
+export function fitInSquare(naturalW: number, naturalH: number, res: number): { drawW: number; drawH: number } {
+  const scale = res / Math.max(naturalW, naturalH);
+  return { drawW: naturalW * scale, drawH: naturalH * scale };
+}
+
 /**
  * Loads an image from a File, Blob, or URL and extracts a normalized GrayImage.
  */
@@ -119,20 +125,10 @@ export async function loadImageToGray(
     ctx.scale(-1, 1);
   }
 
-  // Draw image fitting nicely into target square
+  // Draw the whole image inside the target square (the rest stays transparent, which reads as light)
   const naturalW = img.naturalWidth || res;
   const naturalH = img.naturalHeight || res;
-  const imgAspect = naturalW / naturalH;
-  let drawW = res;
-  let drawH = res;
-
-  if (imgAspect > 1) {
-    drawH = res;
-    drawW = res * imgAspect;
-  } else {
-    drawW = res;
-    drawH = res / imgAspect;
-  }
+  const { drawW, drawH } = fitInSquare(naturalW, naturalH, res);
 
   ctx.drawImage(img, -drawW / 2, -drawH / 2, drawW, drawH);
   ctx.restore();
