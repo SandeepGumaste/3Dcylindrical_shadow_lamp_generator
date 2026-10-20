@@ -24,6 +24,8 @@ export interface TealightParams {
   imageOffsetX: number;     // mm, shifts the image on the table (+x right); moves the light relative to the image
   imageOffsetY: number;     // mm, (+y up)
   imageScale: number;       // % of the shadow disk the image's shorter side spans (100 = fills it)
+  patternGapTop: number;    // mm of open band (a ring cut-out) just above the pattern, below a solid rim; 0 = none
+  patternGapBottom: number; // mm of open band just below the pattern, above the solid foot; 0 = none
   ribs: number;             // 0 = off
   ribWidth: number;         // mm
   autoRibs: boolean;        // choose the rib count automatically so no roof spans more than maxBridge
@@ -55,6 +57,8 @@ export const DEFAULT_TEALIGHT_PARAMS: TealightParams = {
   imageScale: 100,
   imageOffsetX: 0,
   imageOffsetY: 0,
+  patternGapTop: 0,
+  patternGapBottom: 0,
   ribs: 6,
   ribWidth: 2,
   autoRibs: true,
@@ -88,6 +92,9 @@ export interface TealightGeometry {
   zs: Float64Array;         // grid node heights
   bandStart: number;        // node row at z = baseBand
   bandEnd: number;          // node row at z = zmax
+  baseBand0: number;        // top of the solid foot (= baseBand when there is no bottom gap)
+  openLo: number;           // first node row of the pattern plus its open bands (ribs run through these rows)
+  openHi: number;           // last node row of the pattern plus its open bands
   cols: number;
 }
 
@@ -148,10 +155,12 @@ export function deriveGeometry(p: TealightParams): TealightGeometry {
   const hf = p.useLed ? H + lipT - p.ledTipHeight : p.flameHeight;
   const s = 1 + wall / (Rb + k * hf);
   const ventNeed = p.vents > 0 ? p.ventSize + 1.5 : 0;
-  const baseBand = Math.max(FOOT_MIN, ventNeed, 1.25 * (s - 1) * hf);
+  const baseBand0 = Math.max(FOOT_MIN, ventNeed, 1.25 * (s - 1) * hf);
+  const gapB = Math.max(0, p.patternGapBottom), gapT = Math.max(0, p.patternGapTop);
+  const baseBand = baseBand0 + gapB;
 
   let zmax = zMaxFormula(Rb, k, hf, p.shadowRadius);
-  zmax = Math.min(zmax, hf - 1, H - 2);
+  zmax = Math.min(zmax, hf - 1, H - 2 - gapT);
 
   const cols = p.cols;
   const zs: number[] = [];
@@ -171,9 +180,19 @@ export function deriveGeometry(p: TealightParams): TealightGeometry {
     else zs.push(wallHeightForTableRadius(g0, r0 * Math.pow(r1 / r0, q / n)));
   }
   const bandEnd = zs.length - 1;
+  if (gapT > 0) {
+    // rows through the open band above the pattern, up to the solid rim
+    const dzTop = (2 * Math.PI * coneRadius(Rb, k, H)) / cols;
+    const nTop = Math.max(2, Math.ceil((H - zmax) / dzTop));
+    for (let q = 1; q < nTop; q++) zs.push(zmax + ((H - zmax) * q) / nTop);
+  }
   zs.push(H);
+  const rowOf = (z: number) => zs.findIndex((v) => v >= z - 1e-9);
+  const openLo = gapB > 0 ? rowOf(baseBand0) : bandStart;
+  let openHi = bandEnd;
+  if (gapT > 0) for (let j = bandEnd; j < zs.length - 1; j++) if (zs[j] <= zmax + gapT + 1e-9) openHi = j;
 
-  return { Rb, k, H, wall, hf, s, lipT, baseBand, zmax, zs: Float64Array.from(zs), bandStart, bandEnd, cols };
+  return { Rb, k, H, wall, hf, s, lipT, baseBand, baseBand0, openLo, openHi, zmax, zs: Float64Array.from(zs), bandStart, bandEnd, cols };
 }
 
 export function validateTealightParams(p: TealightParams): string[] {
@@ -181,6 +200,9 @@ export function validateTealightParams(p: TealightParams): string[] {
   if (p.innerDiameter <= p.tealightDiameter + 4)
     e.push(`Inner Diameter must exceed tealight diameter + 4 mm (> ${p.tealightDiameter + 4} mm).`);
   if (!(p.wallThickness > 0)) e.push('Wall Thickness must be positive.');
+  if (p.patternGapTop < 0 || p.patternGapBottom < 0) e.push('Open bands above / below the pattern cannot be negative.');
+  if ((p.patternGapTop > 0 || p.patternGapBottom > 0) && !p.autoRibs && p.ribs < 3)
+    e.push('Open bands above / below the pattern need at least 3 ribs to hold the shade together.');
   if (p.topDiameter <= 0) e.push('Top Diameter must be positive.');
   if (p.height <= 10) e.push('Height must be above 10 mm.');
   if (p.cols < 60 || p.cols > 1440) e.push('Resolution must be between 60 and 1440 columns.');
@@ -205,7 +227,7 @@ export function validateTealightParams(p: TealightParams): string[] {
   const g = deriveGeometry(p);
   if (g.hf < g.baseBand + 3) e.push('Light is too low: raise Flame Height (or lower LED Tip Height).');
   else if (g.zmax - g.baseBand < 1)
-    e.push('Shadow Radius is too small for this flame height / foot band; increase Shadow Radius.');
+    e.push('No room left for the pattern: increase Shadow Radius, or reduce the open bands or the foot band.');
   else {
     // The ray taper must keep the outer surface monotone in z.
     let prev = outerHeight(g, 0);
@@ -392,10 +414,14 @@ export function buildTealightField(img: GrayImage, p: TealightParams): TealightF
     }
   }
 
-  // 2. Support ribs: vertical strips forced solid across the pattern band.
+  // Open bands: full-width ring cut-outs just below and above the pattern (the ribs below re-join them).
+  for (let j = g.openLo; j < g.bandStart; j++) for (let i = 0; i < C; i++) field[i + C * j] = -255;
+  for (let j = g.bandEnd + 1; j <= g.openHi; j++) for (let i = 0; i < C; i++) field[i + C * j] = -255;
+
+  // 2. Support ribs: vertical strips forced solid across the pattern band and any open bands.
   if (p.ribs > 0) {
     const angles = ribAngleList(p);
-    for (let j = g.bandStart; j <= g.bandEnd; j++) {
+    for (let j = g.openLo; j <= g.openHi; j++) {
       const half = p.ribWidth / (2 * R(zs[j]));
       for (let i = 0; i < C; i++) {
         const th = (2 * Math.PI * i) / C;
@@ -534,7 +560,7 @@ export function suggestRibs(img: GrayImage, p: TealightParams): RibSuggestion {
     const out: HoleRun[] = [];
     const ribCol = new Uint8Array(C);
     const roof = new Uint8Array(C);
-    for (let j = g.bandStart; j <= g.bandEnd; j++) {
+    for (let j = g.openLo; j <= g.openHi; j++) {
       const R = coneRadius(g.Rb, g.k, g.zs[j]);
       const colMm = (TWO_PI * R) / C;
       ribCol.fill(0);
@@ -543,7 +569,7 @@ export function suggestRibs(img: GrayImage, p: TealightParams): RibSuggestion {
         const c0 = Math.ceil(((a - half) / TWO_PI) * C - 1e-9), c1 = Math.floor(((a + half) / TWO_PI) * C + 1e-9);
         for (let c = c0; c <= c1; c++) ribCol[((c % C) + C) % C] = 1;
       }
-      const solidAt = (i: number, row: number) => row >= rowsN || field[i + C * row] > 0 || (row <= g.bandEnd && ribCol[i] === 1);
+      const solidAt = (i: number, row: number) => row >= rowsN || field[i + C * row] > 0 || (row >= g.openLo && row <= g.openHi && ribCol[i] === 1);
       let any = 0;
       for (let i = 0; i < C; i++) { roof[i] = !solidAt(i, j) && solidAt(i, j + 1) ? 1 : 0; any |= roof[i]; }
       if (!any) continue;
