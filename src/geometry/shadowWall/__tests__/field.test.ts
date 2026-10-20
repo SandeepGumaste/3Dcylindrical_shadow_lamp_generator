@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import type { GrayImage } from '../../../types';
 import {
-  DEFAULT_SHADOW_WALL_PARAMS, FOOT, RIM, ShadowWallParams, buildField, deriveGeometry, validateShadowWallParams,
+  DEFAULT_SHADOW_WALL_PARAMS, FOOT, RIM, outerHeightAt, ShadowWallParams, buildField, deriveGeometry, validateShadowWallParams,
 } from '../shadowWall';
 
 const P = DEFAULT_SHADOW_WALL_PARAMS;
@@ -52,6 +52,40 @@ describe('validateShadowWallParams', () => {
   });
 });
 
+describe('tall foot for strongly curved shapes', () => {
+  const shapes: [string, ShadowWallParams][] = [
+    ['ellipse 100x60', { ...P, kind: 'ellipse', width: 100, length: 60 }],
+    ['ellipse 100x40', { ...P, kind: 'ellipse', width: 100, length: 40 }],
+    ['rectangle 60x60 r6', { ...P, width: 60, length: 60, cornerRadius: 6 }],
+  ];
+  for (const [name, p] of shapes) {
+    it(`${name}: validates, foot covers 1.25 (sMax - 1) hf, outer height monotone in every column`, () => {
+      expect(validateShadowWallParams(p)).toEqual([]);
+      const g = deriveGeometry(p), o = g.outline;
+      let sMax = 1;
+      for (let i = 0; i < o.cols; i++) sMax = Math.max(sMax, o.dOut[i] / o.dIn[i]);
+      const need = Math.max(FOOT, 1.25 * (sMax - 1) * p.lightHeight);
+      expect(g.blendBottom).toBeCloseTo(need, 9);
+      expect(g.zs[g.bandStart]).toBeCloseTo(need, 9);
+      expect(g.zs[g.bandEnd]).toBeCloseTo(p.height - RIM, 9);
+      for (let j = 1; j < g.zs.length; j++) expect(g.zs[j]).toBeGreaterThan(g.zs[j - 1]);
+      for (let i = 0; i < o.cols; i++) {
+        let prev = -Infinity;
+        for (let q = 0; q <= 400; q++) {
+          const cur = outerHeightAt(g, p, o.dOut[i], o.dIn[i], (p.height * q) / 400);
+          expect(cur).toBeGreaterThan(prev);
+          prev = cur;
+        }
+      }
+    });
+  }
+  it('rejects only when the enlarged foot leaves no room', () => {
+    // thin 12 mm wide wall run: huge dOut / dIn at the ends makes the foot swallow the height
+    const p: ShadowWallParams = { ...P, width: 100, length: 13, cornerRadius: 3, wallThickness: 1.4, height: 20 };
+    expect(validateShadowWallParams(p).join(' ')).toMatch(/No room for the foot, rim/);
+  });
+});
+
 describe('deriveGeometry rows', () => {
   for (const [name, p] of [['rectangle', P], ['ellipse', { ...P, kind: 'ellipse', width: 100, length: 60 } as ShadowWallParams]] as const) {
     it(`${name}: rows rise strictly from 0 to height, foot and rim uniform`, () => {
@@ -60,7 +94,7 @@ describe('deriveGeometry rows', () => {
       expect(zs[0]).toBe(0);
       expect(zs[zs.length - 1]).toBeCloseTo(p.height, 9);
       for (let j = 1; j < zs.length; j++) expect(zs[j]).toBeGreaterThan(zs[j - 1]);
-      expect(zs[g.bandStart]).toBeCloseTo(FOOT, 9);
+      expect(zs[g.bandStart]).toBeCloseTo(g.blendBottom, 9);
       expect(zs[g.bandEnd]).toBeCloseTo(p.height - RIM, 9);
       expect(g.rimStart).toBe(g.bandEnd + 1);
       expect(g.footRows).toBe(g.bandStart);

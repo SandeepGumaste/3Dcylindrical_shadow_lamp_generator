@@ -57,7 +57,7 @@ export interface ShadowWallGeometry {
   bandStart: number;      // first node row of the pattern band (z = FOOT)
   bandEnd: number;        // last node row of the pattern band (z = height - RIM)
   rimStart: number;       // first rim row
-  blendBottom: number;    // top of the foot blend zone
+  blendBottom: number;    // top of the solid foot = top of the foot blend zone (max(FOOT, 1.25 (sMax - 1) hf))
   blendTop: number;       // top of the pattern band
 }
 
@@ -93,6 +93,10 @@ export function validateShadowWallParams(p: ShadowWallParams): string[] {
   if (p.minFeature < 0) e.push('Min Feature cannot be negative.');
   if (e.length) return e;
 
+  const outline = buildOutline(p);
+  const foot = footHeightFor(outline, p.lightHeight);
+  if (foot + RIM + 5 > p.height)
+    return [`No room for the foot, rim and 5 mm of pattern: this shape needs a ${foot.toFixed(1)} mm foot; raise Height above ${(foot + RIM + 5).toFixed(1)} mm or make the shape rounder / the wall thinner.`];
   const g = deriveGeometry(p);
   const o = g.outline;
   // The ray taper must keep the outer surface monotone in z, in every column.
@@ -107,6 +111,13 @@ export function validateShadowWallParams(p: ShadowWallParams): string[] {
   return e;
 }
 
+/** Solid foot height: like Tealight, tall enough that the ray taper (outer / inner scale sMax) cannot fold the outer surface. */
+function footHeightFor(o: Outline, hf: number): number {
+  let sMax = 1;
+  for (let i = 0; i < o.cols; i++) sMax = Math.max(sMax, o.dOut[i] / o.dIn[i]);
+  return Math.max(FOOT, 1.25 * (sMax - 1) * hf);
+}
+
 export function deriveGeometry(p: ShadowWallParams): ShadowWallGeometry {
   const outline = buildOutline(p);
   const cell = outline.perimeter / outline.cols;
@@ -114,16 +125,17 @@ export function deriveGeometry(p: ShadowWallParams): ShadowWallGeometry {
   let dMax = 0;
   for (let i = 0; i < outline.cols; i++) dMax = Math.max(dMax, outline.dIn[i]);
   const zTop = p.height - RIM;
+  const foot = footHeightFor(outline, hf);
 
   const zs: number[] = [];
-  const nFoot = Math.max(2, Math.ceil(FOOT / cell));
-  for (let q = 0; q < nFoot; q++) zs.push((FOOT * q) / nFoot);
+  const nFoot = Math.max(2, Math.ceil(foot / cell));
+  for (let q = 0; q < nFoot; q++) zs.push((foot * q) / nFoot);
   const bandStart = zs.length;
 
   // Band: the table position moves at most one cell per row in every direction (dz = cell (hf - z)^2 / (dMax hf)).
   const band = (factor: number): number[] => {
-    const out = [FOOT];
-    let z = FOOT;
+    const out = [foot];
+    let z = foot;
     for (;;) {
       const dz = (factor * cell * (hf - z) ** 2) / (dMax * hf);
       if (z + dz * 1.5 >= zTop) break;
@@ -142,7 +154,7 @@ export function deriveGeometry(p: ShadowWallParams): ShadowWallGeometry {
   for (let q = 1; q <= nRim; q++) zs.push(zTop + (RIM * q) / nRim);
   zs[zs.length - 1] = p.height;
 
-  return { outline, zs: Float64Array.from(zs), footRows: nFoot, bandStart, bandEnd, rimStart, blendBottom: FOOT, blendTop: zTop };
+  return { outline, zs: Float64Array.from(zs), footRows: nFoot, bandStart, bandEnd, rimStart, blendBottom: foot, blendTop: zTop };
 }
 
 export interface ShadowWallField {
