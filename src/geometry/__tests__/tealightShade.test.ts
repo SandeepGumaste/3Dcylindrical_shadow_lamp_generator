@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   DEFAULT_TEALIGHT_PARAMS, TealightParams, deriveGeometry, tableRadiusAt, wallHeightForTableRadius,
   zMaxFormula, tableToPixel, pixelToTable, labelComponents, generateTealightShade, compareShadow,
-  validateTealightParams, buildTealightField, suggestRibs, ribBump, generateTealightMapSvg,
+  validateTealightParams, buildTealightField, suggestRibs, ribBump, generateTealightMapSvg, countRibCrossings,
 } from '../tealightShade';
 import { TEALIGHT_SAMPLES, asymmetricTestImage } from '../../image/tealightSamples';
 
@@ -311,5 +311,55 @@ describe('rib optimizer', () => {
     const r = suggestRibs(ring, P({ maxBridge: 12 }));
     const res = generateTealightShade(ring, P({ ribs: r.ribs, ribAngles: r.angles }));
     expect(res.report.check.watertight).toBe(true);
+  });
+});
+
+describe('rib optimizer: avoid holes', () => {
+  // a ring-shaped hole that needs ribs, plus small round holes ("bait") every 60 degrees where an
+  // evenly spaced layout starting at angle 0 would put its ribs
+  const n = 256;
+  const make = (bait: boolean) => {
+    const pixels = new Float32Array(n * n).fill(1);
+    for (let py = 0; py < n; py++) for (let px = 0; px < n; px++) {
+      const x = ((px + 0.5) / n - 0.5) * 2, y = ((py + 0.5) / n - 0.5) * 2;
+      const r = Math.hypot(x, y);
+      if (r > 0.45 && r < 0.6) pixels[py * n + px] = 0;
+      if (bait) for (let k = 0; k < 6; k++) {
+        const bx = 0.82 * Math.cos((k * Math.PI) / 3), by = 0.82 * Math.sin((k * Math.PI) / 3);
+        if (Math.hypot(x - bx, y - by) < 0.035) pixels[py * n + px] = 0;
+      }
+    }
+    return { width: n, height: n, pixels };
+  };
+  const params = P({ maxBridge: 12 });
+
+  it('reports the crossings it counts, and the count matches an independent recount', () => {
+    const img = make(true);
+    const r = suggestRibs(img, params);
+    expect(r.ribs).toBeGreaterThan(0);
+    expect(r.crossings).toBe(countRibCrossings(img, params, r.angles).holes);
+  });
+
+  it('turns the ribs away from holes it can avoid, using no more ribs than before', () => {
+    const plain = suggestRibs(make(false), params);
+    const img = make(true);
+    const r = suggestRibs(img, params);
+    expect(r.ribs).toBe(plain.ribs);
+    const atZero = countRibCrossings(img, params, Array.from({ length: r.ribs }, (_, k) => (2 * Math.PI * k) / r.ribs)).holes;
+    expect(atZero).toBeGreaterThan(r.ribs);          // the unrotated layout would also cut the bait holes
+    expect(r.crossings).toBe(r.ribs);                // only the unavoidable ring is cut
+    expect(r.crossingsEven).toBe(atZero);
+  });
+
+  it('keeps the ribs evenly spaced', () => {
+    const r = suggestRibs(make(true), params);
+    const gap = (2 * Math.PI) / r.ribs;
+    for (let k = 1; k < r.angles.length; k++) expect(r.angles[k] - r.angles[k - 1]).toBeCloseTo(gap, 6);
+  });
+
+  it('never leaves a hole too wide to bridge to win fewer crossings', () => {
+    const r = suggestRibs(make(true), P({ maxBridge: 6 }));
+    expect(r.achievable).toBe(true);
+    expect(r.worstSpan).toBe(0);
   });
 });

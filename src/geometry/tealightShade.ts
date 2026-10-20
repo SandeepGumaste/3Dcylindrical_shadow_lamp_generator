@@ -509,9 +509,50 @@ export interface RibSuggestion {
   problemRows: number;
   /** False when MAX_AUTO_RIBS ribs cannot bring every hole under maxBridge. */
   achievable: boolean;
+  /** Times the chosen ribs cut through a hole of the pattern (one per rib per hole). */
+  crossings: number;
+  /** The same count for the same number of ribs laid out from angle 0, for comparison. */
+  crossingsEven: number;
 }
 
 export const MAX_AUTO_RIBS = 48;
+
+/** Counts how often ribs at `angles` cut through holes that lie wholly inside the pattern band. */
+function makeCrossingCounter(g: TealightGeometry, field: Float32Array, ribWidth: number) {
+  const C = g.cols, rowsN = g.zs.length, TWO_PI = 2 * Math.PI;
+  const solid = new Uint8Array(field.length);
+  for (let i = 0; i < field.length; i++) solid[i] = field[i] > 0 ? 1 : 0;
+  const { labels, count } = labelComponents(solid, C, rowsN, 0);
+  // holes that reach outside the pattern band (vents) cannot be avoided or are not pattern holes
+  const counted = new Uint8Array(count).fill(1);
+  for (let idx = 0; idx < labels.length; idx++) {
+    const j = Math.floor(idx / C);
+    if (labels[idx] >= 0 && (j < g.bandStart || j > g.bandEnd)) counted[labels[idx]] = 0;
+  }
+  return (angles: number[]): { holes: number; cells: number } => {
+    let holes = 0, cells = 0;
+    for (const a of angles) {
+      const seen = new Set<number>();
+      for (let j = g.bandStart; j <= g.bandEnd; j++) {
+        const R = coneRadius(g.Rb, g.k, g.zs[j]);
+        const half = ribWidth / (2 * R);
+        const c0 = Math.ceil(((a - half) / TWO_PI) * C - 1e-9), c1 = Math.floor(((a + half) / TWO_PI) * C + 1e-9);
+        for (let c = c0; c <= c1; c++) {
+          const l = labels[(((c % C) + C) % C) + C * j];
+          if (l >= 0 && counted[l]) { seen.add(l); cells++; }
+        }
+      }
+      holes += seen.size;
+    }
+    return { holes, cells };
+  };
+}
+
+/** How many times ribs at the given angles cut through pattern holes (for tests and reporting). */
+export function countRibCrossings(img: GrayImage, p: TealightParams, angles: number[]): { holes: number; cells: number } {
+  const { geometry: g, field } = buildTealightField(img, { ...p, ribs: 0, ribAngles: undefined });
+  return makeCrossingCounter(g, field, p.ribWidth)(angles);
+}
 
 interface HoleRun { j: number; start: number; cols: number; mm: number; full: boolean }
 
@@ -577,21 +618,40 @@ export function suggestRibs(img: GrayImage, p: TealightParams): RibSuggestion {
   const spanWithoutRibs = widest(base);
   const problemRows = new Set(base.map((r) => r.j)).size;
 
-  // Ribs stay uniform: an even count, evenly spaced. Try each count with a few rotations (the
-  // ring may line up better with the pattern when turned) and keep the first that clears every hole.
+  // Ribs stay uniform: an even count, evenly spaced. For each count that can clear every hole, the
+  // layout is rotated through fine steps and the one that cuts through the fewest pattern holes is
+  // kept (ties: fewest cells cut). A few counts above the smallest workable one are compared too,
+  // since the best rotation of a larger set can avoid more holes.
+  const crossing = makeCrossingCounter(g, field, p.ribWidth);
   const evenly = (n: number, phase: number) => Array.from({ length: n }, (_, k) => phase + (k / n) * TWO_PI);
-  const OFFSETS = 8;
-  if (base.length === 0) return { ribs: 0, angles: [], worstSpan: 0, spanWithoutRibs, problemRows, achievable: true };
-  let best = { angles: evenly(MAX_AUTO_RIBS, 0), span: Infinity };
+  const STEPS = 90;          // rotations tried within one rib spacing
+  const TRIES = 40;          // cheapest rotations tested for bridging, per rib count
+  const EXTRA_COUNTS = 3;    // counts above the smallest workable one that are also compared
+  if (base.length === 0) return { ribs: 0, angles: [], worstSpan: 0, spanWithoutRibs, problemRows, achievable: true, crossings: 0, crossingsEven: 0 };
+  type Cand = { angles: number[]; holes: number; cells: number };
+  let best: Cand | undefined;
+  let firstWorkable = -1;
+  let fallback = { angles: evenly(MAX_AUTO_RIBS, 0), span: Infinity };
   for (let n = 2; n <= MAX_AUTO_RIBS; n += 2) {
-    for (let o = 0; o < OFFSETS; o++) {
-      const angles = evenly(n, (o / OFFSETS) * (TWO_PI / n));
-      const span = widest(findRuns(angles));
-      if (span === 0) return { ribs: n, angles, worstSpan: 0, spanWithoutRibs, problemRows, achievable: true };
-      if (n === MAX_AUTO_RIBS && span < best.span) best = { angles, span };
+    if (firstWorkable >= 0 && n > firstWorkable + 2 * EXTRA_COUNTS) break;
+    const rotations = Array.from({ length: STEPS }, (_, o) => {
+      const angles = evenly(n, (o / STEPS) * (TWO_PI / n));
+      return { angles, ...crossing(angles) };
+    }).sort((a, b) => a.holes - b.holes || a.cells - b.cells);
+    for (const rot of rotations.slice(0, TRIES)) {
+      const span = widest(findRuns(rot.angles));
+      if (span === 0) {
+        if (firstWorkable < 0) firstWorkable = n;
+        if (!best || rot.holes < best.holes || (rot.holes === best.holes && rot.cells < best.cells)) best = rot;
+        break;
+      }
+      if (n === MAX_AUTO_RIBS && span < fallback.span) fallback = { angles: rot.angles, span };
     }
   }
-  return { ribs: best.angles.length, angles: best.angles, worstSpan: best.span, spanWithoutRibs, problemRows, achievable: false };
+  if (best) {
+    return { ribs: best.angles.length, angles: best.angles, worstSpan: 0, spanWithoutRibs, problemRows, achievable: true, crossings: best.holes, crossingsEven: crossing(evenly(best.angles.length, 0)).holes };
+  }
+  return { ribs: fallback.angles.length, angles: fallback.angles, worstSpan: fallback.span, spanWithoutRibs, problemRows, achievable: false, crossings: crossing(fallback.angles).holes, crossingsEven: crossing(evenly(fallback.angles.length, 0)).holes };
 }
 
 // ---- meshing ---------------------------------------------------------------------------------

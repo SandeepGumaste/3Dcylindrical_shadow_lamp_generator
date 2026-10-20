@@ -91,7 +91,7 @@ export const TealightPanel: React.FC<{ c: TealightController }> = ({ c }) => {
               onChange={(v) => c.setTealight(v ? { autoRibs: true } : { autoRibs: false, ribs })}
               hint={rs ? (rs.achievable
                 ? (rs.ribs > 0
-                  ? `Using ${rs.ribs} evenly spaced ribs for this pattern (widest unsupported hole was ${Number.isFinite(rs.spanWithoutRibs) ? rs.spanWithoutRibs.toFixed(0) + ' mm' : 'a full ring'}; now all within ${t.maxBridge} mm or steep).`
+                  ? `Using ${rs.ribs} evenly spaced ribs for this pattern (widest unsupported hole was ${Number.isFinite(rs.spanWithoutRibs) ? rs.spanWithoutRibs.toFixed(0) + ' mm' : 'a full ring'}; now all within ${t.maxBridge} mm or steep). Turned to cut through as few holes as possible: ${rs.crossings} cut${rs.crossingsEven > rs.crossings ? ` (${rs.crossingsEven} if started at 0°)` : ''}.`
                   : 'This pattern needs no ribs for printing.')
                 : `${rs.ribs} ribs is the most allowed and still leaves a ${rs.worstSpan.toFixed(1)} mm flat-roofed hole.`)
                 : 'Analyses the generated pattern and picks an even number of evenly spaced ribs. Editing Support Ribs turns this off.'} />
