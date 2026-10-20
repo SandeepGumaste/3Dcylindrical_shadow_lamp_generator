@@ -93,8 +93,9 @@ describe('inner details', () => {
   it('cuts openings in the walls, keeps them watertight, and reports bridged pieces', async () => {
     const on = await buildKit(face, disc, P({ innerDetails: true }), load);
     const off = await buildKit(face, disc, P({ innerDetails: false }), load);
-    const tri = (k: typeof on) => wallParts(k).reduce((n, q) => n + q.mesh.indices.length / 3, 0);
-    expect(tri(on)).toBeGreaterThan(tri(off));
+    // openings remove material, so the walls with inner details hold less volume than the solid-outline walls
+    const volume = (k: typeof on) => wallParts(k).reduce((n, q) => n + checkMesh(q.mesh.positions, q.mesh.indices).signedVolume, 0);
+    expect(volume(on)).toBeLessThan(volume(off));
     for (const q of wallParts(on)) expect(checkMesh(q.mesh.positions, q.mesh.indices).watertight, q.id).toBe(true);
     expect(on.warnings.join(' ')).toMatch(/opening/i);
     expect(on.warnings.join(' ')).toMatch(/bridge/i);

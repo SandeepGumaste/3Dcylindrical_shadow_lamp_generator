@@ -48,7 +48,7 @@ export const BoxViewport: React.FC<Props> = ({ preview, light, shadowSize, busy,
     const lamp = new THREE.PointLight(0xffc477, 3.2, 0, 0);
     lamp.castShadow = true;
     lamp.shadow.mapSize.set(2048, 2048);
-    lamp.shadow.radius = 2;
+    lamp.shadow.radius = 1;
     lamp.shadow.bias = -0.0004;
     lamp.shadow.normalBias = 0.15;
     lamp.shadow.camera.near = 0.5;

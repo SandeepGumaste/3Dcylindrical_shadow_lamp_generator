@@ -42,7 +42,7 @@ export const DEFAULT_BOX_PARAMS: BoxParams = {
 };
 
 /** Samples along each wall, mm apart. */
-export const PROFILE_STEP = 0.5;
+export const PROFILE_STEP = 0.2;
 /** A wall is never shorter than this from its seat, so it can still carry its tabs (the tallest reaches 14.2 mm). */
 export const MIN_WALL_HEIGHT = 15;
 /** The same limit as a height above the panel plane, which is where profile heights are measured. */
@@ -188,7 +188,7 @@ export function buildRimProfile(img: GrayImage, p: BoxParams): RimProfile {
   if (!anyDark) warnings.push('The shadow image has no dark shape inside the frame, so every wall stays at its minimum height.');
   if (edgeDark >= 0.9) warnings.push('The shadow image is dark all the way to its edges, so the shadow runs off the frame. Check the threshold or turn on Invert.');
   if (shaped > 0 && tooSmall / shaped > 0.1)
-    warnings.push(`Parts of the shape are smaller than the smallest shadow this box can cast (${Math.round(rMinLo)} to ${Math.round(rMinHi)} mm from the light, depending on direction), so the walls stay at their minimum height there. Increase the shadow size or lower the light.`);
+    warnings.push(`Parts of the shape are smaller than the smallest shadow this box can cast (${Math.round(rMinLo)} to ${Math.round(rMinHi)} mm from the light, depending on direction), so the walls stay at their minimum height there. Increase the shadow size or raise the light.`);
   if (specks > 0) warnings.push(`${specks} stray speck${specks === 1 ? '' : 's'} (under ${SPECK_AREA_MM2} mm² on the wall) ${specks === 1 ? 'was' : 'were'} ignored.`);
   if (clamped) warnings.push(`The light height limits the shadow: parts that need walls taller than ${L - 1} mm are shortened. Raise the light height or reduce the shadow size.`);
   const w = countRuns(widenedMask), g = countRuns(filledMask);

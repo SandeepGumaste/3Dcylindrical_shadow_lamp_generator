@@ -169,3 +169,19 @@ describe('rim profile from the silhouette image', () => {
     expect(w).toMatch(/smaller than the minimum feature/i);
   });
 });
+
+describe('smallest shadow the box can cast', () => {
+  const smallDisc = (L: number) => buildRimProfile(disc(40), P({ lightHeight: L }));
+  const range = (L: number) => {
+    const m = smallDisc(L).warnings.join(' ').match(/\((\d+) to (\d+) mm from the light/);
+    return m ? [Number(m[1]), Number(m[2])] : null;
+  };
+  it('gets smaller when the light is raised, so the warning advises raising it', () => {
+    const low = range(30), high = range(50);
+    expect(low).not.toBeNull();
+    expect(high).not.toBeNull();
+    expect(high![0]).toBeLessThan(low![0]);
+    expect(smallDisc(30).warnings.join(' ')).toMatch(/raise the light/i);
+    expect(smallDisc(30).warnings.join(' ')).not.toMatch(/lower the light/i);
+  });
+});
