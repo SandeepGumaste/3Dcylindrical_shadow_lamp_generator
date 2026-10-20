@@ -28,9 +28,11 @@ import { BoxPanel } from './components/BoxPanel';
 import { BoxViewport } from './components/BoxViewport';
 import { useShadowWallGenerator } from './hooks/useShadowWallGenerator';
 import { ShadowWallPanel } from './components/ShadowWallPanel';
+import { useLightSourceGenerator } from './hooks/useLightSourceGenerator';
+import { LightSourcePanel } from './components/LightSourcePanel';
 import { previewHeights } from './geometry/shadowWall/shadowWall';
 
-type AppMode = 'cylinder' | 'tealight' | 'bowl' | 'box' | 'wall';
+type AppMode = 'cylinder' | 'tealight' | 'bowl' | 'box' | 'wall' | 'light';
 /** Guided steps UI and the welcome choice are switched off for now; set to true to bring them back. */
 const GUIDED_ENABLED = false;
 
@@ -38,6 +40,7 @@ const MODES: { id: AppMode; label: string }[] = [
   { id: 'tealight', label: 'Tealight shade (table)' },
   { id: 'box', label: 'Box shadow (wall)' },
   { id: 'wall', label: 'Shadow wall (table)' },
+  { id: 'light', label: 'Light source (bracket)' },
 ];
 
 export default function App() {
@@ -48,6 +51,7 @@ export default function App() {
   const choose = (value: Experience) => { saveExperience(value); setExperience(value); };
   const box = useBoxGenerator(appMode === 'box');
   const wall = useShadowWallGenerator(appMode === 'wall');
+  const light3d = useLightSourceGenerator(appMode === 'light');
 
   // 1. Core States
   const [lamp, setLamp] = useState<LampConfig>({
@@ -246,7 +250,7 @@ export default function App() {
         <Brand action={GUIDED_ENABLED && appMode === 'tealight' && (
           <button type="button" onClick={() => choose('guided')} className="min-h-9 px-2.5 py-1.5 rounded-md border border-slate-700 text-[11px] font-medium text-slate-300 hover:bg-slate-800">Guided steps</button>
         )} />
-        {MODES.length > 1 && <div className="shrink-0 p-2 border-b border-slate-800 bg-slate-950/60 grid grid-cols-3 gap-1" role="tablist" aria-label="Lamp mode">
+        {MODES.length > 1 && <div className="shrink-0 p-2 border-b border-slate-800 bg-slate-950/60 grid grid-cols-2 gap-1" role="tablist" aria-label="Lamp mode">
           {MODES.map((m) => (
             <button
               key={m.id}
@@ -285,6 +289,8 @@ export default function App() {
             <BoxPanel c={box} />
           ) : appMode === 'wall' ? (
             <ShadowWallPanel c={wall} />
+          ) : appMode === 'light' ? (
+            <LightSourcePanel c={light3d} />
           ) : (
             <TealightPanel c={tea} />
           )}
@@ -301,6 +307,22 @@ export default function App() {
               busy={box.busy}
               stale={box.stale}
               onGenerate={box.generate}
+            />
+          </div>
+        </div>
+      ) : appMode === 'light' ? (
+        <div className="max-lg:contents lg:order-2 lg:flex-1 lg:h-full flex flex-col overflow-y-auto lg:overflow-hidden custom-scrollbar lg:p-6 gap-5 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
+          <div className="order-1 sticky top-0 z-30 w-full h-[40dvh] min-h-[240px] p-2 bg-slate-950 lg:static lg:z-auto lg:p-0 lg:bg-transparent lg:flex-1 lg:min-h-[380px] shrink-0 lg:shrink">
+            <TealightViewport
+              positions={light3d.mesh?.positions ?? null}
+              indices={light3d.mesh?.indices ?? null}
+              lightZ={0}
+              topZ={light3d.params.height}
+              groundRadius={30}
+              triangleCount={light3d.triangleCount}
+              busy={false}
+              stale={false}
+              onGenerate={() => {}}
             />
           </div>
         </div>
