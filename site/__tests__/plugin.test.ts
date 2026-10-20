@@ -1,7 +1,7 @@
 import {readFileSync} from 'node:fs';
 import path from 'node:path';
 import {describe, expect, it} from 'vitest';
-import {rewriteCleanUrl, sitePages, transformPage} from '../../vite-plugins/sitePages';
+import {rewriteCleanUrl, sitePages, transformPage, vercelSiteUrl} from '../../vite-plugins/sitePages';
 
 const root = path.resolve(__dirname, '../..');
 const partials = {header: '<header>HEAD</header>', footer: '<footer>FOOT</footer>'};
@@ -108,5 +108,19 @@ describe('rewriteCleanUrl (dev and preview)', () => {
     expect(rewriteCleanUrl('/src/main.tsx')).toBe('/src/main.tsx');
     expect(rewriteCleanUrl('/site/site.css')).toBe('/site/site.css');
     expect(rewriteCleanUrl('/app/index.html')).toBe('/app/index.html');
+  });
+});
+
+describe('vercelSiteUrl', () => {
+  it('is empty off Vercel', () => {
+    expect(vercelSiteUrl({VERCEL_URL: 'x.vercel.app'})).toBe('');
+  });
+  it('uses the production host in production and the deployment host otherwise', () => {
+    const env = {VERCEL: '1', VERCEL_PROJECT_PRODUCTION_URL: 'odd.vercel.app', VERCEL_URL: 'odd-abc.vercel.app'};
+    expect(vercelSiteUrl({...env, VERCEL_ENV: 'production'})).toBe('https://odd.vercel.app');
+    expect(vercelSiteUrl({...env, VERCEL_ENV: 'preview'})).toBe('https://odd-abc.vercel.app');
+  });
+  it('is empty when Vercel exposes no host', () => {
+    expect(vercelSiteUrl({VERCEL: '1', VERCEL_ENV: 'production'})).toBe('');
   });
 });

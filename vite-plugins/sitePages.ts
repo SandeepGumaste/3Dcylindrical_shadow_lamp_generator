@@ -47,6 +47,13 @@ function routeFor(requestPath: string): string | undefined {
   return undefined;
 }
 
+/** On Vercel the deployment's own host stands in when VITE_SITE_URL is not set. */
+export function vercelSiteUrl(env: Record<string, string | undefined>): string {
+  if (!env.VERCEL) return '';
+  const host = env.VERCEL_ENV === 'production' ? env.VERCEL_PROJECT_PRODUCTION_URL || env.VERCEL_URL : env.VERCEL_URL;
+  return host ? `https://${host}` : '';
+}
+
 const staticRoutes = () => Object.keys(PAGES).filter((r) => r !== '/app');
 
 function normalizeSiteUrl(raw: string, production: boolean): string {
@@ -97,6 +104,7 @@ export function sitePages(options: SitePagesOptions = {}): Plugin {
       guardPlaceholders =
         config.command === 'build' && config.mode === 'production' && process.env.VERCEL_ENV === 'production';
       const production = config.command === 'build' && config.mode === 'production';
+      if (!siteUrl) siteUrl = vercelSiteUrl(process.env);
       if (siteUrl) {
         siteUrl = normalizeSiteUrl(siteUrl, production);
         return;
@@ -104,7 +112,8 @@ export function sitePages(options: SitePagesOptions = {}): Plugin {
       if (production) {
         throw new Error(
           'VITE_SITE_URL is required for a production build (e.g. VITE_SITE_URL=https://example.com). ' +
-            'It is used for canonical URLs, the sitemap and robots.txt.',
+            'It is used for canonical URLs, the sitemap and robots.txt. On Vercel it falls back to the deployment host ' +
+            'when "Automatically expose System Environment Variables" is on.',
         );
       }
       siteUrl = DEV_URL;
