@@ -31,6 +31,9 @@ import { ShadowWallPanel } from './components/ShadowWallPanel';
 import { previewHeights } from './geometry/shadowWall/shadowWall';
 
 type AppMode = 'cylinder' | 'tealight' | 'bowl' | 'box' | 'wall';
+/** Guided steps UI and the welcome choice are switched off for now; set to true to bring them back. */
+const GUIDED_ENABLED = false;
+
 const MODES: { id: AppMode; label: string }[] = [
   { id: 'tealight', label: 'Tealight shade (table)' },
   { id: 'box', label: 'Box shadow (wall)' },
@@ -41,7 +44,7 @@ export default function App() {
   const [appMode, setAppMode] = useState<AppMode>('tealight');
   const tableMode = appMode === 'bowl' ? 'bowl' : 'tealight';
   const tea = useTealightGenerator(tableMode);
-  const [experience, setExperience] = useState<Experience | null>(() => readExperience());
+  const [experience, setExperience] = useState<Experience | null>(() => (GUIDED_ENABLED ? readExperience() : 'advanced'));
   const choose = (value: Experience) => { saveExperience(value); setExperience(value); };
   const box = useBoxGenerator(appMode === 'box');
   const wall = useShadowWallGenerator(appMode === 'wall');
@@ -233,14 +236,14 @@ export default function App() {
     downloadSVG(svg, `shadow-lamp-unwrapped-stencil-${lamp.diameter}x${lamp.height}mm.svg`);
   };
 
-  if (experience === 'guided' && appMode === 'tealight') return <GuidedApp c={tea} onSwitch={() => choose('advanced')} />;
+  if (GUIDED_ENABLED && experience === 'guided' && appMode === 'tealight') return <GuidedApp c={tea} onSwitch={() => choose('advanced')} />;
 
   return (
     <div className="flex flex-col lg:flex-row min-h-dvh w-full lg:h-dvh lg:w-screen bg-slate-950 text-slate-100 lg:overflow-hidden font-sans antialiased">
       {experience === null && <WelcomeChoice onChoose={choose} />}
       {/* Left Sidebar: brand + mode switch + controls */}
       <div className="order-2 lg:order-1 w-full lg:w-[380px] xl:w-[420px] lg:h-full shrink-0 flex flex-col z-20 shadow-2xl bg-slate-900">
-        <Brand action={appMode === 'tealight' && (
+        <Brand action={GUIDED_ENABLED && appMode === 'tealight' && (
           <button type="button" onClick={() => choose('guided')} className="min-h-9 px-2.5 py-1.5 rounded-md border border-slate-700 text-[11px] font-medium text-slate-300 hover:bg-slate-800">Guided steps</button>
         )} />
         {MODES.length > 1 && <div className="shrink-0 p-2 border-b border-slate-800 bg-slate-950/60 grid grid-cols-3 gap-1" role="tablist" aria-label="Lamp mode">

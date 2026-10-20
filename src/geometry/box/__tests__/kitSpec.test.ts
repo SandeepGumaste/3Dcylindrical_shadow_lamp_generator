@@ -4,7 +4,8 @@ import { join } from 'node:path';
 import { parseBinaryStl } from '../stlParse';
 import { KIT, WALL_IDS, type WallId } from '../kitSpec';
 
-const DIR = join(process.cwd(), 'research', readdirSync(join(process.cwd(), 'research')).find((f) => f.endsWith('_stls')) ?? 'missing');
+const RESEARCH = join(process.cwd(), 'research');
+const DIR = join(RESEARCH, existsSync(RESEARCH) ? (readdirSync(RESEARCH).find((f) => f.endsWith('_stls')) ?? 'missing') : 'missing');
 const haveOriginals = existsSync(DIR);
 const WALL_FILES: Record<WallId, string> = { w1: 'obj_5_1', w2: 'obj_3_2', w3: 'obj_2_3', w4: 'obj_4_4' };
 const sizeOf = (id: WallId) => {
