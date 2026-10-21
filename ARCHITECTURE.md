@@ -164,3 +164,19 @@ src/components/ShadowWallPanel.tsx        panel: image, footprint, wall, shadow,
 - **Same interaction rules as tealight:** generate on first load and when an image changes (not when the mode is shown again); settings changes only show the out-of-date banner. STL download only when the result is watertight and not stale.
 - **Base plate:** A base plate under the wall (default on, like Tealight's floor): a plate of `baseThickness` (3 mm) with a centre hole (12.5 mm) for the light and two magnet pockets (8.1 x 2.1 mm, 12 mm either side of the centre, along the footprint's longer axis, y on a tie) on the underside, built in `src/geometry/shadowWall/base.ts` from the shell's bottom rings (`skipBottomBorder`). The wall's z stays measured from the top of the plate and the whole model is shifted up by the thickness at the end; the ground where the shadow lands is the plate's underside, so a wall node (q, z) maps to the table point q * (hf + G) / (hf - z) with G = base thickness (0 without a base), used by the field sampling, the row spacing and the reach warning (`tableScale` in `shadowWall.ts`). `lightHeight` stays measured above the top of the base.
 - **Parked:** custom SVG footprint, splitting the wall into flat plates (lying / overhang layouts), inner pattern layer, ribs, LED socket, vents, SVG export, and bridging of floating pieces (they are dropped for now).
+
+## Accounts and API (branch `backend`)
+
+`/app` is behind Google login. `src/auth/AuthGate.tsx` (wrapped around `<App />` in `src/main.tsx`) calls `GET /api/me` once; 200 renders the app, 401 shows a "Sign in with Google" screen, any other failure shows a retry screen (never the app). `AccountChip` in the sidebar header shows email, role and Sign out. This gate is browser-side only: the model is built in the browser, so it limits who gets the UI, not who could read the bundle.
+
+```
+server/roles.ts          roleFor: admin only for the verified ADMIN_EMAIL (case-insensitive), else user
+server/users.ts, db.ts   UserStore (MongoDB `users`: email unique, name, image, role, createdAt); shared lazy client
+server/auth.ts           Auth.js (@auth/core) config: Google, JWT session cookie, basePath /api/auth, role in the token
+server/session.ts, me.ts getSessionUser (decodes the cookie) and the /api/me handler (401 {"error":"unauthorized"})
+server/node-adapter.ts   Node request/response <-> Web Request/Response
+api/                     Vercel function entry points (auth/[...auth].ts, me.ts)
+server/dev.ts            local stand-in on port 3001; `npm run dev` runs it beside Vite, which proxies /api
+```
+
+Role is decided at every sign-in, so changing `ADMIN_EMAIL` applies on the next login. Both roles currently see the same tabs. Setup steps are in `docs/auth-setup.md`.
