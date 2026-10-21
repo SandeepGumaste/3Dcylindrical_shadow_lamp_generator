@@ -3,7 +3,7 @@ import { encode } from '@auth/core/jwt';
 import { getSessionUser } from '../session';
 import { handleMe } from '../me';
 
-const env = { AUTH_SECRET: 'test-secret' } as NodeJS.ProcessEnv;
+const env = { AUTH_SECRET: 'test-secret', ADMIN_EMAIL: 'A@x.com' } as NodeJS.ProcessEnv;
 const COOKIE = 'authjs.session-token';
 
 async function reqWith(cookie?: string) {
@@ -33,6 +33,32 @@ describe('getSessionUser', () => {
   it('returns null for a token signed with another secret', async () => {
     const jwt = await tokenFor('other-secret');
     expect(await getSessionUser(await reqWith(`${COOKIE}=${jwt}`), env)).toBeNull();
+  });
+});
+
+describe('getSessionUser on https', () => {
+  it('reads the __Secure- cookie, whose name is also the token salt', async () => {
+    const name = '__Secure-authjs.session-token';
+    const jwt = await encode({
+      token: { email: 'a@x.com', name: 'A', picture: 'a.png', role: 'admin' },
+      secret: 'test-secret',
+      salt: name,
+    });
+    const req = new Request('https://odd.example/api/me', { headers: { cookie: `${name}=${jwt}` } });
+    expect((await getSessionUser(req, env))?.email).toBe('a@x.com');
+  });
+});
+
+describe('role re-check against ADMIN_EMAIL', () => {
+  it('demotes a token-admin whose email is no longer ADMIN_EMAIL', async () => {
+    const jwt = await tokenFor('test-secret');
+    const user = await getSessionUser(await reqWith(`${COOKIE}=${jwt}`), { ...env, ADMIN_EMAIL: 'someone@else.com' });
+    expect(user?.role).toBe('user');
+  });
+  it('demotes a token-admin when ADMIN_EMAIL is unset', async () => {
+    const jwt = await tokenFor('test-secret');
+    const user = await getSessionUser(await reqWith(`${COOKIE}=${jwt}`), { AUTH_SECRET: 'test-secret' } as NodeJS.ProcessEnv);
+    expect(user?.role).toBe('user');
   });
 });
 

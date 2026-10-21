@@ -2,9 +2,10 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import { Readable } from 'node:stream';
 
 export function toWebRequest(req: IncomingMessage, baseUrl: string): Request {
-  const proto = (req.headers['x-forwarded-proto'] as string | undefined)?.split(',')[0];
-  const host = req.headers['x-forwarded-host'] ?? req.headers.host;
-  const origin = host ? `${proto ?? new URL(baseUrl).protocol.replace(':', '')}://${host}` : baseUrl;
+  // Only Vercel overwrites the forwarded headers; anywhere else they are client-controlled.
+  const forwardedHost = process.env.VERCEL ? (req.headers['x-forwarded-host'] as string | undefined) : undefined;
+  const proto = (req.headers['x-forwarded-proto'] as string | undefined)?.split(',')[0] ?? 'https';
+  const origin = forwardedHost ? `${proto}://${forwardedHost}` : new URL(baseUrl).origin;
 
   const headers = new Headers();
   for (const [k, v] of Object.entries(req.headers)) {

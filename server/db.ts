@@ -8,7 +8,7 @@ const clients = new Map<string, Promise<MongoClient>>();
 export function getClient(uri: string = process.env.MONGODB_URI || DEFAULT_MONGODB_URI): Promise<MongoClient> {
   let client = clients.get(uri);
   if (!client) {
-    client = new MongoClient(uri).connect();
+    client = new MongoClient(uri, { serverSelectionTimeoutMS: 5000 }).connect();
     client.catch(() => clients.delete(uri));
     clients.set(uri, client);
   }
