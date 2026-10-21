@@ -23,6 +23,7 @@ import { TableInset } from './components/TableInset';
 import { GuidedApp } from './components/guided/GuidedApp';
 import { WelcomeChoice } from './components/guided/WelcomeChoice';
 import { readExperience, saveExperience, type Experience } from './ui/experience';
+import { AccountChip } from './auth/AccountChip';
 import { useBoxGenerator } from './hooks/useBoxGenerator';
 import { BoxPanel } from './components/BoxPanel';
 import { BoxViewport } from './components/BoxViewport';
@@ -247,9 +248,12 @@ export default function App() {
       {experience === null && <WelcomeChoice onChoose={choose} />}
       {/* Left Sidebar: brand + mode switch + controls */}
       <div className="order-2 lg:order-1 w-full lg:w-[380px] xl:w-[420px] lg:h-full shrink-0 flex flex-col z-20 shadow-2xl bg-slate-900">
-        <Brand action={GUIDED_ENABLED && appMode === 'tealight' && (
-          <button type="button" onClick={() => choose('guided')} className="min-h-9 px-2.5 py-1.5 rounded-md border border-slate-700 text-[11px] font-medium text-slate-300 hover:bg-slate-800">Guided steps</button>
-        )} />
+        <Brand action={<>
+          {GUIDED_ENABLED && appMode === 'tealight' && (
+            <button type="button" onClick={() => choose('guided')} className="min-h-9 px-2.5 py-1.5 rounded-md border border-slate-700 text-[11px] font-medium text-slate-300 hover:bg-slate-800">Guided steps</button>
+          )}
+          <AccountChip />
+        </>} />
         {MODES.length > 1 && <div className="shrink-0 p-2 border-b border-slate-800 bg-slate-950/60 grid grid-cols-2 gap-1" role="tablist" aria-label="Lamp mode">
           {MODES.map((m) => (
             <button
