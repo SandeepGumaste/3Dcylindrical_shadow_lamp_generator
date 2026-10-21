@@ -4,12 +4,14 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite --port=3000 --host=0.0.0.0",
+    "dev": "concurrently -k -n web,api \"npm:dev:web\" \"npm:dev:api\"",
     "build": "vite build",
     "preview": "vite preview",
     "clean": "rm -rf dist server.js",
     "test": "vitest run",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "dev:web": "vite --port=3000 --host=0.0.0.0",
+    "dev:api": "tsx server/dev.ts"
   },
   "dependencies": {
     "@auth/core": "^0.41.3",
