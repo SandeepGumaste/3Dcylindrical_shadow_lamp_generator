@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { GuidedApp } from '../GuidedApp';
-import { DEFAULT_TEALIGHT_PARAMS } from '../../../geometry/tealightShade';
+import { DEFAULT_TEALIGHT_PARAMS } from '../../../contracts/tealight';
 import type { TealightController } from '../../../hooks/useTealightGenerator';
 
 const noop = () => {};

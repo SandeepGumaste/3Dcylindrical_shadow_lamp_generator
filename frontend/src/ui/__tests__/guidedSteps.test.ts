@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { GUIDED_STEPS, guidedKeys, isOff, applyChange, rangeLimits, type Item } from '../guidedSteps';
-import { DEFAULT_TEALIGHT_PARAMS, type TealightParams } from '../../geometry/tealightShade';
+import { DEFAULT_TEALIGHT_PARAMS, type TealightParams } from '../../contracts/tealight';
 
 const P = (o: Partial<TealightParams> = {}): TealightParams => ({ ...DEFAULT_TEALIGHT_PARAMS, ...o });
 
