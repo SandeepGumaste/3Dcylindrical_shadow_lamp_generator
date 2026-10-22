@@ -4,9 +4,7 @@ export type Mode = 'tealight' | 'bowl' | 'box' | 'wall' | 'light';
 export type Output = 'preview' | 'stl' | 'svg' | 'zip' | { part: string };
 
 /** `pixels` is base64 of the raw little-endian Float32 grayscale values (0 = black, 1 = white), 512 x 512. */
-export type ImageRef =
-  | { kind: 'bundled'; id: string }
-  | { kind: 'gray'; width: 512; height: 512; pixels: string };
+export type ImageRef = { kind: 'gray'; width: 512; height: 512; pixels: string };
 
 export interface GenerateRequest {
   mode: Mode;
