@@ -1,15 +1,13 @@
 import type { IndexedMesh } from '../box/stlParse';
+import { MIN_HEIGHT, DEFAULT_HEIGHT, MAX_HEIGHT, type BracketParams } from '../../contracts/lightSource';
+export { MIN_HEIGHT, DEFAULT_HEIGHT, MAX_HEIGHT };
+export type { BracketParams };
 
 /** The bundled sample was made for a light source 100 mm tall. */
 export const SAMPLE_HEIGHT = 100;
-export const MIN_HEIGHT = 75;
-export const DEFAULT_HEIGHT = 100;
-export const MAX_HEIGHT = 200;
 /** The straight tube of the sample (z in the sample's own coordinates); the thread below and the slotted head above stay as they are. */
 const TUBE_FROM = 46.4;
 const TUBE_TO = 76.4;
-
-export interface BracketParams { height: number }
 
 export function validateBracketParams(p: BracketParams): string[] {
   if (!Number.isFinite(p.height) || p.height <= MIN_HEIGHT) return [`Light source height must be more than ${MIN_HEIGHT} mm.`];

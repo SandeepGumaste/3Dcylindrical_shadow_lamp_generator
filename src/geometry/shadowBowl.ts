@@ -11,36 +11,11 @@ import type { GrayImage } from '../types';
 import { MeshBuilder } from './shellMesh';
 import { checkMesh, MeshCheck } from './meshCheck';
 import { tableToPixel } from './tealightShade';
+import { DEFAULT_BOWL_PARAMS, type BowlParams } from '../contracts/bowl';
+export { DEFAULT_BOWL_PARAMS };
+export type { BowlParams };
 
-export interface BowlParams {
-  threshold: number;       // 0..255
-  invert: boolean;
-  shadowRadius: number;    // mm, image disk on the table
-  bowlDiameter: number;    // mm, inner diameter of the bowl
-  ledHeight: number;       // mm, light height above the table
-  minRim: number;          // mm
-  wallThickness: number;   // mm
-  baseThickness: number;   // mm
-  steps: number;           // angular resolution
-  rimSmoothing: number;    // sigma in steps
-  tealightDiameter: number;
-  bodyHeight: number;
-}
 
-export const DEFAULT_BOWL_PARAMS: BowlParams = {
-  threshold: 128,
-  invert: false,
-  shadowRadius: 150,
-  bowlDiameter: 90,
-  ledHeight: 30,
-  minRim: 8,
-  wallThickness: 2,
-  baseThickness: 2,
-  steps: 720,
-  rimSmoothing: 3,
-  tealightDiameter: 38,
-  bodyHeight: 16,
-};
 
 const CLEARANCE = 0.4;
 

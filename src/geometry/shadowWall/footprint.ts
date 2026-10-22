@@ -5,16 +5,8 @@
  * Coordinates: centred on (0, 0), x right, y up. Sample 0 is at angle 0 (+x axis) and samples run
  * counter-clockwise seen from above.
  */
-export type FootprintKind = 'rectangle' | 'ellipse';
-
-export interface FootprintParams {
-  kind: FootprintKind;
-  width: number;          // mm, along x
-  length: number;         // mm, along y
-  cornerRadius: number;   // mm, rectangle only (clamped to half the shorter side)
-  wallThickness: number;  // mm
-  cellSize?: number;      // mm, target sample spacing (default 0.4, one nozzle width)
-}
+import type { FootprintKind, FootprintParams } from '../../contracts/shadowWall';
+export type { FootprintKind, FootprintParams };
 
 export interface Outline {
   cols: number;                          // samples around the perimeter, uniform in arc length (60..2400)

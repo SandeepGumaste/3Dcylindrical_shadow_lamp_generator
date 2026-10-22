@@ -1,10 +1,7 @@
 import { Vec3 } from '../geometry/vectors';
 
-export interface GrayImage {
-  width: number;
-  height: number;
-  pixels: Float32Array; // 0 = black, 1 = white
-}
+import type { GrayImage } from '../contracts/outputs';
+export type { GrayImage };
 
 export interface ImageAdjustments {
   invert: boolean;

@@ -1,14 +1,5 @@
-export interface MeshCheck {
-  triangleCount: number;
-  /** Every directed edge appears exactly once and has exactly one opposite twin. */
-  watertight: boolean;
-  /** Edges not shared by exactly two triangles, or with inconsistent winding. */
-  badEdges: number;
-  degenerateTriangles: number;
-  /** Signed volume in mm^3; positive means outward-facing normals. */
-  signedVolume: number;
-  errors: string[];
-}
+import type { MeshCheck } from '../contracts/outputs';
+export type { MeshCheck };
 
 /**
  * Topological + geometric printability checks on an indexed triangle mesh. Topology is checked

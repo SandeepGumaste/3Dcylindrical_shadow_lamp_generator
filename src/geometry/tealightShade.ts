@@ -9,73 +9,12 @@ import { contourShapes, smoothPath } from './outline';
 import type { GrayImage } from '../types';
 import { MeshBuilder, buildShell } from './shellMesh';
 import { checkMesh, MeshCheck } from './meshCheck';
+import { DEFAULT_TEALIGHT_PARAMS, LED_CLEARANCE, type TealightParams } from '../contracts/tealight';
+import type { FieldReport, RibSuggestion, ShadowComparison } from '../contracts/outputs';
+export { DEFAULT_TEALIGHT_PARAMS, LED_CLEARANCE };
+export type { TealightParams, FieldReport, RibSuggestion, ShadowComparison };
 
-export interface TealightParams {
-  threshold: number;        // 0..255 on luminance
-  edgeRounding: number;     // blur before threshold; sigma = edgeRounding / 10 grid cells
-  invert: boolean;
-  innerDiameter: number;    // mm, bottom
-  topDiameter: number;      // mm
-  height: number;           // mm
-  wallThickness: number;    // mm
-  cols: number;             // columns around
-  flameHeight: number;      // mm, ignored in LED mode
-  shadowRadius: number;     // mm, radius of the image disk on the table
-  imageOffsetX: number;     // mm, shifts the image on the table (+x right); moves the light relative to the image
-  imageOffsetY: number;     // mm, (+y up)
-  imageScale: number;       // % of the shadow disk the image's shorter side spans (100 = fills it)
-  patternGapTop: number;    // mm of open band (a ring cut-out) just above the pattern, below a solid rim; 0 = none
-  patternGapBottom: number; // mm of open band just below the pattern, above the solid foot; 0 = none
-  ribs: number;             // 0 = off
-  ribWidth: number;         // mm
-  autoRibs: boolean;        // choose the rib count automatically so no roof spans more than maxBridge
-  maxBridge: number;        // mm, longest unsupported horizontal span the printer can bridge
-  ribAngles?: number[];     // explicit rib positions (rad); set by the optimizer, overrides even spacing of `ribs`
-  vents: number;            // 0 = off
-  closeBottom: boolean;     // solid floor plate under the shade (needs vents = 0)
-  floorThickness: number;   // mm, floor plate thickness when closeBottom is on
-  ventSize: number;         // mm
-  useLed: boolean;
-  tealightDiameter: number; // mm
-  bodyHeight: number;       // mm
-  ledTipHeight: number;     // mm
-  minFeature: number;       // mm, 0 = off: drop holes / loose solid specks smaller than this
-  autoBridge: boolean;      // bridge unsupported solid islands to the nearest anchored material
-}
 
-export const DEFAULT_TEALIGHT_PARAMS: TealightParams = {
-  threshold: 128,
-  edgeRounding: 10,
-  invert: false,
-  innerDiameter: 60,
-  topDiameter: 40,
-  height: 70,
-  wallThickness: 0.8,
-  cols: 480,           // ~0.4 mm per column at the foot: matches a 0.4 mm nozzle
-  flameHeight: 25,
-  shadowRadius: 150,
-  imageScale: 100,
-  imageOffsetX: 0,
-  imageOffsetY: 0,
-  patternGapTop: 0,
-  patternGapBottom: 0,
-  ribs: 6,
-  ribWidth: 2,
-  autoRibs: true,
-  maxBridge: 8,
-  vents: 0,
-  closeBottom: true,
-  floorThickness: 0.4,
-  ventSize: 8,
-  useLed: false,
-  tealightDiameter: 38,
-  bodyHeight: 16,
-  ledTipHeight: 10,
-  minFeature: 0.8,     // two nozzle widths; smaller holes/specks will not print on a 0.4 mm nozzle
-  autoBridge: true,
-};
-
-export const LED_CLEARANCE = 0.4;
 const LIP_WIDTH = 1.5;      // how far the socket lip reaches in under the LED body
 const FOOT_MIN = 3;         // mm of solid foot band
 
@@ -323,12 +262,6 @@ export function labelComponents(mask: Uint8Array, C: number, rowsN: number, valu
   return { labels, count };
 }
 
-export interface FieldReport {
-  specksRemoved: number;
-  islandsFound: number;
-  islandsBridged: number;
-  islandsRemaining: number;
-}
 
 export interface TealightField {
   geometry: TealightGeometry;
@@ -523,19 +456,6 @@ export function buildTealightField(img: GrayImage, p: TealightParams): TealightF
   return { geometry: g, field, report };
 }
 
-export interface RibSuggestion {
-  ribs: number;
-  /** Rib centre angles (rad): evenly spaced, possibly rotated to suit the pattern. */
-  angles: number[];
-  /** Widest hole (mm) still too wide to bridge and too flat to self-support with these ribs; 0 = none. */
-  worstSpan: number;
-  /** The same measure on the pattern with no ribs. */
-  spanWithoutRibs: number;
-  /** Number of wide flat-roofed holes (rows merged) in the unribbed pattern, for reporting. */
-  problemRows: number;
-  /** False when MAX_AUTO_RIBS ribs cannot bring every hole under maxBridge. */
-  achievable: boolean;
-}
 
 export const MAX_AUTO_RIBS = 48;
 
@@ -829,16 +749,6 @@ function fieldAt(res: Pick<TealightResult, 'field' | 'geometry'>, theta: number,
   return a * (1 - tz) + b * tz;
 }
 
-export interface ShadowComparison {
-  size: number;
-  /** 1 where the table is lit by the generated shade, image orientation (row 0 = top). */
-  projected: Uint8Array;
-  /** 1 where the thresholded input image is dark (wants light). */
-  target: Uint8Array;
-  /** 1 where the pixel is inside the comparable annulus (not foot, not ribs, within the disk). */
-  valid: Uint8Array;
-  iou: number;
-}
 
 /** Forward-projects the generated wall field onto an N x N table raster and compares with the input. */
 export function compareShadow(img: GrayImage, p: TealightParams, res: Pick<TealightResult, 'field' | 'geometry'>, size = 256): ShadowComparison {

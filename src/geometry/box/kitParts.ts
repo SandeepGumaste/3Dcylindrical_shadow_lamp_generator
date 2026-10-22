@@ -1,4 +1,5 @@
-export type TrayId = '2AA' | '2AAA';
+import type { TrayId } from '../../contracts/box';
+export type { TrayId };
 
 export interface BundledPart {
   id: string;

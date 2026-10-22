@@ -1,3 +1,4 @@
+import { KIT_UI } from '../../contracts/box';
 /**
  * Measured constants of the owner's 120 x 150 mm shadow-box kit (battery-box version), taken from
  * the original STLs with scripts/measure-kit.ts. All lengths in mm.
@@ -32,8 +33,8 @@ export interface WallSpec {
 const TAB_Z = { z0: 3, z1: 4.2 };
 
 export const KIT = {
-  boxW: 120,
-  boxD: 150,
+  boxW: KIT_UI.boxW,
+  boxD: KIT_UI.boxD,
   plateThickness: 3,
   /** Height of the tray skirt the wall plates sit on (the tray's inner wall rises to 20 mm). */
   wallSeatZ: 7.46,
@@ -47,7 +48,7 @@ export const KIT = {
   /** Centre of the 10 mm post bore in the tray (the keyhole recess is a separate feature higher up). */
   lightAxis: { x: 60, y: 75 },
   /** LED height above the panel: the 60 mm post stands on the tray floor and the 11.9 mm cap sits on it. */
-  lightHeightRange: [20, 52] as [number, number],
+  lightHeightRange: KIT_UI.lightHeightRange,
   walls: {
     w1: {
       length: 121, maxHeight: 61.9, attachAtMax: false,

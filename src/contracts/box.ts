@@ -1,0 +1,46 @@
+export type TrayId = '2AA' | '2AAA';
+
+export interface BoxParams {
+  /** Width in mm of the shadow image frame as it lands on the wall, centred on the light axis. */
+  shadowSize: number;
+  /** How much of the frame the image fills, percent. 200 makes the shadow twice as big, like Tealight's image size. */
+  imageScale: number;
+  /** LED height above the panel, mm. */
+  lightHeight: number;
+  tray: TrayId;
+  /** 0..255; pixels darker than this are shadow (lighter when `invert`). */
+  threshold: number;
+  /** Blur applied to the image before the threshold, 0 to 40; the blur radius is this divided by 10 image pixels, as in Tealight. */
+  edgeRounding: number;
+  invert: boolean;
+  /** Cut openings in the walls so lit areas inside the dark shape show. Off keeps solid-outline walls. */
+  innerDetails: boolean;
+  /** Narrowest wall spike that is kept as is, mm. */
+  minSpike: number;
+  /** Narrowest notch in the wall top that is kept, mm. */
+  minGap: number;
+  panelThreshold: number;
+  panelInvert: boolean;
+}
+
+export const DEFAULT_BOX_PARAMS: BoxParams = {
+  shadowSize: 450,
+  imageScale: 100,
+  lightHeight: 45,
+  tray: '2AA',
+  threshold: 128,
+  edgeRounding: 10,
+  invert: false,
+  innerDetails: true,
+  minSpike: 1.2,
+  minGap: 0.8,
+  panelThreshold: 128,
+  panelInvert: false,
+};
+
+/** The kit numbers the box panel shows: fixed box size and the light height range. */
+export const KIT_UI = {
+  boxW: 120,
+  boxD: 150,
+  lightHeightRange: [20, 52] as [number, number],
+};
