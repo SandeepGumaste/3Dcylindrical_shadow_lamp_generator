@@ -1,7 +1,6 @@
-import type { GrayImage } from '../../types';
 import { describe, it, expect } from 'vitest';
-import { isStale, inputKey, shouldGenerate, fitForImage, DEFAULT_WALL_IMAGE_ID } from '../useShadowWallGenerator';
-import { DEFAULT_SHADOW_WALL_PARAMS, validateShadowWallParams } from '../../geometry/shadowWall/shadowWall';
+import { isStale, inputKey, shouldGenerate, DEFAULT_WALL_IMAGE_ID } from '../useShadowWallGenerator';
+import { DEFAULT_SHADOW_WALL_PARAMS } from '../../contracts/shadowWall';
 
 describe('out-of-date rule', () => {
   it('is not stale before anything has been generated', () => {
@@ -42,28 +41,5 @@ describe('when to generate on its own', () => {
 describe('defaults', () => {
   it('start on Batman', () => {
     expect(DEFAULT_WALL_IMAGE_ID).toBe('batman');
-  });
-  it('validate clean', () => {
-    expect(validateShadowWallParams(DEFAULT_SHADOW_WALL_PARAMS)).toEqual([]);
-  });
-});
-
-describe('auto-fit on a new image', () => {
-  const N = 128;
-  const wide: GrayImage = { width: N, height: N, pixels: new Float32Array(N * N).fill(1) };
-  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) if (Math.abs(x + 0.5 - N / 2) < (190 / 400) * N && Math.abs(y + 0.5 - N / 2) < (50 / 400) * N) wide.pixels[y * N + x] = 0;
-  it('shrinks the shadow size so nothing is cut off and leaves the other settings alone', () => {
-    const out = fitForImage(wide, DEFAULT_SHADOW_WALL_PARAMS);
-    expect(out.params.shadowSize).toBeLessThan(DEFAULT_SHADOW_WALL_PARAMS.shadowSize);
-    expect(out.params).toEqual({ ...DEFAULT_SHADOW_WALL_PARAMS, shadowSize: out.params.shadowSize });
-    expect(out.ok).toBe(true);
-  });
-  it('keeps the size for an image that already fits', () => {
-    const blank: GrayImage = { width: N, height: N, pixels: new Float32Array(N * N).fill(1) };
-    expect(fitForImage(blank, DEFAULT_SHADOW_WALL_PARAMS).params).toEqual(DEFAULT_SHADOW_WALL_PARAMS);
-  });
-  it('does nothing while the settings are invalid', () => {
-    const bad = { ...DEFAULT_SHADOW_WALL_PARAMS, height: 5 };
-    expect(fitForImage(wide, bad)).toEqual({ params: bad, ok: true });
   });
 });

@@ -34,3 +34,44 @@ export function toTealightResult(p: { meta: TealightMeta; positions: Float32Arra
     comparison: m.comparison ? decodeComparison(m.comparison) : undefined,
   };
 }
+
+import type { BoxMeta, LightMeta, WallMeta } from '../contracts/outputs';
+
+type Preview<M> = { meta: M; positions: Float32Array; indices: Uint32Array };
+
+export interface WallResult {
+  positions: Float32Array;
+  indices: Uint32Array;
+  triangleCount: number;
+  check: MeshCheck;
+  warnings: string[];
+  ms: number;
+  lightZ: number;
+  topZ: number;
+  groundRadius: number;
+}
+export function toWallResult(p: Preview<WallMeta>): WallResult {
+  const m = p.meta;
+  return { positions: p.positions, indices: p.indices, triangleCount: m.triangleCount, check: m.check, warnings: m.warnings, ms: m.ms, lightZ: m.lightZ, topZ: m.topZ, groundRadius: m.groundRadius };
+}
+
+export interface BoxResult {
+  parts: BoxMeta['parts'];
+  preview: { positions: Float32Array; indices: Uint32Array };
+  light: BoxMeta['light'];
+  warnings: string[];
+  clamped: boolean;
+  ms: number;
+}
+export function toBoxResult(p: Preview<BoxMeta>): BoxResult {
+  const m = p.meta;
+  return { parts: m.parts, preview: { positions: p.positions, indices: p.indices }, light: m.light, warnings: m.warnings, clamped: m.clamped, ms: m.ms };
+}
+
+export interface LightResult {
+  mesh: { positions: Float32Array; indices: Uint32Array };
+  triangleCount: number;
+}
+export function toLightResult(p: Preview<LightMeta>): LightResult {
+  return { mesh: { positions: p.positions, indices: p.indices }, triangleCount: p.meta.triangleCount };
+}

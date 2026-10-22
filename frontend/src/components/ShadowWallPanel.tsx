@@ -2,7 +2,7 @@ import React, { useRef, useState } from 'react';
 import { Download, RotateCcw, Upload, Play, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import { BUNDLED_IMAGES } from '../hooks/useTealightGenerator';
 import type { ShadowWallController } from '../hooks/useShadowWallGenerator';
-import { cornerRadiusLimits } from '../geometry/shadowWall/limits';
+import { cornerRadiusLimits } from '../contracts/shadowWall';
 
 const Group: React.FC<{ title: string; children: React.ReactNode }> = ({ title, children }) => (
   <section className="px-4 py-4 lg:py-3 border-b border-slate-800">

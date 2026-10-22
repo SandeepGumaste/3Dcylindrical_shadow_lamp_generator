@@ -15,7 +15,6 @@ import { useShadowWallGenerator } from './hooks/useShadowWallGenerator';
 import { ShadowWallPanel } from './components/ShadowWallPanel';
 import { useLightSourceGenerator } from './hooks/useLightSourceGenerator';
 import { LightSourcePanel } from './components/LightSourcePanel';
-import { previewHeights } from './geometry/shadowWall/shadowWall';
 
 type AppMode = 'tealight' | 'bowl' | 'box' | 'wall' | 'light';
 /** Guided steps UI and the welcome choice are switched off for now; set to true to bring them back. */
@@ -102,9 +101,9 @@ export default function App() {
               topZ={light3d.params.height}
               groundRadius={30}
               triangleCount={light3d.triangleCount}
-              busy={false}
-              stale={false}
-              onGenerate={() => {}}
+              busy={light3d.busy}
+              stale={light3d.stale}
+              onGenerate={light3d.generate}
             />
           </div>
         </div>
@@ -114,8 +113,8 @@ export default function App() {
             <TealightViewport
               positions={wall.result?.positions ?? null}
               indices={wall.result?.indices ?? null}
-              lightZ={wall.result?.lightZ ?? previewHeights(wall.params).lightZ}
-              topZ={wall.result?.topZ ?? previewHeights(wall.params).topZ}
+              lightZ={wall.result?.lightZ ?? wall.params.lightHeight + (wall.params.base ? wall.params.baseThickness : 0)}
+              topZ={wall.result?.topZ ?? wall.params.height + (wall.params.base ? wall.params.baseThickness : 0)}
               groundRadius={wall.result?.groundRadius ?? (wall.params.shadowSize * wall.params.imageScale) / 200}
               triangleCount={wall.result?.triangleCount ?? 0}
               busy={wall.busy}

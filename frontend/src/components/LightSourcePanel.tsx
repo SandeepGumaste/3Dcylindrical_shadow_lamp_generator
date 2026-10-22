@@ -1,7 +1,7 @@
 import React from 'react';
 import { Download } from 'lucide-react';
 import type { LightSourceController } from '../hooks/useLightSourceGenerator';
-import { MAX_HEIGHT, MIN_HEIGHT } from '../geometry/lightSource/bracket';
+import { MAX_HEIGHT, MIN_HEIGHT } from '../contracts/lightSource';
 
 export const LightSourcePanel: React.FC<{ c: LightSourceController }> = ({ c }) => {
   const bad = c.errors.length > 0;

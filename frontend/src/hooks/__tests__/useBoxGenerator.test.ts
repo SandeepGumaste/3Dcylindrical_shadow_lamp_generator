@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { isStale, inputKey, shouldGenerate } from '../useBoxGenerator';
-import { DEFAULT_BOX_PARAMS, validateBoxParams } from '../../geometry/box/rimProfile';
+import { DEFAULT_BOX_PARAMS } from '../../contracts/box';
 
 describe('out-of-date rule', () => {
   it('is not stale before anything has been generated', () => {
@@ -25,28 +25,6 @@ describe('input key', () => {
     expect(inputKey({ ...DEFAULT_BOX_PARAMS, innerDetails: !DEFAULT_BOX_PARAMS.innerDetails }, 1, 1)).not.toBe(base);
     expect(inputKey(DEFAULT_BOX_PARAMS, 2, 1)).not.toBe(base);
     expect(inputKey(DEFAULT_BOX_PARAMS, 1, 2)).not.toBe(base);
-  });
-});
-
-describe('parameter validation', () => {
-  it('accepts the defaults', () => {
-    expect(validateBoxParams(DEFAULT_BOX_PARAMS)).toEqual([]);
-  });
-  it('names the problem for a light height the post cannot give', () => {
-    expect(validateBoxParams({ ...DEFAULT_BOX_PARAMS, lightHeight: 5 }).join(' ')).toMatch(/Light height/);
-    expect(validateBoxParams({ ...DEFAULT_BOX_PARAMS, lightHeight: 80 }).join(' ')).toMatch(/Light height/);
-  });
-  it('rejects an image size outside 10 to 400 percent', () => {
-    expect(validateBoxParams({ ...DEFAULT_BOX_PARAMS, imageScale: 5 }).join(' ')).toMatch(/Image size/);
-    expect(validateBoxParams({ ...DEFAULT_BOX_PARAMS, imageScale: 500 }).join(' ')).toMatch(/Image size/);
-  });
-  it('rejects edge rounding outside 0 to 40', () => {
-    expect(validateBoxParams({ ...DEFAULT_BOX_PARAMS, edgeRounding: -1 }).join(' ')).toMatch(/Edge rounding/);
-    expect(validateBoxParams({ ...DEFAULT_BOX_PARAMS, edgeRounding: 41 }).join(' ')).toMatch(/Edge rounding/);
-  });
-  it('rejects a shadow size of zero and negative widths', () => {
-    expect(validateBoxParams({ ...DEFAULT_BOX_PARAMS, shadowSize: 0 }).join(' ')).toMatch(/Shadow size/);
-    expect(validateBoxParams({ ...DEFAULT_BOX_PARAMS, minSpike: -1 }).join(' ')).toMatch(/Minimum spike/);
   });
 });
 

@@ -1,7 +1,7 @@
 import React, { useRef } from 'react';
 import { Download, Upload, Play, AlertTriangle, CheckCircle2, Package } from 'lucide-react';
 import type { BoxController } from '../hooks/useBoxGenerator';
-import { KIT } from '../geometry/box/kitSpec';
+import { KIT_UI as KIT } from '../contracts/box';
 
 const Group: React.FC<{ title: string; children: React.ReactNode }> = ({ title, children }) => (
   <section className="px-4 py-4 lg:py-3 border-b border-slate-800">
