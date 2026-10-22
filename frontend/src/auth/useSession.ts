@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { fetchSession } from './session';
+import { UNAUTHORIZED_EVENT } from '../api/unauthorized';
 import type { SessionState } from './types';
 
 export function useSession(): { state: SessionState; failed: boolean; retry: () => void } {
@@ -19,5 +20,11 @@ export function useSession(): { state: SessionState; failed: boolean; retry: () 
   }, [attempt]);
 
   const retry = useCallback(() => setAttempt((n) => n + 1), []);
+
+  // A generate call that came back 401 means the session ended: re-check, which shows the sign-in screen.
+  useEffect(() => {
+    window.addEventListener(UNAUTHORIZED_EVENT, retry);
+    return () => window.removeEventListener(UNAUTHORIZED_EVENT, retry);
+  }, [retry]);
   return { state, failed, retry };
 }

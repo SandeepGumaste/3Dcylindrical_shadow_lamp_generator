@@ -167,7 +167,7 @@ export const TealightPanel: React.FC<{ c: TealightController }> = ({ c }) => {
             <Download className="w-3.5 h-3.5" />STL
           </button>
           {isTea && (
-            <button onClick={c.downloadMap} disabled={!c.result?.mapSvg || c.stale || bad} title="Unwrapped wall map (mm), solid = black, holes = white"
+            <button onClick={c.downloadMap} disabled={!c.result?.hasMap || c.stale || bad} title="Unwrapped wall map (mm), solid = black, holes = white"
               className="flex items-center gap-1.5 px-2.5 py-2 rounded-lg bg-sky-500/20 border border-sky-500/40 text-sky-200 hover:bg-sky-500/30 disabled:opacity-40">
               <Download className="w-3.5 h-3.5" />SVG
             </button>

@@ -1,4 +1,4 @@
-import type { TealightParams } from '../geometry/tealightShade';
+import type { TealightParams } from '../contracts/tealight';
 
 type Params = Required<TealightParams>;
 type NumberKey = { [K in keyof Params]: Params[K] extends number ? K : never }[keyof Params];

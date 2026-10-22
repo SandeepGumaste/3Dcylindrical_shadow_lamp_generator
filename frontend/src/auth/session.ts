@@ -1,7 +1,8 @@
 import type { SessionState, SessionUser } from './types';
+import { API_URL } from '../api/client';
 
 export async function fetchSession(fetchFn: typeof fetch = fetch): Promise<SessionState> {
-  const res = await fetchFn('/api/me', { credentials: 'same-origin' });
+  const res = await fetchFn(`${API_URL}/api/me`, { credentials: 'include' });
   if (res.status === 401) return { status: 'signedOut' };
   if (!res.ok) throw new Error(`session check failed: ${res.status}`);
   return { status: 'signedIn', user: (await res.json()) as SessionUser };
@@ -9,7 +10,7 @@ export async function fetchSession(fetchFn: typeof fetch = fetch): Promise<Sessi
 
 /** Auth.js wants a CSRF-protected form POST, which ends in a full-page redirect. */
 async function postForm(action: string) {
-  const { csrfToken } = (await (await fetch('/api/auth/csrf')).json()) as { csrfToken: string };
+  const { csrfToken } = (await (await fetch(`${API_URL}/api/auth/csrf`, { credentials: 'include' })).json()) as { csrfToken: string };
   const form = document.createElement('form');
   form.method = 'POST';
   form.action = action;
@@ -24,5 +25,5 @@ async function postForm(action: string) {
   form.submit();
 }
 
-export const signIn = () => postForm('/api/auth/signin/google');
-export const signOut = () => postForm('/api/auth/signout');
+export const signIn = () => postForm(`${API_URL}/api/auth/signin/google`);
+export const signOut = () => postForm(`${API_URL}/api/auth/signout`);

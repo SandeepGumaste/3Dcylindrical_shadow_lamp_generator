@@ -1,16 +1,18 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { GrayImage } from '../types';
-import { DEFAULT_TEALIGHT_PARAMS, TealightParams, validateTealightParams, LED_CLEARANCE } from '../geometry/tealightShade';
-import { DEFAULT_BOWL_PARAMS, BowlParams, validateBowlParams } from '../geometry/shadowBowl';
+import { DEFAULT_TEALIGHT_PARAMS, LED_CLEARANCE, type TealightParams } from '../contracts/tealight';
+import { DEFAULT_BOWL_PARAMS, type BowlParams } from '../contracts/bowl';
+import type { GenerateRequest, Output } from '../contracts/api';
 import batmanUrl from '../assets/batman.jpg';
 import shivaUrl from '../assets/shiva.jpg';
 import hanumanUrl from '../assets/hanuman.png';
 import catUrl from '../assets/cat.png';
 import { loadImageToGray } from '../image/loadImage';
-import { runTealight } from '../workers/tealightRunner';
-import type { TealightOutput } from '../workers/tealightCompute';
-import { downloadSTL } from '../geometry/stl';
-import { downloadSVG } from '../geometry/svg';
+import { encodeGray, saveBlob } from '../api/client';
+import { ApiError } from '../api/errors';
+import { newGenerationSession } from '../api/unauthorized';
+import { notifyUnauthorized } from '../api/unauthorized';
+import { toTealightResult, type TealightResult } from '../api/results';
 
 export type TableMode = 'tealight' | 'bowl';
 
@@ -34,10 +36,12 @@ export function useTealightGenerator(mode: TableMode) {
   const [bParams, setBParams] = useState<BowlParams>({ ...DEFAULT_BOWL_PARAMS });
   const [sampleId, setSampleId] = useState<string>(DEFAULT_IMAGE_ID);
   const [uploaded, setUploaded] = useState<{ name: string; image: GrayImage; id: number } | null>(null);
-  const [result, setResult] = useState<TealightOutput | null>(null);
+  const [result, setResult] = useState<TealightResult | null>(null);
+  const [errors, setErrors] = useState<string[]>([]);
+  const session = useMemo(newGenerationSession, []);
+  const lastName = useRef('image');
   const [busy, setBusy] = useState(false);
   const [runError, setRunError] = useState<string | null>(null);
-  const token = useRef(0);
   /** Snapshot of the inputs the current `result` was generated from. */
   const [generatedKey, setGeneratedKey] = useState<string | null>(null);
 
@@ -57,8 +61,6 @@ export function useTealightGenerator(mode: TableMode) {
   }, [sampleId, uploaded, bundled]);
   const imageName = sampleId === 'upload' && uploaded ? uploaded.name : sampleId;
 
-  const errors = useMemo(() => (mode === 'tealight' ? validateTealightParams(tParams) : validateBowlParams(bParams)), [mode, tParams, bParams]);
-
   const inputKey = useMemo(
     () => JSON.stringify([mode, mode === 'tealight' ? tParams : bParams, sampleId, sampleId === 'upload' ? uploaded?.id : null]),
     [mode, tParams, bParams, sampleId, uploaded],
@@ -67,16 +69,26 @@ export function useTealightGenerator(mode: TableMode) {
   const stale = result !== null && generatedKey !== inputKey;
 
   const generate = useCallback(() => {
-    if (errors.length || !image) return;
-    const my = ++token.current;
+    if (!image) return;
     const key = inputKey;
+    const name = imageName;
     setBusy(true);
     setRunError(null);
-    const req = mode === 'tealight' ? ({ kind: 'tealight', image, params: tParams } as const) : ({ kind: 'bowl', image, params: bParams } as const);
-    runTealight(req)
-      .then((r) => { if (token.current === my) { setResult(r); setGeneratedKey(key); setBusy(false); } })
-      .catch((e: Error) => { if (token.current === my) { setRunError(e.message); setBusy(false); } });
-  }, [errors, mode, image, tParams, bParams, inputKey]);
+    setErrors([]);
+    const req: GenerateRequest = {
+      mode,
+      image: { kind: 'gray', width: 512, height: 512, pixels: encodeGray(image.pixels) },
+      params: (mode === 'tealight' ? tParams : bParams) as unknown as Record<string, unknown>,
+      output: 'preview',
+    };
+    session.run(req).then((o) => {
+      if (o.kind === 'stale') return;
+      setBusy(false);
+      if (o.kind === 'ok') { setResult(toTealightResult(o.value)); setGeneratedKey(key); lastName.current = name; }
+      else if (o.kind === 'invalid') setErrors(o.errors);
+      else setRunError(o.message);
+    });
+  }, [mode, image, imageName, tParams, bParams, inputKey, session]);
 
   // Generate on first load and whenever the image changes (bundled pick or upload), but never for
   // settings changes: those wait for the Generate button. The ref keeps the effect on the image only.
@@ -88,6 +100,7 @@ export function useTealightGenerator(mode: TableMode) {
 
   const selectSample = (id: string) => {
     setSampleId(id);
+    setErrors([]);
     setTParams((p) => ({ ...p, ...presetParams(id) }));
   };
 
@@ -97,7 +110,8 @@ export function useTealightGenerator(mode: TableMode) {
     setSampleId('upload');
   };
 
-  const setTealight = (patch: Partial<TealightParams>) =>
+  const setTealight = (patch: Partial<TealightParams>) => {
+    setErrors([]);
     setTParams((p) => {
       const next = { ...p, ...patch };
       if (patch.useLed) {
@@ -107,27 +121,40 @@ export function useTealightGenerator(mode: TableMode) {
       }
       return next;
     });
+  };
 
   const reset = () => {
+    setErrors([]);
     if (mode === 'tealight') setTParams({ ...DEFAULT_TEALIGHT_PARAMS, ...presetParams(sampleId) });
     else setBParams({ ...DEFAULT_BOWL_PARAMS });
+  };
+
+  const downloadAs = async (output: Output, filename: string) => {
+    setRunError(null);
+    try {
+      const out = await session.downloadLast(output);
+      if (out) saveBlob(out.blob, filename);
+    } catch (e) {
+      if (e instanceof ApiError && e.status === 401) notifyUnauthorized();
+      setRunError(e instanceof ApiError ? e.message : 'Download failed. Check your connection and try again.');
+    }
   };
 
   const download = () => {
     if (!result) return;
     const date = new Date().toISOString().slice(0, 10);
     const prefix = result.kind === 'tealight' ? 'tealight-shade' : 'shadow-bowl';
-    downloadSTL(result.stl, `${prefix}-${imageName}-${date}.stl`);
+    void downloadAs('stl', `${prefix}-${lastName.current}-${date}.stl`);
   };
 
   const downloadMap = () => {
-    if (!result?.mapSvg) return;
+    if (!result?.hasMap) return;
     const date = new Date().toISOString().slice(0, 10);
-    downloadSVG(result.mapSvg, `tealight-shade-map-${imageName}-${date}.svg`);
+    void downloadAs('svg', `tealight-shade-map-${lastName.current}-${date}.svg`);
   };
 
   return {
-    mode, tParams, bParams, setTealight, setBowl: (patch: Partial<BowlParams>) => setBParams((p) => ({ ...p, ...patch })),
+    mode, tParams, bParams, setTealight, setBowl: (patch: Partial<BowlParams>) => { setErrors([]); setBParams((p) => ({ ...p, ...patch })); },
     sampleId, selectSample, upload, imageName, image, result, stale, busy, errors, runError, generate, reset, download, downloadMap,
   };
 }

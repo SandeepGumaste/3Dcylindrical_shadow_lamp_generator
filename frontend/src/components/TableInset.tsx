@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { ChevronDown } from 'lucide-react';
-import type { ShadowComparison } from '../geometry/tealightShade';
+import type { ShadowComparison } from '../contracts/outputs';
 
 /**
  * Exact (pure geometry, not the shadow map) check: the generated wall field forward-projected onto

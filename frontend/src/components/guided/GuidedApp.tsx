@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { BUNDLED_IMAGES } from '../../hooks/useTealightGenerator';
 import type { TealightController } from '../../hooks/useTealightGenerator';
-import type { ShadowComparison } from '../../geometry/tealightShade';
+import type { ShadowComparison } from '../../contracts/outputs';
 import { TealightViewport } from '../TealightViewport';
 import { GUIDED_STEPS, applyChange, isOff, rangeLimits, type Item, type RangeItem } from '../../ui/guidedSteps';
 import { readGuidedTheme, saveGuidedTheme, type GuidedTheme } from '../../ui/experience';
@@ -161,7 +161,7 @@ export const GuidedApp: React.FC<{ c: TealightController; onSwitch: () => void; 
                 <button type="button" className={`big${c.busy ? ' busy' : ''}`} onClick={c.generate} disabled={bad || c.busy}>{c.busy ? 'Generating…' : c.stale ? 'Regenerate 3D model' : 'Generate 3D model'}</button>
                 <div className="exports">
                   <button type="button" onClick={c.download} disabled={!result || c.stale || bad || !result.check.watertight}>Download STL</button>
-                  <button type="button" onClick={c.downloadMap} disabled={!result?.mapSvg || c.stale || bad} title="Unwrapped wall map (mm), solid = black, holes = white">Download SVG map</button>
+                  <button type="button" onClick={c.downloadMap} disabled={!result?.hasMap || c.stale || bad} title="Unwrapped wall map (mm), solid = black, holes = white">Download SVG map</button>
                 </div>
                 <ShadowCheck comparison={result?.comparison ?? null} />
                 <ul className="tips">
