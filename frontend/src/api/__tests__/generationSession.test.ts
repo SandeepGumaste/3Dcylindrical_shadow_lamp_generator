@@ -76,4 +76,17 @@ describe('generation session', () => {
     const s = createGenerationSession({ generate: async () => { throw new TypeError('Failed to fetch'); }, download: async () => ({ blob: new Blob(), filename: 'x' }), onUnauthorized: () => {} });
     expect(await s.run(mk())).toEqual({ kind: 'error', message: 'Could not reach the server. Check your connection and try again.' });
   });
+
+  it('downloads with the shadow size the server fitted, not the size that was sent', async () => {
+    const sent: GenerateRequest[] = [];
+    const s = createGenerationSession({
+      generate: async () => ({ meta: { fit: { shadowSize: 250, ok: true } }, positions: new Float32Array(), indices: new Uint32Array() }),
+      download: async (r) => { sent.push(r); return { blob: new Blob(), filename: 'f.stl' }; },
+      onUnauthorized: () => {},
+    });
+    await s.run(mk({ params: { shadowSize: 400, height: 70 }, fit: true }));
+    await s.downloadLast('stl');
+    expect(sent[0].params).toEqual({ shadowSize: 250, height: 70 });
+    expect(sent[0].fit).toBeUndefined();
+  });
 });

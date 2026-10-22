@@ -33,6 +33,9 @@ export function createGenerationSession(deps: SessionDeps) {
       try {
         const value = await deps.generate(req, own.signal);
         if (mine !== counter) return { kind: 'stale' };
+        // Box and wall may have been fitted by the server; downloads must rebuild the model that is on screen.
+        const fitted = value.meta?.fit?.shadowSize;
+        if (typeof fitted === 'number') snapshot.params = { ...snapshot.params, shadowSize: fitted };
         last = snapshot;
         return { kind: 'ok', value };
       } catch (e) {
