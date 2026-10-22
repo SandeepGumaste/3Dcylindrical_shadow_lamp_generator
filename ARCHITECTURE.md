@@ -165,18 +165,35 @@ src/components/ShadowWallPanel.tsx        panel: image, footprint, wall, shadow,
 - **Base plate:** A base plate under the wall (default on, like Tealight's floor): a plate of `baseThickness` (3 mm) with a centre hole (12.5 mm) for the light and two magnet pockets (8.1 x 2.1 mm, 12 mm either side of the centre, along the footprint's longer axis, y on a tie) on the underside, built in `src/geometry/shadowWall/base.ts` from the shell's bottom rings (`skipBottomBorder`). The wall's z stays measured from the top of the plate and the whole model is shifted up by the thickness at the end; the ground where the shadow lands is the plate's underside, so a wall node (q, z) maps to the table point q * (hf + G) / (hf - z) with G = base thickness (0 without a base), used by the field sampling, the row spacing and the reach warning (`tableScale` in `shadowWall.ts`). `lightHeight` stays measured above the top of the base.
 - **Parked:** custom SVG footprint, splitting the wall into flat plates (lying / overhang layouts), inner pattern layer, ribs, LED socket, vents, SVG export, and bridging of floating pieces (they are dropped for now).
 
-## Accounts and API (branch `backend`)
+## Repository layout and server-side generation
 
-`/app` is behind Google login. `src/auth/AuthGate.tsx` (wrapped around `<App />` in `src/main.tsx`) calls `GET /api/me` once; 200 renders the app, 401 shows a "Sign in with Google" screen, any other failure shows a retry screen (never the app). `AccountChip` in the sidebar header shows email, role and Sign out. This gate is browser-side only: the model is built in the browser, so it limits who gets the UI, not who could read the bundle.
+The repository has two separately hosted packages. All paths elsewhere in this document that start with `src/` now live under `frontend/src/` (interface) or `backend/src/` (algorithm):
 
 ```
-server/roles.ts          roleFor: admin only for the verified ADMIN_EMAIL (case-insensitive), else user
-server/users.ts, db.ts   UserStore (MongoDB `users`: email unique, name, image, role, createdAt); shared lazy client
-server/auth.ts           Auth.js (@auth/core) config: Google, JWT session cookie, basePath /api/auth, role in the token
-server/session.ts, me.ts getSessionUser (decodes the cookie) and the /api/me handler (401 {"error":"unauthorized"})
-server/node-adapter.ts   Node request/response <-> Web Request/Response
-api/                     Vercel function entry points (auth/[...auth].ts, me.ts)
-server/dev.ts            local stand-in on port 3001; `npm run dev` runs it beside Vite, which proxies /api
+backend/src/contracts/   plain types, defaults, ranges and wire types (source of truth)
+backend/src/geometry/    moved algorithm: tealightShade, shadowBowl, box/, shadowWall/, lightSource/, shellMesh, stl ...
+backend/src/compute/     tealightCompute, boxCompute, shadowWallCompute (pure run*Request functions)
+backend/src/generate/    request parsing, service (one function per mode), response framing
+backend/src/server/      Auth.js login, session, rate limit, CORS, routes, main (Cloud Run entry)
+backend/assets/          kit and bracket STL files (never shipped to the browser)
+frontend/src/api/        client, frame reader, generation session (newest wins, snapshot downloads), result converters
+frontend/src/contracts/  generated copy of backend/src/contracts (node scripts/sync-contracts.mjs)
+frontend/src/image/      browser canvas image loading (stays in the browser)
 ```
 
-Role is decided at every sign-in, so changing `ADMIN_EMAIL` applies on the next login. Both roles currently see the same tabs. Setup steps are in `docs/auth-setup.md`.
+How a model is made: the browser turns the chosen image into the 512 x 512 grayscale it always used (`loadImageToGray`, neutral adjustments) and sends it as raw 32-bit floats (base64) with the settings to `POST /api/generate`. The server (stateless, login and rate limit required) runs the same compute functions the browser used to run and answers with a binary preview (`[u32 JSON length][JSON][positions][indices]`) or a file (STL, SVG, zip). Downloads repeat the request with `output` set, using the settings and image of the last Generate. Golden tests (`backend/src/__golden__`) pin the triangle counts and watertight flags of every mode. `frontend` builds fail if the bundle contains algorithm sentinels, source maps or STL files (`frontend/scripts/check-bundle.mjs`).
+
+## Accounts and API
+
+`/app` is behind Google login. `frontend/src/auth/AuthGate.tsx` (wrapped around `<App />` in `frontend/src/main.tsx`) calls `GET /api/me` once; 200 renders the app, 401 shows a "Sign in with Google" screen, any other failure shows a retry screen (never the app). `AccountChip` in the sidebar header shows email, role and Sign out. The gate is backed by the server: `POST /api/generate` answers 401 without a valid session, so the models cannot be made without logging in.
+
+```
+backend/src/server/roles.ts          roleFor: admin only for the verified ADMIN_EMAIL (case-insensitive), else user
+backend/src/server/users.ts, db.ts   UserStore (MongoDB `users`: email unique, name, image, role, createdAt); shared lazy client
+backend/src/server/auth.ts           Auth.js (@auth/core) config: Google, JWT session cookie, basePath /api/auth, role in the token
+backend/src/server/session.ts, me.ts getSessionUser (decodes the cookie) and the /api/me handler (401 {"error":"unauthorized"})
+backend/src/server/node-adapter.ts   Node request/response <-> Web Request/Response
+backend/src/server/routes.ts, main.ts  the whole API as one Node server (`pnpm dev` in backend/, port 3001)
+```
+
+Role is decided at sign-in and re-checked against `ADMIN_EMAIL` on every request, so changing `ADMIN_EMAIL` demotes the old admin at once (a new admin gets the role at their next sign-in). Both roles currently see the same tabs. Setup steps are in `docs/auth-setup.md`; deployment in `docs/deploy-cloud-run.md`.
