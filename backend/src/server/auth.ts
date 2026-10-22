@@ -16,6 +16,13 @@ export function buildAuthConfig(store: UserStore, env: NodeJS.ProcessEnv): AuthC
     trustHost: true,
     session: { strategy: 'jwt' },
     callbacks: {
+      // Sign-in and sign-out may only send people back to the frontend, never to an arbitrary address.
+      async redirect({ url }) {
+        const frontend = (env.FRONTEND_ORIGIN || 'http://localhost:3000').replace(/\/$/, '');
+        if (url === frontend || url.startsWith(`${frontend}/`)) return url;
+        if (url.startsWith('/') && !url.startsWith('//')) return `${frontend}${url}`;
+        return frontend;
+      },
       async signIn({ profile }) {
         const p = (profile ?? {}) as GoogleProfile;
         if (!p.email) return false;

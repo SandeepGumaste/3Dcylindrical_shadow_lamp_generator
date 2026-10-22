@@ -59,4 +59,14 @@ describe('auth callbacks', () => {
     const token = await cfg.callbacks!.jwt!({ token: { role: 'user' } } as never);
     expect(token?.role).toBe('user');
   });
+
+  it('only redirects to the frontend origin after sign-in or sign-out', async () => {
+    const cfg = buildAuthConfig(fakeStore().store, { ...env, FRONTEND_ORIGIN: 'https://odd.example' } as NodeJS.ProcessEnv);
+    const redirect = cfg.callbacks!.redirect!;
+    const baseUrl = 'https://api.odd.example';
+    expect(await redirect({ url: 'https://odd.example/app', baseUrl })).toBe('https://odd.example/app');
+    expect(await redirect({ url: '/app', baseUrl })).toBe('https://odd.example/app');
+    expect(await redirect({ url: 'https://evil.example/x', baseUrl })).toBe('https://odd.example');
+    expect(await redirect({ url: 'https://odd.example.evil.com/x', baseUrl })).toBe('https://odd.example');
+  });
 });
