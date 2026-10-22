@@ -1,6 +1,6 @@
 /**
- * Prints the measurements recorded in src/geometry/box/kitSpec.ts, from the owner's original STLs.
- * Run: npx tsx scripts/measure-kit.ts "research/<stl folder>"
+ * Prints the measurements recorded in backend/src/geometry/box/kitSpec.ts, from the owner's original STLs.
+ * Run: pnpm exec tsx scripts/measure-kit.ts "research/<stl folder>"
  */
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';

@@ -2,7 +2,7 @@ import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 import { MongoClient } from 'mongodb';
 import { createRateLimiter } from '../rateLimit';
 
-const URI = 'mongodb://127.0.0.1:27017/odd-shadows-test';
+const URI = 'mongodb://127.0.0.1:27017/odd-shadows-test-ratelimit';
 let client: MongoClient;
 
 beforeEach(async () => {
