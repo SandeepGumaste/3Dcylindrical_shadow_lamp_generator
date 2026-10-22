@@ -1,0 +1,31 @@
+{
+  "tealight-default": {
+    "triangleCount": 385372,
+    "watertight": true
+  },
+  "tealight-ribs": {
+    "triangleCount": 355476,
+    "watertight": true
+  },
+  "bowl-default": {
+    "triangleCount": 11520,
+    "watertight": true
+  },
+  "wall-default": {
+    "triangleCount": 380974,
+    "watertight": true
+  },
+  "wall-nondefault": {
+    "triangleCount": 206114,
+    "watertight": true
+  },
+  "box-default": {
+    "triangleCount": 342216,
+    "watertight": false,
+    "parts": 10
+  },
+  "light-default": {
+    "triangleCount": 3480,
+    "watertight": true
+  }
+}
