@@ -52,15 +52,17 @@ The sheet is cut at one seam (angle 0). Unlike the upright shell, the grid does 
 
 ### Ring
 
-An annulus about 4 mm tall, printed with its axis vertical (like a washer, flat face on the bed), so the groove opens upward. It sits next to the strip on the bed. Inner radius leaves the tealight clear (about the shade's own inner radius, tealight stays inside). A groove in its top face is `sheet thickness + 0.3 mm` wide and about 3 mm deep, centred on the shade's foot radius (cone radius at z = 0 plus half the sheet thickness), so the strip's foot (solid foot band, at least 3 mm) seats in it. The ring is 1 mm thicker than the groove is deep, so the strip's z = 0 sits 1 mm above the table.
+An annulus printed with its axis vertical (flat face on the bed), so the groove opens upward. It sits next to the strip on the bed. A groove in its top face is `sheet thickness + 0.3 mm` wide and 2 mm deep, centred on the cone radius at the strip's bottom edge plus half the sheet thickness. The strip's solid foot seats in it. About 1.5 mm of ring wall inside the groove and 2 mm outside it. The tealight stands on the table inside the ring.
 
-To keep the shadow the same as the upright shade, the flat path treats the ground as 1 mm below the strip's z = 0 and lowers the light height by the same 1 mm (`hf - 1`), using the same ground-offset form the Shadow wall base already uses (`q * (hf + G) / (hf - z)`). `compareShadow` against the upright result is the test. The ring is a rigid part, so it also keeps the base circle exact.
+The ring is a plain revolved profile (no features that depend on the angle). The foot has no tab, so the groove holds a single sheet everywhere, including at the seam where the two ends butt together.
+
+Same shadow as the upright shade: the ring's floor under the groove is about 1 mm thick, so the strip stands 1 mm above the table. Instead of changing the light height, the strip simply omits the bottom 1 mm of the upright shade's wall (the first grid row at or above 1 mm becomes the strip's bottom edge, and the ring floor is that row's height thick). Every remaining wall point keeps its upright height above the table, so its ray and its pattern are exactly the upright ones. The bottom 1 mm of the upright foot is solid anyway, and the ring fills it. The solid foot left in the strip must be at least as tall as the groove (2 mm).
 
 ### Seam lock
 
-The seam is a butt joint through the pattern band and an overlap only in the rim bands, so no pattern is ever covered by a second layer. The seam sits in the middle of a solid bar (pick the bar nearest angle 0; with no bars, the column with the most solid material), so the cut costs no image. Each end carries an overlap tab, about 8 mm wide, in the top rim band only. The tab lies on the inside of the other end when rolled. Two arrow-shaped tongues (barbed lugs, flexing in the sheet plane) on the tab pass through matching slits in the far end and snap behind them. Slits are `tongue width + 0.4 mm` wide. The lock should open and close a few times without breaking.
+The seam is a butt joint through the pattern band and an overlap only in the rim bands, so no pattern is ever covered by a second layer. The seam sits in the middle of a solid bar (pick the bar nearest angle 0; with no bars, the column with the most solid material), so the cut costs no image. The right end carries an overlap tab, about 8 mm wide, in the top rim band only. The top rim band needs to be at least 5 mm tall for the lock; validation says so otherwise. The tab lies on the inside of the other end when rolled. Two arrow-shaped tongues (barbed lugs, flexing in the sheet plane) on the tab pass through matching slits in the far end and snap behind them. Slits are `tongue width + 0.4 mm` wide. The lock should open and close a few times without breaking.
 
-At the foot there is no tab (the groove would have to hold two sheets). The ring has a short widened pocket in its groove at the seam angle, where the two ends meet, and the ring has a small notch mark on its top face so you can line the seam up with it.
+At the foot there is no tab: the two ends meet edge to edge there.
 
 ### UI and outputs
 
@@ -83,7 +85,7 @@ At the foot there is no tab (the groove would have to hold two sheets). The ring
 - No floor plate and no LED socket in the flat export: the tealight stands on the table inside the ring.
 - Rib bumps dropped, rib strips kept as flat bars.
 - Defaults: 0.2 mm layers x 2, overlap tab 8 mm, two tongues.
-- Lock tab in the top rim band only; the foot has no tab, the ring has a widened pocket at the seam.
+- Lock tab in the top rim band only; the foot has no tab, so the ring needs no special pocket or notch.
 - Seam inside a solid bar, not at angle 0 when that would split a bar badly.
-- Ring 1 mm thicker than groove depth, compensated in the shadow math.
+- Ring floor about 1 mm; the strip leaves out the bottom 1 mm of the upright wall, so the shadow is exactly the upright one.
 - Manual rib count in flat mode, no `suggestRibs`.
