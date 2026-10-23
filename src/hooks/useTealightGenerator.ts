@@ -11,6 +11,7 @@ import { runTealight } from '../workers/tealightRunner';
 import type { TealightOutput } from '../workers/tealightCompute';
 import { downloadSTL } from '../geometry/stl';
 import { downloadSVG } from '../geometry/svg';
+import { DEFAULT_FLAT_STRIP_PARAMS, FlatStripParams, validateFlatStrip } from '../geometry/flatStrip';
 
 export type TableMode = 'tealight' | 'bowl';
 
@@ -27,6 +28,26 @@ export function presetParams(id: string): Partial<TealightParams> {
   const s = BUNDLED_IMAGES.find((x) => x.id === id);
   return s ? { invert: DEFAULT_TEALIGHT_PARAMS.invert, ...s.params } : {};
 }
+export type FlatExport = { ok: true; warnings: string[] } | { ok: false; error: string };
+
+/** Validates, builds the flat strip in the worker and saves it; nothing is saved unless the mesh is watertight. */
+export async function exportFlatStrip(a: {
+  image: GrayImage; params: TealightParams; flat: FlatStripParams; name: string;
+  run?: typeof runTealight; save?: typeof downloadSTL;
+}): Promise<FlatExport> {
+  const errors = validateFlatStrip(a.params, a.flat);
+  if (errors.length) return { ok: false, error: errors.join(' ') };
+  try {
+    const r = await (a.run ?? runTealight)({ kind: 'flat', image: a.image, params: a.params, flat: a.flat });
+    if (!r.check.watertight) return { ok: false, error: `Flat strip is not watertight: ${r.check.errors.join(' ')}` };
+    const date = new Date().toISOString().slice(0, 10);
+    (a.save ?? downloadSTL)(r.stl, `tealight-flat-strip-${a.name}-${date}.stl`);
+    return { ok: true, warnings: r.warnings };
+  } catch (e) {
+    return { ok: false, error: (e as Error).message };
+  }
+}
+
 const NEUTRAL = { invert: false, brightness: 0, contrast: 1, gamma: 1, threshold: 0.5, rotation: 0, flipHorizontal: false } as const;
 
 export function useTealightGenerator(mode: TableMode) {
@@ -38,6 +59,10 @@ export function useTealightGenerator(mode: TableMode) {
   const [busy, setBusy] = useState(false);
   const [runError, setRunError] = useState<string | null>(null);
   const token = useRef(0);
+  const [flatParams, setFlatParams] = useState<FlatStripParams>({ ...DEFAULT_FLAT_STRIP_PARAMS });
+  const [flatBusy, setFlatBusy] = useState(false);
+  const [flatError, setFlatError] = useState<string | null>(null);
+  const [flatWarnings, setFlatWarnings] = useState<string[]>([]);
   /** Snapshot of the inputs the current `result` was generated from. */
   const [generatedKey, setGeneratedKey] = useState<string | null>(null);
 
@@ -120,6 +145,16 @@ export function useTealightGenerator(mode: TableMode) {
     downloadSTL(result.stl, `${prefix}-${imageName}-${date}.stl`);
   };
 
+  const downloadFlat = async () => {
+    if (!image || flatBusy) return;
+    setFlatBusy(true);
+    setFlatError(null);
+    setFlatWarnings([]);
+    const r = await exportFlatStrip({ image, params: tParams, flat: flatParams, name: imageName });
+    if (r.ok) setFlatWarnings(r.warnings); else setFlatError(r.error);
+    setFlatBusy(false);
+  };
+
   const downloadMap = () => {
     if (!result?.mapSvg) return;
     const date = new Date().toISOString().slice(0, 10);
@@ -129,6 +164,7 @@ export function useTealightGenerator(mode: TableMode) {
   return {
     mode, tParams, bParams, setTealight, setBowl: (patch: Partial<BowlParams>) => setBParams((p) => ({ ...p, ...patch })),
     sampleId, selectSample, upload, imageName, image, result, stale, busy, errors, runError, generate, reset, download, downloadMap,
+    flatParams, setFlat: (patch: Partial<FlatStripParams>) => setFlatParams((p) => ({ ...p, ...patch })), flatBusy, flatError, flatWarnings, downloadFlat,
   };
 }
 
