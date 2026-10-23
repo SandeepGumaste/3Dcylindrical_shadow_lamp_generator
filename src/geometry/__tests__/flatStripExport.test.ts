@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { DEFAULT_TEALIGHT_PARAMS, TealightParams } from '../tealightShade';
 import { DEFAULT_FLAT_STRIP_PARAMS, sheetThickness } from '../flatStrip';
 import { buildStripGrid } from '../flatStripGrid';
-import { buildSheetMesh } from '../flatStripExport';
+import { buildSheetMesh, generateFlatStripExport } from '../flatStripExport';
 import { MeshBuilder } from '../shellMesh';
 import { checkMesh } from '../meshCheck';
 import { asymmetricTestImage } from '../../image/tealightSamples';
@@ -43,4 +43,39 @@ describe('buildSheetMesh', () => {
     expect(r.size.width).toBeLessThan(2 * Math.PI * 22 + 40);
     expect(r.size.height).toBeGreaterThan(38);
   });
+});
+
+describe('generateFlatStripExport', () => {
+  const white = (v: number) => ({ width: 64, height: 64, pixels: new Float32Array(64 * 64).fill(v) });
+
+  it('builds strip and ring side by side as one watertight mesh', () => {
+    const r = generateFlatStripExport(img, P(), F);
+    expect(r.check.watertight).toBe(true);
+    expect(r.check.signedVolume).toBeGreaterThan(0);
+    expect(r.warnings.filter((w) => w.includes('bed'))).toEqual([]);
+    for (let v = 0; v < r.positions.length; v += 3) {
+      const x = r.positions[v];
+      expect(x <= r.stripWidth + 1e-4 || x >= r.stripWidth + 5 - 1e-4).toBe(true);
+    }
+    expect(r.stripHeight).toBeGreaterThan(38);
+    expect(r.stripHeight).toBeLessThan(42 + 8); // the fan's curved edges add a few mm of sag to the bounding box
+    expect(r.ringDiameter).toBeGreaterThan(44);
+  });
+
+  it('warns when the layout does not fit a bed', () => {
+    const r = generateFlatStripExport(img, P({ innerDiameter: 200, topDiameter: 190, shadowRadius: 400 }), F, false);
+    expect(r.warnings.join(' ')).toContain('bed');
+  });
+
+  it('throws the validation errors', () => {
+    expect(() => generateFlatStripExport(img, P({ useLed: true }), F)).toThrow('LED');
+  });
+
+  for (const [name, v] of [['blank white', 1], ['all black', 0]] as const) {
+    it(`handles a ${name} image`, () => {
+      const r = generateFlatStripExport(white(v), P(), F);
+      expect(r.check.watertight).toBe(true);
+      expect(r.check.signedVolume).toBeGreaterThan(0);
+    });
+  }
 });
