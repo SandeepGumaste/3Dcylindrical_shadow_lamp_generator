@@ -114,6 +114,7 @@ export const TealightPanel: React.FC<{ c: TealightController }> = ({ c }) => {
           <Group title="Flat strip (print flat)">
             <Num label="Layer height" unit="mm" value={c.flatParams.layerHeight} min={0.05} max={0.4} step={0.05} onChange={(v) => c.setFlat({ layerHeight: v })} />
             <Num label="Layers" value={c.flatParams.layers} min={1} max={6} onChange={(v) => c.setFlat({ layers: v })} />
+            {c.flatErrors.map((e) => <p key={e} className="text-[11px] text-amber-300/90">⚠ {e}</p>)}
             <p className="text-[10px] text-slate-500">Sheet is {(c.flatParams.layerHeight * c.flatParams.layers).toFixed(2)} mm thick: it bends into the cone; clip the ends together and stand it in the ring. With LED mode on, the LED socket ring is added to the file. Uses the Support Ribs number you set (not the auto suggestion), so the shadow can differ slightly from the preview.</p>
           </Group>
           <Group title="LED tealight">
@@ -174,7 +175,7 @@ export const TealightPanel: React.FC<{ c: TealightController }> = ({ c }) => {
             <Download className="w-3.5 h-3.5" />STL
           </button>
           {isTea && (
-            <button onClick={c.downloadFlat} disabled={!c.image || c.flatBusy || bad} title="Strip and ring laid flat in one STL: print 2 layers thick, then roll up"
+            <button onClick={c.downloadFlat} disabled={!c.image || c.flatBusy || bad || c.flatErrors.length > 0} title="Strip and ring laid flat in one STL: print 2 layers thick, then roll up"
               className="flex items-center gap-1.5 px-2.5 py-2 rounded-lg bg-violet-500/20 border border-violet-500/40 text-violet-200 hover:bg-violet-500/30 disabled:opacity-40">
               <Download className="w-3.5 h-3.5" />{c.flatBusy ? 'Flat…' : 'Flat'}
             </button>

@@ -63,6 +63,9 @@ export function useTealightGenerator(mode: TableMode) {
   const [flatBusy, setFlatBusy] = useState(false);
   const [flatError, setFlatError] = useState<string | null>(null);
   const [flatWarnings, setFlatWarnings] = useState<string[]>([]);
+  // checked live, so the panel tells you why Flat is unavailable as soon as a setting changes (not only after a click)
+  const flatErrors = useMemo(() => validateFlatStrip(tParams, flatParams), [tParams, flatParams]);
+  useEffect(() => { setFlatError(null); setFlatWarnings([]); }, [tParams, flatParams]);
   /** Snapshot of the inputs the current `result` was generated from. */
   const [generatedKey, setGeneratedKey] = useState<string | null>(null);
 
@@ -164,7 +167,7 @@ export function useTealightGenerator(mode: TableMode) {
   return {
     mode, tParams, bParams, setTealight, setBowl: (patch: Partial<BowlParams>) => setBParams((p) => ({ ...p, ...patch })),
     sampleId, selectSample, upload, imageName, image, result, stale, busy, errors, runError, generate, reset, download, downloadMap,
-    flatParams, setFlat: (patch: Partial<FlatStripParams>) => setFlatParams((p) => ({ ...p, ...patch })), flatBusy, flatError, flatWarnings, downloadFlat,
+    flatParams, flatErrors, setFlat: (patch: Partial<FlatStripParams>) => setFlatParams((p) => ({ ...p, ...patch })), flatBusy, flatError, flatWarnings, downloadFlat,
   };
 }
 
