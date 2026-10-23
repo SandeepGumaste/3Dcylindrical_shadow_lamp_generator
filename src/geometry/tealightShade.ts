@@ -417,6 +417,13 @@ export function buildTealightField(img: GrayImage, p: TealightParams): TealightF
   // Open bands: full-width ring cut-outs just below and above the pattern (the ribs below re-join them).
   for (let j = g.openLo; j < g.bandStart; j++) for (let i = 0; i < C; i++) field[i + C * j] = -255;
   for (let j = g.bandEnd + 1; j <= g.openHi; j++) for (let i = 0; i < C; i++) field[i + C * j] = -255;
+  if (g.openHi > g.bandEnd) {
+    // The top pattern rows span a huge table radius in a tiny height; when they are all solid image margin they
+    // would be a hair-thin ring cut off from the rim by the open band, so open them with the band.
+    let j = g.bandEnd;
+    const rowSolid = (r: number) => { for (let i = 0; i < C; i++) if (field[i + C * r] <= 0) return false; return true; };
+    while (j >= g.bandStart && rowSolid(j)) { for (let i = 0; i < C; i++) field[i + C * j] = -255; j--; }
+  }
 
   // 2. Support ribs: vertical strips forced solid across the pattern band and any open bands.
   if (p.ribs > 0) {
