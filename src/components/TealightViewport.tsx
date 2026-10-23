@@ -139,6 +139,7 @@ export const TealightViewport: React.FC<Props> = ({ positions, indices, lightZ, 
     if (!s) return;
     s.light.visible = mode.shadowSim;
     s.bulb.visible = mode.shadowSim;
+    s.ground.visible = mode.shadowSim;
     s.env.set(!mode.shadowSim);
     // Model y = 0 is world z = 0 (the pivot turns model y into -z); keep the far half so the cut faces the camera.
     if (mode.slice) { s.plane.normal.set(0, 0, -1); s.plane.constant = 0; } else { s.plane.normal.set(0, 0, 1); s.plane.constant = 1e9; }

@@ -120,6 +120,7 @@ export const BoxViewport: React.FC<Props> = ({ preview, light, shadowSize, busy,
     if (!s) return;
     s.lamp.visible = mode.shadowSim;
     s.bulb.visible = mode.shadowSim;
+    s.wall.visible = mode.shadowSim;
     s.env.set(!mode.shadowSim);
     // Vertical cut through the middle of the part, perpendicular to the wall; keep the +x half so the cut faces the camera.
     const box = s.model ? new THREE.Box3().setFromObject(s.model.group) : null;
