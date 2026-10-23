@@ -13,16 +13,8 @@ export interface RingSpec {
   cy?: number;
 }
 
-export function buildRingMesh(mb: MeshBuilder, spec: RingSpec, segments = 360): { outerRadius: number; height: number } {
-  const w = spec.sheetThickness + FLAT.grooveClearance;
-  const gIn = spec.grooveRadius - w / 2, gOut = spec.grooveRadius + w / 2;
-  const rIn = gIn - FLAT.ringWallIn, rOut = gOut + FLAT.ringWallOut;
-  const h = spec.floor + FLAT.grooveDepth;
-  // (r, z) cross-section, counter-clockwise
-  const profile: [number, number][] = [
-    [rIn, 0], [rOut, 0], [rOut, h], [gOut, h], [gOut, spec.floor], [gIn, spec.floor], [gIn, h], [rIn, h],
-  ];
-  const cx = spec.cx ?? 0, cy = spec.cy ?? 0;
+/** Revolves a closed counter-clockwise (r, z) profile around the vertical axis through (cx, cy). */
+export function revolveProfile(mb: MeshBuilder, profile: [number, number][], cx: number, cy: number, segments: number) {
   const n = profile.length;
   const ids: number[] = [];
   for (let k = 0; k < segments; k++) {
@@ -36,5 +28,17 @@ export function buildRingMesh(mb: MeshBuilder, spec: RingSpec, segments = 360): 
       mb.quad(ids[k * n + e], ids[k1 * n + e], ids[k1 * n + e1], ids[k * n + e1]);
     }
   }
+}
+
+export function buildRingMesh(mb: MeshBuilder, spec: RingSpec, segments = 360): { outerRadius: number; height: number } {
+  const w = spec.sheetThickness + FLAT.grooveClearance;
+  const gIn = spec.grooveRadius - w / 2, gOut = spec.grooveRadius + w / 2;
+  const rIn = gIn - FLAT.ringWallIn, rOut = gOut + FLAT.ringWallOut;
+  const h = spec.floor + FLAT.grooveDepth;
+  // (r, z) cross-section, counter-clockwise
+  const profile: [number, number][] = [
+    [rIn, 0], [rOut, 0], [rOut, h], [gOut, h], [gOut, spec.floor], [gIn, spec.floor], [gIn, h], [rIn, h],
+  ];
+  revolveProfile(mb, profile, spec.cx ?? 0, spec.cy ?? 0, segments);
   return { outerRadius: rOut, height: h };
 }

@@ -7,7 +7,7 @@ import type { GrayImage } from '../types';
 import {
   TealightParams, TealightGeometry, FieldReport, buildTealightField, coneRadius, ribAngleList,
 } from './tealightShade';
-import { FLAT, FlatStripParams, flatTealightParams, groundRow, rimRows } from './flatStrip';
+import { FLAT, FlatStripParams, flatTealightParams, groundRow, lockZMax, rimRows } from './flatStrip';
 
 export interface StripGrid {
   geometry: TealightGeometry;
@@ -21,6 +21,7 @@ export interface StripGrid {
   row0: number;          // first upright row kept
   floorThickness: number; // height of the dropped bottom = ring floor thickness
   rimLo: number;         // first row (in this grid) strictly inside the top rim band
+  lockTop: number;       // last row the seam lock may use (the strip's top row, or below the socket groove in LED mode)
   fingerCols: number;    // columns the lock fingers add after the tab
   lock: LockLayout;
   report: FieldReport;
@@ -38,10 +39,10 @@ const FINGER = { length: 4, width: 2, barbWidth: 3, barbLength: 1.2, slitWidth: 
  * column k). One finger when the rim is short, two when it is tall enough to stack them. Reallocates `grid.field`.
  */
 export function applyLock(grid: StripGrid): LockLayout {
-  const { baseCols: C, tabCols, dTheta, zs, rimLo } = grid;
+  const { baseCols: C, tabCols, dTheta, zs, rimLo, lockTop } = grid;
   const g = grid.geometry;
   const rows = zs.length;
-  const zLo = zs[rimLo], zHi = zs[rows - 1];
+  const zLo = zs[rimLo], zHi = zs[lockTop];
   const rim = zHi - zLo;
   const rMid = coneRadius(g.Rb, g.k, (zLo + zHi) / 2);
   const cell = dTheta * rMid;                       // mm per column in the rim
@@ -55,7 +56,7 @@ export function applyLock(grid: StripGrid): LockLayout {
 
   const rowOf = (z: number) => {
     let best = rimLo;
-    for (let j = rimLo; j < rows; j++) if (Math.abs(zs[j] - z) < Math.abs(zs[best] - z)) best = j;
+    for (let j = rimLo; j <= lockTop; j++) if (Math.abs(zs[j] - z) < Math.abs(zs[best] - z)) best = j;
     return best;
   };
   const tipRolled = tabCols + fingerCols;           // tip column minus C
@@ -68,7 +69,7 @@ export function applyLock(grid: StripGrid): LockLayout {
       const half = x < FINGER.length - FINGER.barbLength
         ? FINGER.width / 2
         : FINGER.barbWidth / 2 - ((x - (FINGER.length - FINGER.barbLength)) / FINGER.barbLength) * (FINGER.barbWidth / 2 - 0.5);
-      for (let j = rimLo; j < rows; j++) {
+      for (let j = rimLo; j <= lockTop; j++) {
         if (Math.abs(zs[j] - zc) <= half) { field[C + tabCols + k + cols * j] = 255; j0 = Math.min(j0, j); j1 = Math.max(j1, j); }
       }
     }
@@ -125,19 +126,22 @@ export function buildStripGrid(img: GrayImage, p: TealightParams, fp: FlatStripP
   const tabCols = Math.ceil(FLAT.tabWidth / (dTheta * coneRadius(g.Rb, g.k, zRim)));
   const cols = C + 1 + tabCols;
 
+  const zTop = lockZMax(g, tp);
+  let lockTop = rowsKept - 1;
+  while (lockTop > 0 && g.zs[row0 + lockTop] > zTop + 1e-9) lockTop--;
   const out = new Float32Array(cols * rowsKept);
   for (let j = 0; j < rowsKept; j++) {
     const jf = row0 + j;
     for (let i = 0; i < cols; i++) {
       const v = field[((seamCol + i) % C) + C * jf];
-      out[i + cols * j] = i > C && jf < rimLoFull ? -255 : v;
+      out[i + cols * j] = i > C && (jf < rimLoFull || g.zs[jf] > zTop) ? -255 : v;
     }
   }
 
   const grid: StripGrid = {
     geometry: g, cols, baseCols: C, tabCols,
     zs: g.zs.slice(row0), field: out, dTheta, seamCol, row0,
-    floorThickness: g.zs[row0], rimLo: rimLoFull - row0, fingerCols: 0, lock: { fingers: [], slits: [] }, report,
+    floorThickness: g.zs[row0], rimLo: rimLoFull - row0, lockTop, fingerCols: 0, lock: { fingers: [], slits: [] }, report,
   };
   grid.lock = applyLock(grid);
   return grid;

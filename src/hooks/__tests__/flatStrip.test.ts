@@ -15,9 +15,9 @@ const out = (watertight: boolean): TealightOutput => ({
 describe('exportFlatStrip', () => {
   it('reports validation errors and never runs or saves', async () => {
     const run = vi.fn(), save = vi.fn();
-    const r = await exportFlatStrip({ image, params: { ...DEFAULT_TEALIGHT_PARAMS, useLed: true }, flat: DEFAULT_FLAT_STRIP_PARAMS, name: 'cat', run, save });
+    const r = await exportFlatStrip({ image, params: { ...DEFAULT_TEALIGHT_PARAMS, useLed: true, topDiameter: 38 }, flat: DEFAULT_FLAT_STRIP_PARAMS, name: 'cat', run, save });
     expect(r).toMatchObject({ ok: false });
-    expect((r as { error: string }).error).toContain('LED');
+    expect((r as { error: string }).error).toContain('socket');
     expect(run).not.toHaveBeenCalled();
     expect(save).not.toHaveBeenCalled();
   });

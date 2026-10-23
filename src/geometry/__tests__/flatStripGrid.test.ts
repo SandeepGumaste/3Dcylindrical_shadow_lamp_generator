@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { DEFAULT_TEALIGHT_PARAMS, TealightParams, buildTealightField } from '../tealightShade';
-import { DEFAULT_FLAT_STRIP_PARAMS, flatTealightParams, groundRow } from '../flatStrip';
+import { DEFAULT_FLAT_STRIP_PARAMS, FLAT, flatTealightParams, groundRow } from '../flatStrip';
 import { chooseSeamColumn, buildStripGrid } from '../flatStripGrid';
 import { asymmetricTestImage } from '../../image/tealightSamples';
 
@@ -110,5 +110,16 @@ describe('seam lock', () => {
     expect(lock.fingers.length).toBe(2);
     const short = buildStripGrid(img, P({ height: 24, flameHeight: 20, patternGapTop: 0 }), F);
     expect(short.lock.fingers.length).toBe(1);
+  });
+});
+
+describe('seam lock with the LED socket ring', () => {
+  it('keeps tab, fingers and slits below the socket groove', () => {
+    const grid = buildStripGrid(img, P({ useLed: true }), F);
+    const limit = grid.geometry.H - FLAT.grooveDepth - FLAT.socketClearance;
+    for (const r of [...grid.lock.fingers, ...grid.lock.slits]) expect(grid.zs[r.j1]).toBeLessThanOrEqual(limit + 1e-9);
+    for (let i = grid.baseCols + 1; i < grid.cols; i++)
+      for (let j = 0; j < grid.zs.length; j++) if (grid.zs[j] > limit) expect(grid.field[i + grid.cols * j]).toBeLessThanOrEqual(0);
+    expect(grid.lock.fingers.length).toBeGreaterThanOrEqual(1);
   });
 });

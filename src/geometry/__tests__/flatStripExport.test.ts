@@ -67,8 +67,20 @@ describe('generateFlatStripExport', () => {
     expect(r.warnings.join(' ')).toContain('bed');
   });
 
+  it('adds a third part, the LED socket ring, in LED mode', () => {
+    const plain = generateFlatStripExport(img, P(), F);
+    const led = generateFlatStripExport(img, P({ useLed: true }), F);
+    expect(plain.socketDiameter).toBeUndefined();
+    expect(led.socketDiameter).toBeGreaterThan(38);
+    expect(led.check.watertight).toBe(true);
+    expect(led.check.signedVolume).toBeGreaterThan(plain.check.signedVolume);
+    let xMax = -Infinity;
+    for (let v = 0; v < led.positions.length; v += 3) xMax = Math.max(xMax, led.positions[v]);
+    expect(xMax).toBeGreaterThan(led.stripWidth + 5 + led.ringDiameter + 5 + led.socketDiameter! - 1);
+  });
+
   it('throws the validation errors', () => {
-    expect(() => generateFlatStripExport(img, P({ useLed: true }), F)).toThrow('LED');
+    expect(() => generateFlatStripExport(img, P({ useLed: true, topDiameter: 38 }), F)).toThrow('socket');
   });
 
   for (const [name, v] of [['blank white', 1], ['all black', 0]] as const) {

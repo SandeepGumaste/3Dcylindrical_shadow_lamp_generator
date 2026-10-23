@@ -114,7 +114,7 @@ export const TealightPanel: React.FC<{ c: TealightController }> = ({ c }) => {
           <Group title="Flat strip (print flat)">
             <Num label="Layer height" unit="mm" value={c.flatParams.layerHeight} min={0.05} max={0.4} step={0.05} onChange={(v) => c.setFlat({ layerHeight: v })} />
             <Num label="Layers" value={c.flatParams.layers} min={1} max={6} onChange={(v) => c.setFlat({ layers: v })} />
-            <p className="text-[10px] text-slate-500">Sheet is {(c.flatParams.layerHeight * c.flatParams.layers).toFixed(2)} mm thick: it bends into the cone; clip the ends together and stand it in the ring. Flame mode only. Uses the Support Ribs number you set (not the auto suggestion), so the shadow can differ slightly from the preview.</p>
+            <p className="text-[10px] text-slate-500">Sheet is {(c.flatParams.layerHeight * c.flatParams.layers).toFixed(2)} mm thick: it bends into the cone; clip the ends together and stand it in the ring. With LED mode on, the LED socket ring is added to the file. Uses the Support Ribs number you set (not the auto suggestion), so the shadow can differ slightly from the preview.</p>
           </Group>
           <Group title="LED tealight">
             <Check label="Use LED tealight" value={t.useLed} onChange={(v) => c.setTealight({ useLed: v })} hint="Hangs upside down from the top rim; flame height is derived." />

@@ -76,7 +76,7 @@ export const DEFAULT_TEALIGHT_PARAMS: TealightParams = {
 };
 
 export const LED_CLEARANCE = 0.4;
-const LIP_WIDTH = 1.5;      // how far the socket lip reaches in under the LED body
+export const LIP_WIDTH = 1.5;      // how far the socket lip reaches in under the LED body
 const FOOT_MIN = 3;         // mm of solid foot band
 
 export interface TealightGeometry {

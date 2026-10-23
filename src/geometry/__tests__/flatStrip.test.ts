@@ -34,8 +34,11 @@ describe('validateFlatStrip', () => {
   it('accepts the defaults', () => {
     expect(validateFlatStrip(P(), F())).toEqual([]);
   });
-  it('rejects LED mode', () => {
-    expect(validateFlatStrip(P({ useLed: true }), F()).join(' ')).toContain('LED');
+  it('accepts LED mode with the default top diameter', () => {
+    expect(validateFlatStrip(P({ useLed: true }), F())).toEqual([]);
+  });
+  it('rejects an LED top too narrow for the socket ring groove', () => {
+    expect(validateFlatStrip(P({ useLed: true, topDiameter: 38 }), F()).join(' ')).toContain('socket');
   });
   it('words the too-few-ribs error for the flat path, even with auto ribs ticked', () => {
     const e = validateFlatStrip(P({ ribs: 0, autoRibs: true, patternGapTop: 5 }), F()).join(' ');

@@ -8,6 +8,7 @@ import { TealightParams, FieldReport, coneRadius } from './tealightShade';
 import { FLAT, FlatStripParams, developedMap, sheetThickness, validateFlatStrip } from './flatStrip';
 import { StripGrid, buildStripGrid } from './flatStripGrid';
 import { buildRingMesh } from './flatRing';
+import { buildSocketMesh } from './flatSocket';
 
 /**
  * Meshes the strip grid as a thin sheet (inner face z = 0, outer face z = thickness) through the developed-cone map and
@@ -42,6 +43,8 @@ export interface FlatStripResult {
   stripWidth: number;
   stripHeight: number;
   ringDiameter: number;
+  /** Diameter of the LED socket ring; only present in LED mode. */
+  socketDiameter?: number;
   report: FieldReport;
 }
 
@@ -59,6 +62,14 @@ export function generateFlatStripExport(img: GrayImage, p: TealightParams, fp: F
   const ringSpec = { grooveRadius: coneRadius(g.Rb, g.k, grid.zs[0]) + t / 2, sheetThickness: t, floor: grid.floorThickness };
   const outerRadius = coneRadius(g.Rb, g.k, grid.zs[0]) + t / 2 + (t + FLAT.grooveClearance) / 2 + FLAT.ringWallOut;
   buildRingMesh(mb, { ...ringSpec, cx: size.width + FLAT.bedGap + outerRadius, cy: outerRadius });
+  let socketDiameter: number | undefined;
+  if (p.useLed) {
+    // the socket ring is wider than the cone top, so measure it from a trial profile before placing it
+    const probe = buildSocketMesh(new MeshBuilder(), { g, p, sheetThickness: t }, 8);
+    const cx = size.width + FLAT.bedGap + 2 * outerRadius + FLAT.bedGap + probe.outerRadius;
+    const sock = buildSocketMesh(mb, { g, p, sheetThickness: t }, 360, cx, probe.outerRadius);
+    socketDiameter = 2 * sock.outerRadius;
+  }
 
   const { positions, indices } = mb.toArrays();
   const check = runChecks
@@ -75,13 +86,14 @@ export function generateFlatStripExport(img: GrayImage, p: TealightParams, fp: F
     warnings.push(`${report.islandsFound} solid island(s) are not attached; enable auto-bridge or add ribs.`);
   if (p.minFeature > 0 && report.specksRemoved > 0)
     warnings.push(`${report.specksRemoved} feature(s) smaller than ${p.minFeature} mm were dropped.`);
-  const totalWidth = size.width + FLAT.bedGap + 2 * outerRadius;
-  if (totalWidth > FLAT.bedMax || size.height > FLAT.bedMax || 2 * outerRadius > FLAT.bedMax)
-    warnings.push(`Strip and ring need ${totalWidth.toFixed(0)} x ${Math.max(size.height, 2 * outerRadius).toFixed(0)} mm on the bed; check your printer fits ${FLAT.bedMax} mm.`);
+  const totalWidth = size.width + FLAT.bedGap + 2 * outerRadius + (socketDiameter ? FLAT.bedGap + socketDiameter : 0);
+  const tallest = Math.max(size.height, 2 * outerRadius, socketDiameter ?? 0);
+  if (totalWidth > FLAT.bedMax || tallest > FLAT.bedMax)
+    warnings.push(`Parts need ${totalWidth.toFixed(0)} x ${tallest.toFixed(0)} mm on the bed; check your printer fits ${FLAT.bedMax} mm.`);
 
   const t1 = typeof performance !== 'undefined' ? performance.now() : Date.now();
   return {
     positions, indices, triangleCount: indices.length / 3, check, warnings, ms: t1 - t0,
-    stripWidth: size.width, stripHeight: size.height, ringDiameter: 2 * outerRadius, report,
+    stripWidth: size.width, stripHeight: size.height, ringDiameter: 2 * outerRadius, socketDiameter, report,
   };
 }

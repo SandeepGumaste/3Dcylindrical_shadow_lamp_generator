@@ -14,7 +14,12 @@ describe('runTealightRequest flat', () => {
     expect(out.stl.byteLength).toBe(84 + 50 * out.triangleCount);
   });
 
-  it('throws the validation message in LED mode', () => {
-    expect(() => runTealightRequest({ kind: 'flat', image, params: { ...DEFAULT_TEALIGHT_PARAMS, useLed: true }, flat: DEFAULT_FLAT_STRIP_PARAMS })).toThrow('LED');
+  it('also builds the LED socket ring in LED mode', () => {
+    const led = runTealightRequest({ kind: 'flat', image, params: { ...DEFAULT_TEALIGHT_PARAMS, useLed: true }, flat: DEFAULT_FLAT_STRIP_PARAMS });
+    expect(led.check.watertight).toBe(true);
+    expect(led.triangleCount).toBeGreaterThan(14 * 360 * 2); // the socket ring alone is 10,080 triangles
+  });
+  it('throws the validation message when the settings are invalid', () => {
+    expect(() => runTealightRequest({ kind: 'flat', image, params: { ...DEFAULT_TEALIGHT_PARAMS, useLed: true, topDiameter: 38 }, flat: DEFAULT_FLAT_STRIP_PARAMS })).toThrow('socket');
   });
 });

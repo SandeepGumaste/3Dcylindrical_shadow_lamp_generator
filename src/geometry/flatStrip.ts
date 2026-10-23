@@ -3,7 +3,7 @@
  * bends back into the cone. This file holds the parameters, validation and the unrolling map; the grid, the mesh and
  * the ring live next to it. Pure functions only (no DOM / three.js).
  */
-import { TealightParams, TealightGeometry, coneRadius, deriveGeometry, validateTealightParams } from './tealightShade';
+import { TealightParams, TealightGeometry, LED_CLEARANCE, LIP_WIDTH, coneRadius, deriveGeometry, validateTealightParams } from './tealightShade';
 
 export interface FlatStripParams {
   layerHeight: number; // mm
@@ -23,6 +23,7 @@ export const FLAT = {
   bedMax: 250,            // mm, warn above this
   bedGap: 5,              // mm between strip and ring on the bed
   maxSheet: 1.2,          // mm, thicker sheets do not bend
+  socketClearance: 0.3,   // mm the seam lock stays below the LED socket ring's groove
 } as const;
 
 export const sheetThickness = (fp: FlatStripParams) => fp.layers * fp.layerHeight;
@@ -35,6 +36,10 @@ export function flatTealightParams(p: TealightParams, fp: FlatStripParams): Teal
 /** First node row strictly inside the top rim band (the rows above `openHi`, which are forced solid). */
 export const rimRows = (g: Pick<TealightGeometry, 'openHi'>) => g.openHi + 1;
 
+/** Top of the seam lock: the strip's top edge, or in LED mode the underside of the socket ring's groove. */
+export const lockZMax = (g: Pick<TealightGeometry, 'H'>, p: Pick<TealightParams, 'useLed'>) =>
+  p.useLed ? g.H - FLAT.grooveDepth - FLAT.socketClearance : g.H;
+
 /** First grid row at or above `FLAT.groundMin`: the strip starts there, the ring floor fills what is below. */
 export const groundRow = (g: Pick<TealightGeometry, 'zs'>) => {
   const j = Array.from(g.zs).findIndex((z) => z >= FLAT.groundMin - 1e-9);
@@ -43,7 +48,6 @@ export const groundRow = (g: Pick<TealightGeometry, 'zs'>) => {
 
 export function validateFlatStrip(p: TealightParams, fp: FlatStripParams): string[] {
   const e: string[] = [];
-  if (p.useLed) e.push('Flat strip does not support LED mode yet; turn LED mode off.');
   if (!(fp.layerHeight > 0) || !(fp.layers >= 1)) e.push('Layer height and layers must be positive.');
   else if (sheetThickness(fp) > FLAT.maxSheet) e.push(`Sheet thicker than ${FLAT.maxSheet} mm will not bend; use fewer or thinner layers.`);
   if (e.length) return e;
@@ -54,7 +58,13 @@ export function validateFlatStrip(p: TealightParams, fp: FlatStripParams): strin
     return base.map((m) => (/ribs/i.test(m) ? 'Flat strip uses the Support Ribs number (at least 3 when there is an open band above or below the pattern).' : m));
   }
   const g = deriveGeometry(tp);
-  const rim = g.H - g.zs[rimRows(g) - 1];
+  if (p.useLed) {
+    const lipR = (p.tealightDiameter + LED_CLEARANCE) / 2 - LIP_WIDTH;
+    const rSkirt = coneRadius(g.Rb, g.k, g.H) - 0.15 - FLAT.ringWallIn; // inner skirt of the socket ring's groove
+    if (rSkirt < lipR + 0.2)
+      e.push('Top Diameter is too small for the LED socket ring groove; widen the top or use a smaller tealight diameter.');
+  }
+  const rim = lockZMax(g, p) - g.zs[rimRows(g) - 1];
   if (rim < FLAT.lockRimMin)
     e.push(`Top rim is ${rim.toFixed(1)} mm; the seam lock needs ${FLAT.lockRimMin} mm. Raise Height or lower Shadow Radius.`);
   if (g.baseBand0 - g.zs[groundRow(g)] < FLAT.grooveDepth)
