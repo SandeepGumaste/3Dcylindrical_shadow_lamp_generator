@@ -69,23 +69,37 @@ export function addSupports(mb: MeshBuilder, s: SupportSpec): SupportReport {
     const L = run.length;
     if (L * cell < MIN_RUN) continue;
     const n = Math.max(1, Math.ceil((L * cell) / SUPPORT_SPACING));
+    const used: number[] = [];
+    // Lowest height from which the gap under the roof stays clear for the pillar's width at column u; null when too short.
+    const place = (u: number, whole: boolean): { ref: Roof; zBase: number } | null => {
+      if (u < first.i || u > first.i + L - 1 || used.some((v) => Math.abs(v - u) < 2 * hb + 1)) return null;
+      const ref = run[Math.min(L - 1, Math.max(0, Math.floor(u - first.i + 0.5)))];
+      let js = ref.j;
+      for (let j = ref.j - 1; j > ref.jb; j--) {
+        let clear = true;
+        for (let c = Math.floor(u - hb) - 1; c <= Math.ceil(u + hb) + 1 && clear; c++) if (fAt(c, j) > 0) clear = false;
+        if (!clear) break;
+        js = j;
+      }
+      const whole_ = js === ref.jb + 1;
+      if (whole && !whole_) return null;
+      const zBase = whole_ ? ref.zb : zs[js];
+      return ref.zr - zBase >= MIN_HEIGHT ? { ref, zBase } : null;
+    };
     for (let k = 0; k < n; k++) {
       const ideal = first.i - 0.5 + ((k + 0.5) * L) / n;
-      // Nearest spot to the ideal one, within its share of the roof, where the gap below is clear for the pillar's width.
-      const reach = Math.ceil(L / n / 2);
-      let placed: { u: number; ref: Roof } | null = null;
-      for (let d = 0; d <= reach && !placed; d++)
-        for (const u of d === 0 ? [ideal] : [ideal - d, ideal + d]) {
-          const ref = run[Math.min(L - 1, Math.max(0, Math.floor(u - first.i + 0.5)))];
-          if (ref.zr - ref.zb < MIN_HEIGHT) continue;
-          let clear = true;
-          for (let c = Math.floor(u - hb) - 1; c <= Math.ceil(u + hb) + 1 && clear; c++)
-            for (let j = ref.jb + 1; j < ref.j; j++) if (fAt(c, j) > 0) { clear = false; break; }
-          if (clear) { placed = { u, ref }; break; }
-        }
+      // Nearest spot to the ideal one along the whole roof: first one that stands on the solid below, else one wedged
+      // where the gap under the roof narrows (a V-shaped cut-out), standing on its narrow bottom from the first clear row up.
+      let placed: { u: number; ref: Roof; zBase: number } | null = null;
+      for (const whole of [true, false])
+        for (let d = 0; d <= L && !placed; d++)
+          for (const u of d === 0 ? [ideal] : [ideal - d, ideal + d]) {
+            const r = place(u, whole);
+            if (r) { placed = { u, ...r }; break; }
+          }
       if (!placed) { report.skipped++; continue; }
-      const { u, ref } = placed;
-      addPillar(mb, s, u, hb, hn, ref.zb, ref.zr);
+      used.push(placed.u);
+      addPillar(mb, s, placed.u, hb, hn, placed.zBase, placed.ref.zr);
       report.count++;
     }
   }
