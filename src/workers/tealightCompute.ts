@@ -2,6 +2,7 @@ import type { GrayImage } from '../types';
 import { TealightParams, generateTealightShade, generateTealightMapSvg, suggestRibs, RibSuggestion, compareShadow, ShadowComparison, FieldReport } from '../geometry/tealightShade';
 import { BowlParams, generateShadowBowl } from '../geometry/shadowBowl';
 import { indexedMeshToBinarySTL } from '../geometry/stl';
+import { makeZip } from '../geometry/box/zip';
 import { FlatStripParams } from '../geometry/flatStrip';
 import { generateFlatStripExport } from '../geometry/flatStripExport';
 import type { MeshCheck } from '../geometry/meshCheck';
@@ -30,6 +31,8 @@ export interface TealightOutput {
   comparison?: ShadowComparison;
   /** Present when ribs were chosen automatically. */
   ribSuggestion?: RibSuggestion;
+  /** Flat mode: each part as its own STL plus the combined plate, zipped. */
+  zip?: Uint8Array;
 }
 
 /** Pure compute shared by the worker and the main-thread fallback. */
@@ -74,6 +77,10 @@ export function runTealightRequest(req: TealightRequest): TealightOutput {
       lightZ: 0,
       topZ: 0,
       groundRadius: req.params.shadowRadius,
+      zip: makeZip([
+        ...res.parts.map((q) => ({ name: `${q.id}.stl`, data: new Uint8Array(indexedMeshToBinarySTL(q.positions, q.indices, `Tealight ${q.id}`)) })),
+        { name: 'all-parts.stl', data: new Uint8Array(indexedMeshToBinarySTL(res.positions, res.indices, 'Tealight Flat Strip')) },
+      ]),
     };
   }
   const res = generateShadowBowl(req.image, req.params);

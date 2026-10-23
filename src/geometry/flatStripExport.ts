@@ -33,7 +33,19 @@ export function buildSheetMesh(mb: MeshBuilder, grid: StripGrid, thickness: numb
   return { width: x1 - x0, height: y1 - y0 };
 }
 
+/** One printable part with its own origin, exported on its own as well as inside the combined plate. */
+export interface FlatPart { id: string; positions: Float32Array; indices: Uint32Array }
+
+/** Copies `src` into `dst` shifted by (dx, dy). */
+function appendMesh(dst: MeshBuilder, src: MeshBuilder, dx: number, dy: number): void {
+  const base = dst.positions.length / 3;
+  for (let v = 0; v < src.positions.length; v += 3) dst.vertex(src.positions[v] + dx, src.positions[v + 1] + dy, src.positions[v + 2]);
+  for (const i of src.indices) dst.indices.push(i + base);
+}
+
 export interface FlatStripResult {
+  /** The strip, base ring and (LED mode) socket ring, each at its own origin. */
+  parts: FlatPart[];
   positions: Float32Array;
   indices: Uint32Array;
   triangleCount: number;
@@ -48,7 +60,7 @@ export interface FlatStripResult {
   report: FieldReport;
 }
 
-/** The unrolled sheet and the base ring in one mesh, side by side on z = 0. Throws when the settings are invalid. */
+/** All parts in one mesh on z = 0, ring(s) side by side above the strip. Throws when the settings are invalid. */
 export function generateFlatStripExport(img: GrayImage, p: TealightParams, fp: FlatStripParams, runChecks = true): FlatStripResult {
   const t0 = typeof performance !== 'undefined' ? performance.now() : Date.now();
   const errors = validateFlatStrip(p, fp);
@@ -56,20 +68,37 @@ export function generateFlatStripExport(img: GrayImage, p: TealightParams, fp: F
 
   const grid = buildStripGrid(img, p, fp);
   const t = sheetThickness(fp);
-  const mb = new MeshBuilder();
-  const size = buildSheetMesh(mb, grid, t);
   const g = grid.geometry;
   const ringSpec = { grooveRadius: coneRadius(g.Rb, g.k, grid.zs[0]) + t / 2, sheetThickness: t, floor: grid.floorThickness };
   const outerRadius = coneRadius(g.Rb, g.k, grid.zs[0]) + t / 2 + (t + FLAT.grooveClearance) / 2 + FLAT.ringWallOut;
-  buildRingMesh(mb, { ...ringSpec, cx: size.width + FLAT.bedGap + outerRadius, cy: outerRadius });
+
+  // each part is built on its own with its bounding box starting at (0, 0), so it can also be printed alone
+  const stripMb = new MeshBuilder();
+  const size = buildSheetMesh(stripMb, grid, t);
+  const ringMb = new MeshBuilder();
+  buildRingMesh(ringMb, { ...ringSpec, cx: outerRadius, cy: outerRadius });
+  let socketMb: MeshBuilder | undefined;
   let socketDiameter: number | undefined;
   if (p.useLed) {
-    // the socket ring is wider than the cone top, so measure it from a trial profile before placing it
-    const probe = buildSocketMesh(new MeshBuilder(), { g, p, sheetThickness: t }, 8);
-    const cx = size.width + FLAT.bedGap + 2 * outerRadius + FLAT.bedGap + probe.outerRadius;
-    const sock = buildSocketMesh(mb, { g, p, sheetThickness: t }, 360, cx, probe.outerRadius);
+    socketMb = new MeshBuilder();
+    // the socket ring is wider than the cone top, so its radius comes from the build itself
+    const sock = buildSocketMesh(new MeshBuilder(), { g, p, sheetThickness: t }, 8);
+    buildSocketMesh(socketMb, { g, p, sheetThickness: t }, 360, sock.outerRadius, sock.outerRadius);
     socketDiameter = 2 * sock.outerRadius;
   }
+
+  // layout on the bed: the strip along the bottom, the ring and the socket ring side by side above it
+  const rowHeight = Math.max(2 * outerRadius, socketDiameter ?? 0);
+  const rowY = size.height + FLAT.bedGap;
+  const mb = new MeshBuilder();
+  appendMesh(mb, stripMb, 0, 0);
+  appendMesh(mb, ringMb, 0, rowY + (rowHeight - 2 * outerRadius) / 2);
+  if (socketMb) appendMesh(mb, socketMb, 2 * outerRadius + FLAT.bedGap, rowY + (rowHeight - socketDiameter!) / 2);
+  const parts: FlatPart[] = [
+    { id: 'strip', ...stripMb.toArrays() },
+    { id: 'base-ring', ...ringMb.toArrays() },
+    ...(socketMb ? [{ id: 'socket-ring', ...socketMb.toArrays() }] : []),
+  ];
 
   const { positions, indices } = mb.toArrays();
   const check = runChecks
@@ -86,14 +115,14 @@ export function generateFlatStripExport(img: GrayImage, p: TealightParams, fp: F
     warnings.push(`${report.islandsFound} solid island(s) are not attached; enable auto-bridge or add ribs.`);
   if (p.minFeature > 0 && report.specksRemoved > 0)
     warnings.push(`${report.specksRemoved} feature(s) smaller than ${p.minFeature} mm were dropped.`);
-  const totalWidth = size.width + FLAT.bedGap + 2 * outerRadius + (socketDiameter ? FLAT.bedGap + socketDiameter : 0);
-  const tallest = Math.max(size.height, 2 * outerRadius, socketDiameter ?? 0);
+  const totalWidth = Math.max(size.width, 2 * outerRadius + (socketDiameter ? FLAT.bedGap + socketDiameter : 0));
+  const tallest = size.height + FLAT.bedGap + rowHeight;
   if (totalWidth > FLAT.bedMax || tallest > FLAT.bedMax)
     warnings.push(`Parts need ${totalWidth.toFixed(0)} x ${tallest.toFixed(0)} mm on the bed; check your printer fits ${FLAT.bedMax} mm.`);
 
   const t1 = typeof performance !== 'undefined' ? performance.now() : Date.now();
   return {
     positions, indices, triangleCount: indices.length / 3, check, warnings, ms: t1 - t0,
-    stripWidth: size.width, stripHeight: size.height, ringDiameter: 2 * outerRadius, socketDiameter, report,
+    parts, stripWidth: size.width, stripHeight: size.height, ringDiameter: 2 * outerRadius, socketDiameter, report,
   };
 }

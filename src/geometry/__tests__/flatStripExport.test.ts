@@ -76,7 +76,22 @@ describe('generateFlatStripExport', () => {
     expect(led.check.signedVolume).toBeGreaterThan(plain.check.signedVolume);
     let xMax = -Infinity;
     for (let v = 0; v < led.positions.length; v += 3) xMax = Math.max(xMax, led.positions[v]);
-    expect(xMax).toBeGreaterThan(led.stripWidth + 5 + led.ringDiameter + 5 + led.socketDiameter! - 1);
+    expect(xMax).toBeGreaterThan(led.ringDiameter + 5 + led.socketDiameter! - 1);
+  });
+
+  it('lays the rings side by side above the strip and exports each part on its own', () => {
+    const led = generateFlatStripExport(img, P({ useLed: true }), F);
+    expect(led.parts.map((q) => q.id)).toEqual(['strip', 'base-ring', 'socket-ring']);
+    for (const q of led.parts) {
+      let x0 = Infinity, y0 = Infinity;
+      for (let v = 0; v < q.positions.length; v += 3) { x0 = Math.min(x0, q.positions[v]); y0 = Math.min(y0, q.positions[v + 1]); }
+      expect(x0).toBeCloseTo(0, 3);
+      expect(y0).toBeCloseTo(0, 3);
+    }
+    let xMax = -Infinity, yMax = -Infinity;
+    for (let v = 0; v < led.positions.length; v += 3) { xMax = Math.max(xMax, led.positions[v]); yMax = Math.max(yMax, led.positions[v + 1]); }
+    expect(xMax).toBeLessThan(Math.max(led.stripWidth, led.ringDiameter + 5 + led.socketDiameter!) + 1);
+    expect(yMax).toBeGreaterThan(led.stripHeight + 5);
   });
 
   it('throws the validation errors', () => {

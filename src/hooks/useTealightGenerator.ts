@@ -9,7 +9,7 @@ import catUrl from '../assets/cat.png';
 import { loadImageToGray } from '../image/loadImage';
 import { runTealight } from '../workers/tealightRunner';
 import type { TealightOutput } from '../workers/tealightCompute';
-import { downloadSTL } from '../geometry/stl';
+import { downloadSTL, downloadZip } from '../geometry/stl';
 import { downloadSVG } from '../geometry/svg';
 import { DEFAULT_FLAT_STRIP_PARAMS, FlatStripParams, validateFlatStrip } from '../geometry/flatStrip';
 
@@ -30,10 +30,10 @@ export function presetParams(id: string): Partial<TealightParams> {
 }
 export type FlatExport = { ok: true; warnings: string[] } | { ok: false; error: string };
 
-/** Validates, builds the flat strip in the worker and saves it; nothing is saved unless the mesh is watertight. */
+/** Validates, builds the flat strip in the worker and saves it as a zip (each part alone plus all together); nothing is saved unless the mesh is watertight. */
 export async function exportFlatStrip(a: {
   image: GrayImage; params: TealightParams; flat: FlatStripParams; name: string;
-  run?: typeof runTealight; save?: typeof downloadSTL;
+  run?: typeof runTealight; save?: typeof downloadZip;
 }): Promise<FlatExport> {
   const errors = validateFlatStrip(a.params, a.flat);
   if (errors.length) return { ok: false, error: errors.join(' ') };
@@ -41,7 +41,7 @@ export async function exportFlatStrip(a: {
     const r = await (a.run ?? runTealight)({ kind: 'flat', image: a.image, params: a.params, flat: a.flat });
     if (!r.check.watertight) return { ok: false, error: `Flat strip is not watertight: ${r.check.errors.join(' ')}` };
     const date = new Date().toISOString().slice(0, 10);
-    (a.save ?? downloadSTL)(r.stl, `tealight-flat-strip-${a.name}-${date}.stl`);
+    (a.save ?? downloadZip)(r.zip!, `tealight-flat-strip-${a.name}-${date}.zip`);
     return { ok: true, warnings: r.warnings };
   } catch (e) {
     return { ok: false, error: (e as Error).message };
