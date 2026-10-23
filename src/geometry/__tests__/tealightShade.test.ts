@@ -334,6 +334,14 @@ describe('open bands above and below the pattern', () => {
     for (const j of rows) for (let i = 0; i < g.cols; i++) expect(field[i + g.cols * j]).toBeLessThanOrEqual(0);
     for (let i = 0; i < g.cols; i++) expect(field[i + g.cols * (g.zs.length - 1)]).toBeGreaterThan(0);   // top rim solid
   });
+  it('a top gap leaves no hair-thin solid ring along the top of the pattern', () => {
+    const p = P({ patternGapTop: 6, ribs: 0, autoRibs: false });
+    const g = deriveGeometry(p);
+    const { field } = buildTealightField(img(), p);
+    let solid = 0;
+    for (let i = 0; i < g.cols; i++) if (field[i + g.cols * g.bandEnd] > 0) solid++;
+    expect(solid).toBeLessThan(g.cols);
+  });
   it('a bottom gap raises the pattern and opens a band of that height above the foot', () => {
     const base = deriveGeometry(P());
     const g = deriveGeometry(P({ patternGapBottom: 5 }));
