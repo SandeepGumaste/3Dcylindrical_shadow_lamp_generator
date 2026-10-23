@@ -37,6 +37,11 @@ describe('validateFlatStrip', () => {
   it('rejects LED mode', () => {
     expect(validateFlatStrip(P({ useLed: true }), F()).join(' ')).toContain('LED');
   });
+  it('words the too-few-ribs error for the flat path, even with auto ribs ticked', () => {
+    const e = validateFlatStrip(P({ ribs: 0, autoRibs: true, patternGapTop: 5 }), F()).join(' ');
+    expect(e).toContain('Flat strip');
+    expect(e).toContain('Support Ribs');
+  });
   it('rejects a sheet too thick to bend', () => {
     expect(validateFlatStrip(P(), F({ layers: 7 })).join(' ')).toContain('bend');
   });

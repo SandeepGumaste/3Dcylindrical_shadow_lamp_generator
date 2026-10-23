@@ -49,7 +49,10 @@ export function validateFlatStrip(p: TealightParams, fp: FlatStripParams): strin
   if (e.length) return e;
   const tp = flatTealightParams(p, fp);
   const base = validateTealightParams(tp);
-  if (base.length) return base;
+  if (base.length) {
+    // the upright wording talks about auto ribs; the flat path always uses the Support Ribs number
+    return base.map((m) => (/ribs/i.test(m) ? 'Flat strip uses the Support Ribs number (at least 3 when there is an open band above or below the pattern).' : m));
+  }
   const g = deriveGeometry(tp);
   const rim = g.H - g.zs[rimRows(g) - 1];
   if (rim < FLAT.lockRimMin)
