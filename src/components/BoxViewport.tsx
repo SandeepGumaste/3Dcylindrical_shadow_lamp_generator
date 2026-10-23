@@ -1,6 +1,7 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import { DEFAULT_VIEW_MODE, NO_CLIP, ViewMode, ViewToggles, createEnvironmentLight, createModelMeshes } from './viewMode';
 
 interface Props {
   preview: { positions: Float32Array; indices: Uint32Array } | null;
@@ -20,8 +21,10 @@ interface Props {
 export const BoxViewport: React.FC<Props> = ({ preview, light, shadowSize, busy, stale, onGenerate }) => {
   const host = useRef<HTMLDivElement>(null);
   const stateRef = useRef<{
-    scene: THREE.Scene; controls: OrbitControls; lamp: THREE.PointLight; bulb: THREE.Mesh; wall: THREE.Mesh; model: THREE.Mesh | null;
+    scene: THREE.Scene; controls: OrbitControls; lamp: THREE.PointLight; bulb: THREE.Mesh; wall: THREE.Mesh; model: ReturnType<typeof createModelMeshes> | null;
+    env: ReturnType<typeof createEnvironmentLight>; plane: THREE.Plane;
   } | null>(null);
+  const [mode, setMode] = useState<ViewMode>(DEFAULT_VIEW_MODE);
 
   useEffect(() => {
     const el = host.current!;
@@ -35,6 +38,7 @@ export const BoxViewport: React.FC<Props> = ({ preview, light, shadowSize, busy,
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.setSize(w, h);
     renderer.shadowMap.enabled = true;
+    renderer.localClippingEnabled = true;
     renderer.shadowMap.type = THREE.PCFShadowMap;
     el.innerHTML = '';
     el.appendChild(renderer.domElement);
@@ -54,6 +58,8 @@ export const BoxViewport: React.FC<Props> = ({ preview, light, shadowSize, busy,
     lamp.shadow.camera.near = 0.5;
     lamp.shadow.camera.far = 4000;
     scene.add(lamp);
+    const env = createEnvironmentLight(scene, new THREE.Vector3(-300, 400, 700));
+    const plane = NO_CLIP();
     const bulb = new THREE.Mesh(new THREE.SphereGeometry(1.6, 16, 16), new THREE.MeshBasicMaterial({ color: 0xffe6a8 }));
     scene.add(bulb);
 
@@ -71,7 +77,7 @@ export const BoxViewport: React.FC<Props> = ({ preview, light, shadowSize, busy,
     };
     const ro = new ResizeObserver(onResize);
     ro.observe(el);
-    stateRef.current = { scene, controls, lamp, bulb, wall, model: null };
+    stateRef.current = { scene, controls, lamp, bulb, wall, model: null, env, plane };
     return () => {
       cancelAnimationFrame(raf); ro.disconnect(); controls.dispose(); renderer.dispose();
       el.innerHTML = '';
@@ -93,9 +99,8 @@ export const BoxViewport: React.FC<Props> = ({ preview, light, shadowSize, busy,
     const s = stateRef.current;
     if (!s) return;
     if (s.model) {
-      s.scene.remove(s.model);
-      s.model.geometry.dispose();
-      (s.model.material as THREE.Material).dispose();
+      s.scene.remove(s.model.group);
+      s.model.dispose();
       s.model = null;
     }
     if (!preview || !preview.positions.length) return;
@@ -103,12 +108,25 @@ export const BoxViewport: React.FC<Props> = ({ preview, light, shadowSize, busy,
     geo.setAttribute('position', new THREE.BufferAttribute(preview.positions, 3));
     geo.setIndex(new THREE.BufferAttribute(preview.indices, 1));
     geo.computeVertexNormals();
-    const mesh = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color: 0xf4f1ea, roughness: 0.55, metalness: 0.05, side: THREE.DoubleSide }));
-    mesh.castShadow = true;
-    mesh.receiveShadow = true;
-    s.scene.add(mesh);
-    s.model = mesh;
+    const model = createModelMeshes(geo, s.plane);
+    model.setSlice(mode.slice);
+    s.scene.add(model.group);
+    s.model = model;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [preview]);
+
+  useEffect(() => {
+    const s = stateRef.current;
+    if (!s) return;
+    s.lamp.visible = mode.shadowSim;
+    s.bulb.visible = mode.shadowSim;
+    s.env.set(!mode.shadowSim);
+    // Vertical cut through the middle of the part, perpendicular to the wall; keep the +x half so the cut faces the camera.
+    const box = s.model ? new THREE.Box3().setFromObject(s.model.group) : null;
+    const cx = box && !box.isEmpty() ? (box.min.x + box.max.x) / 2 : 0;
+    if (mode.slice) { s.plane.normal.set(1, 0, 0); s.plane.constant = -cx; } else { s.plane.normal.set(0, 0, 1); s.plane.constant = 1e9; }
+    s.model?.setSlice(mode.slice);
+  }, [mode, preview]);
 
   return (
     <div className="relative w-full h-full lg:min-h-[380px] bg-slate-950 rounded-xl overflow-hidden border border-slate-800 shadow-2xl">
@@ -125,8 +143,9 @@ export const BoxViewport: React.FC<Props> = ({ preview, light, shadowSize, busy,
           )}
         </div>
       )}
+      <ViewToggles mode={mode} onChange={setMode} />
       {busy && (
-        <div className="absolute top-2 right-2 lg:top-3 lg:right-3 flex items-center gap-2 bg-slate-900/85 px-3 py-1.5 rounded-lg border border-slate-700/60 text-xs text-amber-300">
+        <div className="absolute top-12 right-2 lg:top-14 lg:right-3 flex items-center gap-2 bg-slate-900/85 px-3 py-1.5 rounded-lg border border-slate-700/60 text-xs text-amber-300">
           <span className="w-3 h-3 border-2 border-amber-400/30 border-t-amber-400 rounded-full animate-spin" /> generating…
         </div>
       )}

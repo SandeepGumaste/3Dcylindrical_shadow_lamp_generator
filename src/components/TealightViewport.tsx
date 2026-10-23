@@ -1,6 +1,7 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import { DEFAULT_VIEW_MODE, NO_CLIP, ViewMode, ViewToggles, createEnvironmentLight, createModelMeshes } from './viewMode';
 
 interface Props {
   positions: Float32Array | null;
@@ -25,8 +26,10 @@ export const TealightViewport: React.FC<Props> = ({ positions, indices, lightZ, 
   const host = useRef<HTMLDivElement>(null);
   const stateRef = useRef<{
     scene: THREE.Scene; camera: THREE.PerspectiveCamera; controls: OrbitControls;
-    pivot: THREE.Group; light: THREE.PointLight; bulb: THREE.Mesh; ground: THREE.Mesh; model: THREE.Mesh | null;
+    pivot: THREE.Group; light: THREE.PointLight; bulb: THREE.Mesh; ground: THREE.Mesh; model: ReturnType<typeof createModelMeshes> | null;
+    env: ReturnType<typeof createEnvironmentLight>; plane: THREE.Plane;
   } | null>(null);
+  const [mode, setMode] = useState<ViewMode>(DEFAULT_VIEW_MODE);
 
   useEffect(() => {
     const el = host.current!;
@@ -41,6 +44,7 @@ export const TealightViewport: React.FC<Props> = ({ positions, indices, lightZ, 
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.setSize(w, h);
     renderer.shadowMap.enabled = true;
+    renderer.localClippingEnabled = true;
     renderer.shadowMap.type = THREE.PCFShadowMap; // PCF honours shadow.radius for soft edges
     el.innerHTML = '';
     el.appendChild(renderer.domElement);
@@ -67,6 +71,9 @@ export const TealightViewport: React.FC<Props> = ({ positions, indices, lightZ, 
     light.shadow.camera.far = 900;
     pivot.add(light);
 
+    const env = createEnvironmentLight(scene, new THREE.Vector3(200, 320, 260));
+    const plane = NO_CLIP();
+
     const bulb = new THREE.Mesh(new THREE.SphereGeometry(1.6, 16, 16), new THREE.MeshBasicMaterial({ color: 0xffe6a8 }));
     pivot.add(bulb);
 
@@ -89,7 +96,7 @@ export const TealightViewport: React.FC<Props> = ({ positions, indices, lightZ, 
     const ro = new ResizeObserver(onResize);
     ro.observe(el);
 
-    stateRef.current = { scene, camera, controls, pivot, light, bulb, ground, model: null };
+    stateRef.current = { scene, camera, controls, pivot, light, bulb, ground, model: null, env, plane };
     return () => {
       cancelAnimationFrame(raf); ro.disconnect(); controls.dispose(); renderer.dispose();
       el.innerHTML = '';
@@ -111,9 +118,8 @@ export const TealightViewport: React.FC<Props> = ({ positions, indices, lightZ, 
     const s = stateRef.current;
     if (!s) return;
     if (s.model) {
-      s.pivot.remove(s.model);
-      s.model.geometry.dispose();
-      (s.model.material as THREE.Material).dispose();
+      s.pivot.remove(s.model.group);
+      s.model.dispose();
       s.model = null;
     }
     if (!positions || !indices || !positions.length) return;
@@ -121,13 +127,23 @@ export const TealightViewport: React.FC<Props> = ({ positions, indices, lightZ, 
     geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
     geo.setIndex(new THREE.BufferAttribute(indices, 1));
     geo.computeVertexNormals();
-    const mat = new THREE.MeshStandardMaterial({ color: 0xf4f1ea, roughness: 0.55, metalness: 0.05, side: THREE.DoubleSide });
-    const mesh = new THREE.Mesh(geo, mat);
-    mesh.castShadow = true;
-    mesh.receiveShadow = true;
-    s.pivot.add(mesh);
-    s.model = mesh;
+    const model = createModelMeshes(geo, s.plane);
+    model.setSlice(mode.slice);
+    s.pivot.add(model.group);
+    s.model = model;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [positions, indices]);
+
+  useEffect(() => {
+    const s = stateRef.current;
+    if (!s) return;
+    s.light.visible = mode.shadowSim;
+    s.bulb.visible = mode.shadowSim;
+    s.env.set(!mode.shadowSim);
+    // Model y = 0 is world z = 0 (the pivot turns model y into -z); keep the far half so the cut faces the camera.
+    if (mode.slice) { s.plane.normal.set(0, 0, -1); s.plane.constant = 0; } else { s.plane.normal.set(0, 0, 1); s.plane.constant = 1e9; }
+    s.model?.setSlice(mode.slice);
+  }, [mode]);
 
   return (
     <div className="relative w-full h-full lg:min-h-[380px] bg-slate-950 rounded-xl overflow-hidden border border-slate-800 shadow-2xl">
@@ -144,8 +160,9 @@ export const TealightViewport: React.FC<Props> = ({ positions, indices, lightZ, 
           )}
         </div>
       )}
+      <ViewToggles mode={mode} onChange={setMode} />
       {busy && (
-        <div className="absolute top-2 right-2 lg:top-3 lg:right-3 flex items-center gap-2 bg-slate-900/85 px-3 py-1.5 rounded-lg border border-slate-700/60 text-xs text-amber-300">
+        <div className="absolute top-12 right-2 lg:top-14 lg:right-3 flex items-center gap-2 bg-slate-900/85 px-3 py-1.5 rounded-lg border border-slate-700/60 text-xs text-amber-300">
           <span className="w-3 h-3 border-2 border-amber-400/30 border-t-amber-400 rounded-full animate-spin" /> generating…
         </div>
       )}
