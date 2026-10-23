@@ -46,6 +46,13 @@ export interface ShellOptions {
   skipTopBorder?: boolean;
   /** Leave the bottom border open (caller closes it with its own faces). Bottom row must be all solid. */
   skipBottomBorder?: boolean;
+  /**
+   * Default true: the grid wraps around (column `cols` is column 0). False: `cols` is the number of node columns of a
+   * flat sheet, there are `cols - 1` cell columns, and the left and right borders get end walls. Needs `dTheta`.
+   */
+  wrap?: boolean;
+  /** Angle step handed to the surface maps per column when `wrap` is false (theta = dTheta * column). */
+  dTheta?: number;
 }
 
 export interface ShellResult {
@@ -61,11 +68,15 @@ const CLAMP = 0.01;
 
 export function buildShell(mb: MeshBuilder, spec: ShellSpec, opts: ShellOptions = {}): ShellResult {
   const { cols: C, zs, field: f } = spec;
+  const wrap = opts.wrap !== false;
+  const cellCols = wrap ? C : C - 1;
   const rows = zs.length - 1; // cell rows
   const N = C * (rows + 1);
   const TWO_PI = Math.PI * 2;
 
-  const fAt = (i: number, j: number) => f[(i >= C ? i - C : i) + C * j];
+  const wrapI = (i: number) => (wrap && i >= C ? i - C : i);
+  const thetaOf = (i: number) => (wrap ? (TWO_PI * i) / C : (opts.dTheta ?? 0) * i);
+  const fAt = (i: number, j: number) => f[wrapI(i) + C * j];
   const solidAt = (i: number, j: number) => fAt(i, j) > 0;
 
   const innerIdx = new Int32Array(3 * N).fill(-1);
@@ -80,7 +91,7 @@ export function buildShell(mb: MeshBuilder, spec: ShellSpec, opts: ShellOptions 
     }
     return id;
   }
-  const node = (i: number, j: number) => make(j * C + (i >= C ? i - C : i), (TWO_PI * (i >= C ? i - C : i)) / C, zs[j]);
+  const node = (i: number, j: number) => make(j * C + wrapI(i), thetaOf(wrapI(i)), zs[j]);
 
   // Crossing on the horizontal edge (i,j)-(i+1,j).
   function hCross(i: number, j: number): number {
@@ -88,7 +99,7 @@ export function buildShell(mb: MeshBuilder, spec: ShellSpec, opts: ShellOptions 
     const aSolid = fa > 0;
     const tp = clampT(aSolid ? fa / (fa - fb) : fb / (fb - fa));
     const t = aSolid ? tp : 1 - tp;
-    return make(N + j * C + i, (TWO_PI * (i + t)) / C, zs[j]);
+    return make(N + j * C + i, thetaOf(i + t), zs[j]);
   }
   // Crossing on the vertical edge (i,j)-(i,j+1).
   function vCross(i: number, j: number): number {
@@ -96,8 +107,8 @@ export function buildShell(mb: MeshBuilder, spec: ShellSpec, opts: ShellOptions 
     const aSolid = fa > 0;
     const tp = clampT(aSolid ? fa / (fa - fb) : fb / (fb - fa));
     const t = aSolid ? tp : 1 - tp;
-    const ic = i >= C ? i - C : i;
-    return make(2 * N + j * C + ic, (TWO_PI * ic) / C, zs[j] + t * (zs[j + 1] - zs[j]));
+    const ic = wrapI(i);
+    return make(2 * N + j * C + ic, thetaOf(ic), zs[j] + t * (zs[j + 1] - zs[j]));
   }
   function clampT(t: number): number {
     return t < CLAMP ? CLAMP : t > 1 - CLAMP ? 1 - CLAMP : t;
@@ -108,7 +119,7 @@ export function buildShell(mb: MeshBuilder, spec: ShellSpec, opts: ShellOptions 
   const sideOf: number[] = [];
 
   for (let j = 0; j < rows; j++) {
-    for (let i = 0; i < C; i++) {
+    for (let i = 0; i < cellCols; i++) {
       const s0 = solidAt(i, j), s1 = solidAt(i + 1, j), s2 = solidAt(i + 1, j + 1), s3 = solidAt(i, j + 1);
       if (!(s0 || s1 || s2 || s3)) continue;
       const s = [s0, s1, s2, s3];
@@ -140,6 +151,7 @@ export function buildShell(mb: MeshBuilder, spec: ShellSpec, opts: ShellOptions 
           const side = sideOf[m];
           if (side === 0 && j === 0 && !opts.skipBottomBorder) free = true;
           else if (side === 2 && j === rows - 1 && !opts.skipTopBorder) free = true;
+          else if (!wrap && ((side === 3 && i === 0) || (side === 1 && i === cellCols - 1))) free = true;
         }
         if (!free) continue;
         const p = poly[m], q = poly[(m + 1) % poly.length];

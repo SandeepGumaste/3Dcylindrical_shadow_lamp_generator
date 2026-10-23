@@ -2,14 +2,17 @@ import type { GrayImage } from '../types';
 import { TealightParams, generateTealightShade, generateTealightMapSvg, suggestRibs, RibSuggestion, compareShadow, ShadowComparison, FieldReport } from '../geometry/tealightShade';
 import { BowlParams, generateShadowBowl } from '../geometry/shadowBowl';
 import { indexedMeshToBinarySTL } from '../geometry/stl';
+import { FlatStripParams } from '../geometry/flatStrip';
+import { generateFlatStripExport } from '../geometry/flatStripExport';
 import type { MeshCheck } from '../geometry/meshCheck';
 
 export type TealightRequest =
   | { kind: 'tealight'; image: GrayImage; params: TealightParams }
-  | { kind: 'bowl'; image: GrayImage; params: BowlParams };
+  | { kind: 'bowl'; image: GrayImage; params: BowlParams }
+  | { kind: 'flat'; image: GrayImage; params: TealightParams; flat: FlatStripParams };
 
 export interface TealightOutput {
-  kind: 'tealight' | 'bowl';
+  kind: 'tealight' | 'bowl' | 'flat';
   positions: Float32Array;
   indices: Uint32Array;
   triangleCount: number;
@@ -55,6 +58,22 @@ export function runTealightRequest(req: TealightRequest): TealightOutput {
       fieldReport: res.report,
       comparison,
       ribSuggestion,
+    };
+  }
+  if (req.kind === 'flat') {
+    const res = generateFlatStripExport(req.image, req.params, req.flat);
+    return {
+      kind: 'flat',
+      positions: res.positions,
+      indices: res.indices,
+      triangleCount: res.triangleCount,
+      stl: indexedMeshToBinarySTL(res.positions, res.indices, 'Tealight Flat Strip'),
+      check: res.check,
+      warnings: res.warnings,
+      ms: res.ms,
+      lightZ: 0,
+      topZ: 0,
+      groundRadius: req.params.shadowRadius,
     };
   }
   const res = generateShadowBowl(req.image, req.params);

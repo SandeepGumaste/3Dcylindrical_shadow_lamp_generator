@@ -20,7 +20,7 @@ Reference: a MakerWorld model that is a flat panel with a solid top and bottom r
 
 - Not for the other modes (Box, Shadow wall, cylinder lamp, bowl) in this change.
 - Not replacing the upright STL: it stays, and the flat strip is an extra download.
-- No top ring, no LED socket, no vents, and no floor plate in the flat export (see Calls made).
+- No vents and no floor plate in the flat export. No top ring in flame mode (see Calls made). The LED socket is supported, see LED mode.
 - Flexible-filament (TPU) tuning is out of scope. The 2-layer sheet is meant for PLA/PETG.
 
 ## Anti-goals
@@ -89,3 +89,7 @@ At the foot there is no tab: the two ends meet edge to edge there.
 - Seam inside a solid bar, not at angle 0 when that would split a bar badly.
 - Ring floor about 1 mm; the strip leaves out the bottom 1 mm of the upright wall, so the shadow is exactly the upright one.
 - Manual rib count in flat mode, no `suggestRibs`.
+
+## LED mode (added 2026-10-23, owner: "if flat download is selected, it also needs to export the led tealight if turned on")
+
+With `useLed` on, the flat export adds a third part to the same STL: a socket ring, the upright shade's LED holder (45 degree lip, seat, tube for the inverted tealight body) as a separate revolved ring, with a groove in its underside (same width as the base ring's, 1.5 mm deep) that grips the strip's top edge. Printed on its underside, so the groove is an open slot and the lip a 45 degree overhang. The strip pattern is the upright LED-mode pattern (the light height comes from the LED tip height). The seam lock stops `grooveDepth + 0.3 mm` below the top edge so the socket groove only ever holds one sheet; the 5 mm rim minimum applies to the lock zone below that. The top of the cone must leave room for the groove's inner skirt (validation message mentions the socket ring). Layout: strip, base ring, socket ring side by side. Ruling: the groove grips a 1.5 mm skirt inside the strip's top rows, which are solid rim in the strip, so the shadow is unchanged.
