@@ -21,7 +21,68 @@ export interface StripGrid {
   row0: number;          // first upright row kept
   floorThickness: number; // height of the dropped bottom = ring floor thickness
   rimLo: number;         // first row (in this grid) strictly inside the top rim band
+  fingerCols: number;    // columns the lock fingers add after the tab
+  lock: LockLayout;
   report: FieldReport;
+}
+
+/** Inclusive grid cell range. */
+export interface GridRect { i0: number; i1: number; j0: number; j1: number }
+export interface LockLayout { fingers: GridRect[]; slits: GridRect[] }
+
+const FINGER = { length: 4, width: 2, barbWidth: 3, barbLength: 1.2, slitWidth: 2.4, slitLength: 1, margin: 1, gap: 1 } as const;
+
+/**
+ * Cuts the seam lock into the grid's top rim rows: arrow-shaped fingers stick out of the tab's far edge, and matching
+ * slits are cut into the left end so that, rolled, each finger tip lies over its slit (tab column C + k overlays left
+ * column k). One finger when the rim is short, two when it is tall enough to stack them. Reallocates `grid.field`.
+ */
+export function applyLock(grid: StripGrid): LockLayout {
+  const { baseCols: C, tabCols, dTheta, zs, rimLo } = grid;
+  const g = grid.geometry;
+  const rows = zs.length;
+  const zLo = zs[rimLo], zHi = zs[rows - 1];
+  const rim = zHi - zLo;
+  const rMid = coneRadius(g.Rb, g.k, (zLo + zHi) / 2);
+  const cell = dTheta * rMid;                       // mm per column in the rim
+  const fingerCols = Math.ceil(FINGER.length / cell);
+  const slitCols = Math.max(1, Math.round(FINGER.slitLength / cell));
+  const n = Math.max(1, Math.min(2, Math.floor((rim - FINGER.margin) / (FINGER.barbWidth + FINGER.gap))));
+
+  const cols = grid.cols + fingerCols;
+  const field = new Float32Array(cols * rows).fill(-255);
+  for (let j = 0; j < rows; j++) for (let i = 0; i < grid.cols; i++) field[i + cols * j] = grid.field[i + grid.cols * j];
+
+  const rowOf = (z: number) => {
+    let best = rimLo;
+    for (let j = rimLo; j < rows; j++) if (Math.abs(zs[j] - z) < Math.abs(zs[best] - z)) best = j;
+    return best;
+  };
+  const tipRolled = tabCols + fingerCols;           // tip column minus C
+  const fingers: GridRect[] = [], slits: GridRect[] = [];
+  for (let m = 0; m < n; m++) {
+    const zc = zLo + ((m + 0.5) * rim) / n;
+    let j0 = rows, j1 = -1;
+    for (let k = 1; k <= fingerCols; k++) {
+      const x = k * cell;                           // mm from the tab edge
+      const half = x < FINGER.length - FINGER.barbLength
+        ? FINGER.width / 2
+        : FINGER.barbWidth / 2 - ((x - (FINGER.length - FINGER.barbLength)) / FINGER.barbLength) * (FINGER.barbWidth / 2 - 0.5);
+      for (let j = rimLo; j < rows; j++) {
+        if (Math.abs(zs[j] - zc) <= half) { field[C + tabCols + k + cols * j] = 255; j0 = Math.min(j0, j); j1 = Math.max(j1, j); }
+      }
+    }
+    fingers.push({ i0: C + tabCols + 1, i1: C + tabCols + fingerCols, j0, j1 });
+    const sj0 = rowOf(zc - FINGER.slitWidth / 2), sj1 = rowOf(zc + FINGER.slitWidth / 2);
+    const slit = { i0: tipRolled - slitCols + 1, i1: tipRolled, j0: Math.min(sj0, j0), j1: Math.max(sj1, j1) };
+    for (let j = slit.j0; j <= slit.j1; j++) for (let i = slit.i0; i <= slit.i1; i++) field[i + cols * j] = -255;
+    slits.push(slit);
+  }
+
+  grid.field = field;
+  grid.cols = cols;
+  grid.fingerCols = fingerCols;
+  return { fingers, slits };
 }
 
 const angDist = (a: number, b: number) => {
@@ -73,9 +134,11 @@ export function buildStripGrid(img: GrayImage, p: TealightParams, fp: FlatStripP
     }
   }
 
-  return {
+  const grid: StripGrid = {
     geometry: g, cols, baseCols: C, tabCols,
     zs: g.zs.slice(row0), field: out, dTheta, seamCol, row0,
-    floorThickness: g.zs[row0], rimLo: rimLoFull - row0, report,
+    floorThickness: g.zs[row0], rimLo: rimLoFull - row0, fingerCols: 0, lock: { fingers: [], slits: [] }, report,
   };
+  grid.lock = applyLock(grid);
+  return grid;
 }
