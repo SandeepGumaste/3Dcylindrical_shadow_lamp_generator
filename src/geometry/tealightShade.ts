@@ -46,7 +46,7 @@ export interface TealightParams {
 export const DEFAULT_TEALIGHT_PARAMS: TealightParams = {
   threshold: 128,
   edgeRounding: 10,
-  invert: false,
+  invert: true,
   innerDiameter: 44,
   topDiameter: 40,
   height: 42,
