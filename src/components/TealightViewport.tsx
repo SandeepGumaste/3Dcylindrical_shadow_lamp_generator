@@ -1,11 +1,13 @@
 import React, { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import { DEFAULT_VIEW_MODE, NO_CLIP, ViewMode, ViewToggles, createEnvironmentLight, createModelMeshes } from './viewMode';
+import { DEFAULT_VIEW_MODE, NO_CLIP, ViewMode, ViewToggles, createEnvironmentLight, createModel } from './viewMode';
 
 interface Props {
   positions: Float32Array | null;
   indices: Uint32Array | null;
+  /** Index count where snap-off supports start in `indices`; they are drawn in another colour. */
+  supportFrom?: number;
   /** Light height and overall height in mm (z-up model coordinates). */
   lightZ: number;
   topZ: number;
@@ -22,11 +24,11 @@ interface Props {
  * point light at the flame / LED position. The room is otherwise dark, so what lands on the
  * ground is the shadow the printed part would throw.
  */
-export const TealightViewport: React.FC<Props> = ({ positions, indices, lightZ, topZ, groundRadius, triangleCount, busy, stale, onGenerate }) => {
+export const TealightViewport: React.FC<Props> = ({ positions, indices, lightZ, topZ, groundRadius, triangleCount, busy, stale, onGenerate, supportFrom }) => {
   const host = useRef<HTMLDivElement>(null);
   const stateRef = useRef<{
     scene: THREE.Scene; camera: THREE.PerspectiveCamera; controls: OrbitControls;
-    pivot: THREE.Group; light: THREE.PointLight; bulb: THREE.Mesh; ground: THREE.Mesh; model: ReturnType<typeof createModelMeshes> | null;
+    pivot: THREE.Group; light: THREE.PointLight; bulb: THREE.Mesh; ground: THREE.Mesh; model: ReturnType<typeof createModel> | null;
     env: ReturnType<typeof createEnvironmentLight>; plane: THREE.Plane;
   } | null>(null);
   const [mode, setMode] = useState<ViewMode>(DEFAULT_VIEW_MODE);
@@ -123,16 +125,12 @@ export const TealightViewport: React.FC<Props> = ({ positions, indices, lightZ, 
       s.model = null;
     }
     if (!positions || !indices || !positions.length) return;
-    const geo = new THREE.BufferGeometry();
-    geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-    geo.setIndex(new THREE.BufferAttribute(indices, 1));
-    geo.computeVertexNormals();
-    const model = createModelMeshes(geo, s.plane);
+    const model = createModel(positions, indices, supportFrom, s.plane);
     model.setSlice(mode.slice);
     s.pivot.add(model.group);
     s.model = model;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [positions, indices]);
+  }, [positions, indices, supportFrom]);
 
   useEffect(() => {
     const s = stateRef.current;

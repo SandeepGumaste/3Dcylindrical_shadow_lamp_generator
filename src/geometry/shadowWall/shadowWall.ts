@@ -17,6 +17,7 @@ import { MeshBuilder, SurfaceMap, buildShell } from '../shellMesh';
 import { checkMesh, MeshCheck } from '../meshCheck';
 import { bridgeFloatingPieces } from './bridge';
 import { BaseSpec, addBase, validateBase } from './base';
+import { addSupports } from './supports';
 
 export interface ShadowWallParams extends FootprintParams {
   height: number;        // mm, total wall height
@@ -29,6 +30,7 @@ export interface ShadowWallParams extends FootprintParams {
   edgeRounding: number;  // 0..40, blur radius = value / 10 grid pixels
   invert: boolean;       // false: dark pixels are shadow (solid)
   minFeature: number;    // mm, 0 = off
+  supports: boolean;     // snap-off pillars under overhanging cut-out roofs
   base: boolean;         // plate under the wall (z = 0 of the wall is the top of the plate)
   baseThickness: number; // mm
   baseHoleDiameter: number; // mm, centre hole for the light
@@ -55,6 +57,7 @@ export const DEFAULT_SHADOW_WALL_PARAMS: ShadowWallParams = {
   edgeRounding: 10,
   invert: false,
   minFeature: 0.8,
+  supports: false,
   base: true,
   baseThickness: 3,
   baseHoleDiameter: 12.5,
@@ -290,9 +293,12 @@ export interface ShadowWallResult {
   positions: Float32Array;
   indices: Uint32Array;
   triangleCount: number;
+  /** Index count of the model proper; the support pillars' triangles come after it. */
+  supportIndexStart: number;
   geometry: ShadowWallGeometry;
   field: Float32Array;
   report: ShadowWallField['report'] & {
+    supports: { count: number; skipped: number };
     check: MeshCheck;
     warnings: string[];
     ms: number;
@@ -412,14 +418,18 @@ export function generateShadowWall(img: GrayImage, p: ShadowWallParams, runCheck
 
   const { geometry: g, field, report } = buildField(img, p);
   const o = g.outline;
-  const C = o.cols;
+  const C = o.cols, zs = g.zs;
   const mb = new MeshBuilder();
 
   const { inner: innerMap, outer: outerMap } = surfaceMaps(g, p);
 
   const shell = buildShell(mb, { cols: C, zs: g.zs, field, inner: innerMap, outer: outerMap }, { skipBottomBorder: p.base });
+  if (p.base) addBase(mb, shell.bottomInner, shell.bottomOuter, baseSpecOf(p));
+  const supportIndexStart = mb.indices.length;
+  const supports = p.supports
+    ? addSupports(mb, { cols: C, zs, field, bandStart: g.bandStart, bandEnd: g.bandEnd, cell: o.perimeter / C, inner: innerMap, outer: outerMap })
+    : { count: 0, skipped: 0 };
   if (p.base) {
-    addBase(mb, shell.bottomInner, shell.bottomOuter, baseSpecOf(p));
     for (let v = 2; v < mb.positions.length; v += 3) mb.positions[v] += p.baseThickness; // rest the plate on z = 0
   }
   const { positions, indices } = mb.toArrays();
@@ -444,14 +454,17 @@ export function generateShadowWall(img: GrayImage, p: ShadowWallParams, runCheck
   }
   if (p.minFeature > 0 && report.specksRemoved > 0)
     warnings.push(`${report.specksRemoved} feature(s) smaller than ${p.minFeature} mm were dropped.`);
+  if (supports.count > 0) warnings.push(`${supports.count} snap-off support pillar(s) added under the overhangs: break them off after printing.`);
+  if (supports.skipped > 0) warnings.push(`${supports.skipped} overhang(s) had no clear room for a support pillar and were left without one.`);
 
   const t1 = typeof performance !== 'undefined' ? performance.now() : Date.now();
   return {
     positions,
     indices,
     triangleCount: indices.length / 3,
+    supportIndexStart,
     geometry: g,
     field,
-    report: { ...report, check, warnings, ms: t1 - t0 },
+    report: { ...report, supports, check, warnings, ms: t1 - t0 },
   };
 }

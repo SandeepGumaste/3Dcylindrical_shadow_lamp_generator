@@ -32,9 +32,9 @@ export function createEnvironmentLight(parent: THREE.Object3D, keyPosition: THRE
  * The printed part as two meshes sharing one geometry: the lit surface, and a flat-coloured copy of its
  * inside faces that only shows through the cut and reads as the cross section.
  */
-export function createModelMeshes(geo: THREE.BufferGeometry, plane: THREE.Plane) {
+export function createModelMeshes(geo: THREE.BufferGeometry, plane: THREE.Plane, color = 0xf4f1ea) {
   const lit = new THREE.MeshStandardMaterial({
-    color: 0xf4f1ea, roughness: 0.55, metalness: 0.05, side: THREE.DoubleSide, clippingPlanes: [plane], clipShadows: true,
+    color, roughness: 0.55, metalness: 0.05, side: THREE.DoubleSide, clippingPlanes: [plane], clipShadows: true,
   });
   lit.shadowSide = THREE.DoubleSide;
   const mesh = new THREE.Mesh(geo, lit);
@@ -56,6 +56,31 @@ export function createModelMeshes(geo: THREE.BufferGeometry, plane: THREE.Plane)
       section.visible = on;
     },
     dispose() { geo.dispose(); lit.dispose(); sectionMat.dispose(); },
+  };
+}
+
+const SUPPORT_COLOR = 0x4fb3e8;
+
+/**
+ * The model from raw arrays. When `supportFrom` is an index count inside the array, the triangles after it are the
+ * snap-off supports and are drawn in a different colour.
+ */
+export function createModel(positions: Float32Array, indices: Uint32Array, supportFrom: number | undefined, plane: THREE.Plane) {
+  const part = (idx: Uint32Array, color: number) => {
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    geo.setIndex(new THREE.BufferAttribute(idx, 1));
+    geo.computeVertexNormals();
+    return createModelMeshes(geo, plane, color);
+  };
+  const split = supportFrom !== undefined && supportFrom > 0 && supportFrom < indices.length;
+  const parts = split ? [part(indices.subarray(0, supportFrom), 0xf4f1ea), part(indices.subarray(supportFrom), SUPPORT_COLOR)] : [part(indices, 0xf4f1ea)];
+  const group = new THREE.Group();
+  for (const m of parts) group.add(m.group);
+  return {
+    group,
+    setSlice(on: boolean) { for (const m of parts) m.setSlice(on); },
+    dispose() { for (const m of parts) m.dispose(); },
   };
 }
 

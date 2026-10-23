@@ -332,6 +332,7 @@ export default function App() {
             <TealightViewport
               positions={wall.result?.positions ?? null}
               indices={wall.result?.indices ?? null}
+              supportFrom={wall.result?.supportIndexStart}
               lightZ={wall.result?.lightZ ?? previewHeights(wall.params).lightZ}
               topZ={wall.result?.topZ ?? previewHeights(wall.params).topZ}
               groundRadius={wall.result?.groundRadius ?? (wall.params.shadowSize * wall.params.imageScale) / 200}

@@ -9,6 +9,8 @@ export interface ShadowWallOutput {
   positions: Float32Array;
   indices: Uint32Array;
   triangleCount: number;
+  /** Index count of the model proper; support pillars follow (preview colours them apart). */
+  supportIndexStart: number;
   stl: ArrayBuffer;
   check: MeshCheck;
   warnings: string[];
@@ -27,6 +29,7 @@ export function runShadowWallRequest(req: ShadowWallRequest): ShadowWallOutput {
     positions: res.positions,
     indices: res.indices,
     triangleCount: res.triangleCount,
+    supportIndexStart: res.supportIndexStart,
     stl: indexedMeshToBinarySTL(res.positions, res.indices, 'Shadow Wall'),
     check: res.report.check,
     warnings: res.report.warnings,
