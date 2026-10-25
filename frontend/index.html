@@ -3,30 +3,79 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Odd Shadows - 3D printable shadow lamps</title>
-    <meta name="description" content="Turn a picture into a 3D printable lamp shade that casts its image as a shadow. Free to use with a Google sign-in." />
+    <title>Odd Shadows: 3D Printable Shadow Lamp Generator</title>
+    <meta name="description" content="Turn any picture into a 3D printable shadow lamp. Tune the shade, preview the shadow and download a ready-to-print STL. Free with a Google sign-in." />
     <link rel="canonical" href="{{siteUrl}}{{route}}" />
+    <meta name="robots" content="index, follow, max-image-preview:large" />
+    <meta name="theme-color" content="#ffc23a" />
     <meta property="og:type" content="website" />
-    <meta property="og:title" content="Odd Shadows - 3D printable shadow lamps" />
-    <meta property="og:description" content="Turn a picture into a 3D printable lamp shade that casts its image as a shadow. Free to use with a Google sign-in." />
+    <meta property="og:site_name" content="Odd Shadows" />
+    <meta property="og:locale" content="en" />
+    <meta property="og:title" content="Odd Shadows: 3D Printable Shadow Lamp Generator" />
+    <meta property="og:description" content="Turn any picture into a 3D printable shadow lamp. Tune the shade, preview the shadow and download a ready-to-print STL. Free with a Google sign-in." />
     <meta property="og:url" content="{{siteUrl}}{{route}}" />
     <meta property="og:image" content="{{siteUrl}}/site/assets/og.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="A tealight shade casting a sunburst of light and shadow on a wall" />
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="Odd Shadows - 3D printable shadow lamps" />
-    <meta name="twitter:description" content="Turn a picture into a 3D printable lamp shade that casts its image as a shadow. Free to use with a Google sign-in." />
+    <meta name="twitter:title" content="Odd Shadows: 3D Printable Shadow Lamp Generator" />
+    <meta name="twitter:description" content="Turn any picture into a 3D printable shadow lamp. Tune the shade, preview the shadow and download a ready-to-print STL. Free with a Google sign-in." />
     <meta name="twitter:image" content="{{siteUrl}}/site/assets/og.png" />
+    <meta name="twitter:image:alt" content="A tealight shade casting a sunburst of light and shadow on a wall" />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="preload" href="/fonts/archivo-black.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="stylesheet" href="/site/site.css" />
     <script type="application/ld+json">
 {
   "@context": "https://schema.org",
   "@type": "WebApplication",
   "name": "Odd Shadows",
-  "description": "Turn a picture into a 3D printable lamp shade that casts its image as a shadow. Free to use with a Google sign-in.",
+  "description": "Turn any picture into a 3D printable shadow lamp. Tune the shade, preview the shadow and download a ready-to-print STL. Free with a Google sign-in.",
   "url": "{{siteUrl}}/",
   "applicationCategory": "DesignApplication",
   "operatingSystem": "Any modern web browser",
   "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"}
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "Can I use fire?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "No. Use an LED light only. A printed shade can bend, melt or burn around a flame."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Which printer?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Any 3D printer that can print an STL file. Pick a material that handles the heat of your light."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Do I need an account?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes, a Google account. You sign in once to open the app, and there is no password to set."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "What is stored?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Your Google name, email and profile picture, so the site knows who you are. The picture you pick is sent to the server to build your model and is not saved."
+      }
+    }
+  ]
 }
     </script>
   </head>
@@ -45,7 +94,7 @@
         <h1>Print a<br>shadow.</h1>
         <div class="hero-row">
           <div>
-            <p class="lede">Pick a picture. Odd Shadows turns it into a tealight shade you can print at home. Switch on an LED tealight and the picture appears on the wall as a shadow.</p>
+            <p class="lede">Pick a picture. Odd Shadows turns it into a 3D printable shadow lamp: a tealight shade you can print at home. Switch on an LED tealight and the picture appears on the wall as a shadow.</p>
             <p class="note">Free to use. Sign in with Google to open the app.</p>
           </div>
           <p><a class="button" href="/app?signin=1">Start making a shade</a></p>

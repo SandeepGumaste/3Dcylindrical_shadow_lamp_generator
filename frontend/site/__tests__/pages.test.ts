@@ -113,6 +113,18 @@ describe('internal links', () => {
   });
 });
 
+describe('landing page FAQ structured data', () => {
+  const html = built('/');
+  const blocks = [...html.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)].map((m) => JSON.parse(m[1]));
+  const visible = [...read('index.html').matchAll(/<div><h3>(.*?)<\/h3><p>(.*?)<\/p><\/div>/g)].map((m) => ({q: m[1], a: m[2]}));
+  it('has a FAQPage that matches the visible questions word for word', () => {
+    const faq = blocks.find((b) => b['@type'] === 'FAQPage');
+    expect(faq).toBeTruthy();
+    expect(faq.mainEntity.map((e: any) => ({q: e.name, a: e.acceptedAnswer.text}))).toEqual(visible);
+    expect(visible.length).toBeGreaterThanOrEqual(4);
+  });
+});
+
 describe('landing page', () => {
   const src = read('index.html');
   const html = built('/');
@@ -124,8 +136,8 @@ describe('landing page', () => {
   it('has no script src and no JavaScript other than JSON-LD', () => {
     expect(src).not.toMatch(/<script\b[^>]*\bsrc\s*=/i);
     const scripts = [...src.matchAll(/<script\b[^>]*>/gi)];
-    expect(scripts.length).toBe(1);
-    expect(scripts[0][0]).toMatch(/application\/ld\+json/);
+    expect(scripts.length).toBe(2); // WebApplication and FAQPage
+    for (const s of scripts) expect(s[0]).toMatch(/application\/ld\+json/);
     expect(src).not.toMatch(/\son[a-z]+\s*=/i);
   });
   it('links to /app and asks for sign-in on the way', () => {
