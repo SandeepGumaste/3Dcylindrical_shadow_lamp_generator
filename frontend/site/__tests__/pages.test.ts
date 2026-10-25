@@ -106,7 +106,7 @@ describe('internal links', () => {
       for (const m of read(f).matchAll(/<a\b[^>]*\bhref="([^"]*)"/g)) {
         const href = m[1];
         if (/^(mailto:|https?:|#)/.test(href)) continue;
-        expect(routes, `${f}: ${href}`).toContain(href.split('#')[0]);
+        expect(routes, `${f}: ${href}`).toContain(href.split('#')[0].split('?')[0]);
       }
     }
   });
@@ -127,8 +127,8 @@ describe('landing page', () => {
     expect(scripts[0][0]).toMatch(/application\/ld\+json/);
     expect(src).not.toMatch(/\son[a-z]+\s*=/i);
   });
-  it('links to /app', () => {
-    expect(src).toMatch(/<a\b[^>]*href="\/app"/);
+  it('links to /app and asks for sign-in on the way', () => {
+    expect(src).toMatch(/<a\b[^>]*href="\/app\?signin=1"/);
   });
   it('has WebApplication JSON-LD with name, description and the site URL', () => {
     const ld = JSON.parse(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/.exec(html)![1]);

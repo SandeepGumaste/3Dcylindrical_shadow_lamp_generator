@@ -8,6 +8,7 @@ main{max-width:65ch;margin:0 auto;padding:2rem 1rem}
 h1{line-height:1.2}
 .site-header,.site-footer{display:flex;flex-wrap:wrap;gap:.75rem 1.5rem;justify-content:space-between;align-items:center;max-width:65ch;margin:0 auto;padding:1rem}
 .site-header{border-bottom:1px solid var(--line)}
+.site-header nav{display:flex;flex-wrap:wrap;align-items:center;gap:.5rem 1.25rem}
 .site-footer{border-top:1px solid var(--line);color:var(--muted)}
 .brand{font-weight:700;text-decoration:none;color:var(--fg)}
 nav{display:flex;flex-wrap:wrap;gap:.5rem 1.25rem}

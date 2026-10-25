@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Brand } from '../components/Brand';
 
 const GoogleMark: React.FC = () => (
@@ -45,7 +45,7 @@ export const SignInErrorScreen: React.FC<{ onRetry: () => void }> = ({ onRetry }
 );
 
 /** The sign-in card: explains why sign-in is needed and starts the Google flow. */
-export const SignInScreen: React.FC<{ onSignIn: () => void | Promise<void> }> = ({ onSignIn }) => {
+export const SignInScreen: React.FC<{ onSignIn: () => void | Promise<void>; autoStart?: boolean }> = ({ onSignIn, autoStart }) => {
   const [pending, setPending] = useState(false);
   const [failed, setFailed] = useState(false);
   const start = async () => {
@@ -58,6 +58,12 @@ export const SignInScreen: React.FC<{ onSignIn: () => void | Promise<void> }> = 
       setFailed(true);
     }
   };
+  const started = useRef(false);
+  useEffect(() => {
+    if (!autoStart || started.current) return;
+    started.current = true; // StrictMode runs effects twice in development
+    void start();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
   return (
     <Frame>
       <div className="space-y-5">
