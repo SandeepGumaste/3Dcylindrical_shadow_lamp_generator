@@ -2,5 +2,8 @@
   "cleanUrls": true,
   "git": { "deploymentEnabled": { "**": false, "main": true, "dev": true, "backend": true } },
   "ignoreCommand": "case \"$VERCEL_GIT_COMMIT_REF\" in main|dev|backend) exit 1;; *) exit 0;; esac",
-  "rewrites": [{ "source": "/app/:path*", "destination": "/app/index.html" }]
+  "rewrites": [
+    { "source": "/api/:path*", "destination": "https://odd-shadows-api.onrender.com/api/:path*" },
+    { "source": "/app/:path*", "destination": "/app/index.html" }
+  ]
 }
