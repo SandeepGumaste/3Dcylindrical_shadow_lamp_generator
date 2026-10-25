@@ -38,10 +38,19 @@ export async function generate(req: GenerateRequest, signal?: AbortSignal, fetch
   return unframeResponse(await res.arrayBuffer());
 }
 
-export async function download(req: GenerateRequest, fetchFn: typeof fetch = fetch): Promise<{ blob: Blob; filename: string }> {
+export interface Downloaded { blob: Blob; filename: string; warnings: string[] }
+
+export async function download(req: GenerateRequest, fetchFn: typeof fetch = fetch): Promise<Downloaded> {
   const res = await post(req, undefined, fetchFn);
   const filename = /filename="([^"]+)"/.exec(res.headers.get('content-disposition') ?? '')?.[1] ?? 'odd-shadows-download';
-  return { blob: await res.blob(), filename };
+  let warnings: string[] = [];
+  try {
+    const raw = res.headers.get('x-warnings');
+    if (raw) warnings = JSON.parse(decodeURIComponent(raw)) as string[];
+  } catch {
+    /* a malformed header only loses the warnings */
+  }
+  return { blob: await res.blob(), filename, warnings };
 }
 
 /** Saves a downloaded file through the browser. */

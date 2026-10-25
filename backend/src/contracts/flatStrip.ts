@@ -1,0 +1,6 @@
+export interface FlatStripParams {
+  layerHeight: number; // mm
+  layers: number;      // sheet thickness = layers * layerHeight
+}
+
+export const DEFAULT_FLAT_STRIP_PARAMS: FlatStripParams = { layerHeight: 0.2, layers: 2 };

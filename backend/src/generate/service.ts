@@ -11,7 +11,7 @@ import { indexedMeshToBinarySTL } from '../geometry/stl';
 
 export type GenerateResult =
   | { kind: 'framed'; meta: object; positions: Float32Array; indices: Uint32Array }
-  | { kind: 'file'; body: ArrayBuffer | string; contentType: string; filename: string };
+  | { kind: 'file'; body: ArrayBuffer | string; contentType: string; filename: string; warnings?: string[] };
 
 const STL = 'model/stl';
 const file = (body: ArrayBuffer | string, contentType: string, filename: string): GenerateResult => ({ kind: 'file', body, contentType, filename });
@@ -31,12 +31,22 @@ export async function generate(req: ParsedRequest): Promise<GenerateResult> {
     }
     if (output !== 'preview') throw refuse(typeof output === 'string' ? output : 'part', mode);
     const meta: TealightMeta = {
-      kind: out.kind, triangleCount: out.triangleCount, check: out.check, warnings: out.warnings, ms: out.ms,
+      kind: out.kind as TealightMeta['kind'], triangleCount: out.triangleCount, check: out.check, warnings: out.warnings, ms: out.ms,
       lightZ: out.lightZ, topZ: out.topZ, groundRadius: out.groundRadius,
       fieldReport: out.fieldReport, ribSuggestion: out.ribSuggestion,
       comparison: out.comparison ? wireComparison(out.comparison) : undefined,
     };
     return { kind: 'framed', meta, positions: out.positions, indices: out.indices };
+  }
+
+  if (mode === 'flat') {
+    const { layerHeight, layers, ...tealight } = params;
+    const out = runTealightRequest({ kind: 'flat', image: image!, params: tealight, flat: { layerHeight, layers } });
+    if (!out.check.watertight) throw new RequestError(422, `Flat strip is not watertight: ${out.check.errors.join(' ')}`);
+    if (output !== 'zip') throw refuse(typeof output === 'string' ? output : 'part', mode);
+    const zip = out.zip!;
+    const body = zip.buffer.slice(zip.byteOffset, zip.byteOffset + zip.byteLength) as ArrayBuffer;
+    return { kind: 'file', body, contentType: 'application/zip', filename: 'odd-shadows-flat-strip.zip', warnings: out.warnings };
   }
 
   if (mode === 'wall') {
@@ -45,7 +55,7 @@ export async function generate(req: ParsedRequest): Promise<GenerateResult> {
     const out = runShadowWallRequest({ image: image!, params: used });
     if (output === 'stl') return file(out.stl, STL, 'odd-shadows-shadow-wall.stl');
     if (output !== 'preview') throw refuse(typeof output === 'string' ? output : 'part', mode);
-    const meta: WallMeta = { triangleCount: out.triangleCount, check: out.check, warnings: out.warnings, ms: out.ms, lightZ: out.lightZ, topZ: out.topZ, groundRadius: out.groundRadius, fit };
+    const meta: WallMeta = { triangleCount: out.triangleCount, supportIndexStart: out.supportIndexStart, check: out.check, warnings: out.warnings, ms: out.ms, lightZ: out.lightZ, topZ: out.topZ, groundRadius: out.groundRadius, fit };
     return { kind: 'framed', meta, positions: out.positions, indices: out.indices };
   }
 

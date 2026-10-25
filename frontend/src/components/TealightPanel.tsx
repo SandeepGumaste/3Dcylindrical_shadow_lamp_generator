@@ -111,6 +111,12 @@ export const TealightPanel: React.FC<{ c: TealightController }> = ({ c }) => {
               hint="Adds thin strips so the middle of an “O” stays attached." />
             <Num label="Minimum feature (0 = off)" unit="mm" value={t.minFeature} min={0} max={3} step={0.1} onChange={(v) => c.setTealight({ minFeature: v })} />
           </Group>
+          <Group title="Flat strip (print flat)">
+            <Num label="Layer height" unit="mm" value={c.flatParams.layerHeight} min={0.05} max={0.4} step={0.05} onChange={(v) => c.setFlat({ layerHeight: v })} />
+            <Num label="Layers" value={c.flatParams.layers} min={1} max={6} onChange={(v) => c.setFlat({ layers: v })} />
+            {c.flatErrors.map((e) => <p key={e} className="text-[11px] text-amber-300/90">⚠ {e}</p>)}
+            <p className="text-[10px] text-slate-500">Sheet is {(c.flatParams.layerHeight * c.flatParams.layers).toFixed(2)} mm thick: it bends into the cone; clip the ends together and stand it in the ring. With LED mode on, the LED socket ring is added. The download is a zip: every part as its own STL plus one STL with all parts together, so you can reprint just one. Uses the Support Ribs number you set (not the auto suggestion), so the shadow can differ slightly from the preview.</p>
+          </Group>
           <Group title="LED tealight">
             <Check label="Use LED tealight" value={t.useLed} onChange={(v) => c.setTealight({ useLed: v })} hint="Hangs upside down from the top rim; flame height is derived." />
             <Num label="Tealight Diameter" unit="mm" value={t.tealightDiameter} min={30} max={60} step={0.5} onChange={(v) => c.setTealight({ tealightDiameter: v })} />
@@ -150,6 +156,8 @@ export const TealightPanel: React.FC<{ c: TealightController }> = ({ c }) => {
           <p key={e} className="flex gap-1.5 text-red-300 text-[11px]"><AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />{e}</p>
         ))}
         {c.runError && <p className="text-red-300 text-[11px]">{c.runError}</p>}
+        {isTea && c.flatError && <p className="text-red-300 text-[11px]">{c.flatError}</p>}
+        {isTea && c.flatWarnings.map((w) => <p key={w} className="text-amber-300/90 text-[11px]">⚠ {w}</p>)}
         {c.result && !bad && (
           <p className={`flex gap-1.5 text-[11px] ${c.result.check.watertight && c.result.check.errors.length === 0 ? 'text-emerald-300' : 'text-red-300'}`}>
             {c.result.check.watertight && c.result.check.errors.length === 0
@@ -166,6 +174,12 @@ export const TealightPanel: React.FC<{ c: TealightController }> = ({ c }) => {
           <button onClick={c.download} disabled={!c.result || c.stale || bad || !c.result.check.watertight} className="flex items-center gap-1.5 px-2.5 py-2 rounded-lg bg-emerald-500/20 border border-emerald-500/40 text-emerald-200 hover:bg-emerald-500/30 disabled:opacity-40">
             <Download className="w-3.5 h-3.5" />STL
           </button>
+          {isTea && (
+            <button onClick={c.downloadFlat} disabled={!c.image || c.flatBusy || bad || c.flatErrors.length > 0} title="Zip with the strip, ring (and LED socket ring) as separate STLs plus all together on one plate: print 2 layers thick, then roll up"
+              className="flex items-center gap-1.5 px-2.5 py-2 rounded-lg bg-violet-500/20 border border-violet-500/40 text-violet-200 hover:bg-violet-500/30 disabled:opacity-40">
+              <Download className="w-3.5 h-3.5" />{c.flatBusy ? 'Flat…' : 'Flat'}
+            </button>
+          )}
           {isTea && (
             <button onClick={c.downloadMap} disabled={!c.result?.hasMap || c.stale || bad} title="Unwrapped wall map (mm), solid = black, holes = white"
               className="flex items-center gap-1.5 px-2.5 py-2 rounded-lg bg-sky-500/20 border border-sky-500/40 text-sky-200 hover:bg-sky-500/30 disabled:opacity-40">

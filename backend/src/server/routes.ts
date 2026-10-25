@@ -71,6 +71,7 @@ export async function handleGenerate(req: Request, deps: GenerateDeps): Promise<
         'content-type': result.contentType,
         'content-disposition': `attachment; filename="${result.filename}"`,
         'cache-control': 'no-store',
+        ...(result.warnings?.length ? { 'x-warnings': encodeURIComponent(JSON.stringify(result.warnings)) } : {}),
       },
     });
   } catch (e) {

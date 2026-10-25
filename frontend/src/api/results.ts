@@ -43,6 +43,8 @@ export interface WallResult {
   positions: Float32Array;
   indices: Uint32Array;
   triangleCount: number;
+  /** Index count of the model proper; support pillars follow. */
+  supportIndexStart: number;
   check: MeshCheck;
   warnings: string[];
   ms: number;
@@ -52,7 +54,7 @@ export interface WallResult {
 }
 export function toWallResult(p: Preview<WallMeta>): WallResult {
   const m = p.meta;
-  return { positions: p.positions, indices: p.indices, triangleCount: m.triangleCount, check: m.check, warnings: m.warnings, ms: m.ms, lightZ: m.lightZ, topZ: m.topZ, groundRadius: m.groundRadius };
+  return { positions: p.positions, indices: p.indices, triangleCount: m.triangleCount, supportIndexStart: m.supportIndexStart, check: m.check, warnings: m.warnings, ms: m.ms, lightZ: m.lightZ, topZ: m.topZ, groundRadius: m.groundRadius };
 }
 
 export interface BoxResult {

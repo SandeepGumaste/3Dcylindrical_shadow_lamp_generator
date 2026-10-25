@@ -28,7 +28,7 @@ describe('withCors', () => {
     expect(res.status).toBe(200);
     expect(await res.text()).toBe('{"ok":true}');
     expect(res.headers.get('access-control-allow-origin')).toBe(ALLOWED);
-    expect(res.headers.get('access-control-expose-headers')).toBe('content-disposition');
+    expect(res.headers.get('access-control-expose-headers')).toBe('content-disposition, x-warnings');
   });
   it('leaves a request without an Origin untouched', async () => {
     const res = await inner(req(null));

@@ -15,7 +15,7 @@ export { DEFAULT_TEALIGHT_PARAMS, LED_CLEARANCE };
 export type { TealightParams, FieldReport, RibSuggestion, ShadowComparison };
 
 
-const LIP_WIDTH = 1.5;      // how far the socket lip reaches in under the LED body
+export const LIP_WIDTH = 1.5;      // how far the socket lip reaches in under the LED body
 const FOOT_MIN = 3;         // mm of solid foot band
 
 export interface TealightGeometry {
@@ -25,7 +25,7 @@ export interface TealightGeometry {
   wall: number;
   hf: number;               // light height
   s: number;                // outer/inner ray scale about the light: 1 + wall / R(hf)
-  lipT: number;             // socket flange thickness (LED mode)
+  lipT: number;             // height of the LED seat above the top rim (wall thickness plus the 45 degree chamfer)
   baseBand: number;         // top of the solid foot band
   zmax: number;             // top of the pattern band
   zs: Float64Array;         // grid node heights
@@ -90,7 +90,10 @@ export function deriveGeometry(p: TealightParams): TealightGeometry {
   const H = p.height;
   const k = (Rt - Rb) / H;
   const wall = p.wallThickness;
-  const lipT = wall;
+  // LED socket: the lip under the LED body is a 45 degree cone from the shade's inner rim, so it prints without
+  // support; lipT is the height of the LED seat above the rim.
+  const lipR = (p.tealightDiameter + LED_CLEARANCE) / 2 - LIP_WIDTH;
+  const lipT = wall + (p.useLed ? Math.max(0, Rt - lipR) : 0);
   const hf = p.useLed ? H + lipT - p.ledTipHeight : p.flameHeight;
   const s = 1 + wall / (Rb + k * hf);
   const ventNeed = p.vents > 0 ? p.ventSize + 1.5 : 0;
@@ -697,19 +700,21 @@ function addLedSocket(mb: MeshBuilder, g: TealightGeometry, p: TealightParams, t
   const rA = coneRadius(g.Rb, g.k, H);
   const rB = rA + g.wall;
   const pOut = Math.max(rB, b);
+  const seat = H + g.lipT;
+  const chamfer = Math.max(0, rA - lipR); // 45 degrees: rises one mm per mm of inward reach
 
   type Pt = { r: number; z: number; ring?: Int32Array };
   const raw: Pt[] = [
-    { r: lipR, z: H },
+    { r: lipR, z: H + chamfer },
     { r: rA, z: H, ring: topInner },
     { r: rB, z: H, ring: topOuter },
     { r: pOut, z: H },
-    { r: pOut, z: H + g.lipT },
-    { r: b, z: H + g.lipT },
-    { r: b, z: H + g.lipT + p.bodyHeight },
-    { r: a, z: H + g.lipT + p.bodyHeight },
-    { r: a, z: H + g.lipT },
-    { r: lipR, z: H + g.lipT },
+    { r: pOut, z: seat },
+    { r: b, z: seat },
+    { r: b, z: seat + p.bodyHeight },
+    { r: a, z: seat + p.bodyHeight },
+    { r: a, z: seat },
+    { r: lipR, z: seat },
   ];
   const pts: Pt[] = [];
   for (const q of raw) {

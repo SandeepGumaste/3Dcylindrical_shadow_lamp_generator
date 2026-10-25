@@ -11,8 +11,9 @@ function fnv1a(buf: Float32Array): string {
 }
 
 describe('tealight shade output is pinned', () => {
-  it('default parameters on the first sample pattern give the recorded mesh', () => {
-    const res = generateTealightShade(TEALIGHT_SAMPLES[0].make(256), DEFAULT_TEALIGHT_PARAMS);
+  it('the original 60 x 70 mm parameters on the first sample pattern give the recorded mesh', () => {
+    const original = { ...DEFAULT_TEALIGHT_PARAMS, invert: false, innerDiameter: 60, height: 70, patternGapTop: 0 };
+    const res = generateTealightShade(TEALIGHT_SAMPLES[0].make(256), original);
     expect(res.report.check.watertight).toBe(true);
     expect(res.triangleCount).toBe(413504);
     expect(fnv1a(res.positions)).toBe('9c7a5288');

@@ -12,7 +12,7 @@ const files = readdirSync(dir).filter((f) => f.endsWith('.ts'));
 
 describe('contracts', () => {
   it('has the expected files', () => {
-    expect(files.sort()).toEqual(['api.ts', 'bowl.ts', 'box.ts', 'lightSource.ts', 'outputs.ts', 'shadowWall.ts', 'tealight.ts']);
+    expect(files.sort()).toEqual(['api.ts', 'bowl.ts', 'box.ts', 'flatStrip.ts', 'lightSource.ts', 'outputs.ts', 'shadowWall.ts', 'tealight.ts']);
   });
   it('imports nothing from outside the contracts folder', () => {
     for (const f of files) {

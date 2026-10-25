@@ -8,11 +8,12 @@ import shivaUrl from '../assets/shiva.jpg';
 import hanumanUrl from '../assets/hanuman.png';
 import catUrl from '../assets/cat.png';
 import { loadImageToGray } from '../image/loadImage';
-import { encodeGray, saveBlob } from '../api/client';
+import { encodeGray, saveBlob, download as downloadFile, type Downloaded } from '../api/client';
 import { ApiError } from '../api/errors';
 import { newGenerationSession } from '../api/unauthorized';
 import { notifyUnauthorized } from '../api/unauthorized';
 import { toTealightResult, type TealightResult } from '../api/results';
+import { DEFAULT_FLAT_STRIP_PARAMS, type FlatStripParams } from '../contracts/flatStrip';
 
 export type TableMode = 'tealight' | 'bowl';
 
@@ -29,6 +30,32 @@ export function presetParams(id: string): Partial<TealightParams> {
   const s = BUNDLED_IMAGES.find((x) => x.id === id);
   return s ? { invert: DEFAULT_TEALIGHT_PARAMS.invert, ...s.params } : {};
 }
+export type FlatExport = { ok: true; warnings: string[] } | { ok: false; error: string; errors: string[] };
+
+/** Asks the server for the flat strip zip (each part alone plus all together) and saves it; the server refuses invalid settings and meshes that are not watertight. */
+export async function exportFlatStrip(a: {
+  image: GrayImage; params: TealightParams; flat: FlatStripParams; name: string;
+  request?: typeof downloadFile; save?: (blob: Blob, filename: string) => void;
+}): Promise<FlatExport> {
+  const req: GenerateRequest = {
+    mode: 'flat',
+    image: { kind: 'gray', width: 512, height: 512, pixels: encodeGray(a.image.pixels) },
+    params: { ...a.params, ...a.flat } as unknown as Record<string, unknown>,
+    output: 'zip',
+  };
+  try {
+    const out = await (a.request ?? downloadFile)(req);
+    const date = new Date().toISOString().slice(0, 10);
+    (a.save ?? saveBlob)(out.blob, `tealight-flat-strip-${a.name}-${date}.zip`);
+    return { ok: true, warnings: out.warnings };
+  } catch (e) {
+    if (e instanceof ApiError && e.status === 401) notifyUnauthorized();
+    if (e instanceof ApiError) return { ok: false, error: e.message, errors: e.errors?.length ? e.errors : [e.message] };
+    const error = 'Download failed. Check your connection and try again.';
+    return { ok: false, error, errors: [error] };
+  }
+}
+
 const NEUTRAL = { invert: false, brightness: 0, contrast: 1, gamma: 1, threshold: 0.5, rotation: 0, flipHorizontal: false } as const;
 
 export function useTealightGenerator(mode: TableMode) {
@@ -42,6 +69,13 @@ export function useTealightGenerator(mode: TableMode) {
   const lastName = useRef('image');
   const [busy, setBusy] = useState(false);
   const [runError, setRunError] = useState<string | null>(null);
+  const [flatParams, setFlatParams] = useState<FlatStripParams>({ ...DEFAULT_FLAT_STRIP_PARAMS });
+  const [flatBusy, setFlatBusy] = useState(false);
+  const [flatError, setFlatError] = useState<string | null>(null);
+  const [flatWarnings, setFlatWarnings] = useState<string[]>([]);
+  // The server checks the flat settings, so the reasons come back with a failed download and clear when a setting changes.
+  const [flatErrors, setFlatErrors] = useState<string[]>([]);
+  useEffect(() => { setFlatError(null); setFlatWarnings([]); setFlatErrors([]); }, [tParams, flatParams]);
   /** Snapshot of the inputs the current `result` was generated from. */
   const [generatedKey, setGeneratedKey] = useState<string | null>(null);
 
@@ -147,6 +181,16 @@ export function useTealightGenerator(mode: TableMode) {
     void downloadAs('stl', `${prefix}-${lastName.current}-${date}.stl`);
   };
 
+  const downloadFlat = async () => {
+    if (!image || flatBusy) return;
+    setFlatBusy(true);
+    setFlatError(null);
+    setFlatWarnings([]);
+    const r = await exportFlatStrip({ image, params: tParams, flat: flatParams, name: imageName });
+    if (r.ok) setFlatWarnings(r.warnings); else { setFlatError(r.error); setFlatErrors(r.errors); }
+    setFlatBusy(false);
+  };
+
   const downloadMap = () => {
     if (!result?.hasMap) return;
     const date = new Date().toISOString().slice(0, 10);
@@ -156,6 +200,7 @@ export function useTealightGenerator(mode: TableMode) {
   return {
     mode, tParams, bParams, setTealight, setBowl: (patch: Partial<BowlParams>) => { setErrors([]); setBParams((p) => ({ ...p, ...patch })); },
     sampleId, selectSample, upload, imageName, image, result, stale, busy, errors, runError, generate, reset, download, downloadMap,
+    flatParams, flatErrors, setFlat: (patch: Partial<FlatStripParams>) => setFlatParams((p) => ({ ...p, ...patch })), flatBusy, flatError, flatWarnings, downloadFlat,
   };
 }
 

@@ -82,6 +82,8 @@ export interface TealightMeta {
 
 export interface WallMeta {
   triangleCount: number;
+  /** Index count of the model proper; support pillars follow (the preview colours them apart). */
+  supportIndexStart: number;
   check: MeshCheck;
   warnings: string[];
   ms: number;

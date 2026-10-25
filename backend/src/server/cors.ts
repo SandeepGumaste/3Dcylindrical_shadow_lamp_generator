@@ -18,7 +18,7 @@ export function withCors(handler: (req: Request) => Promise<Response>, allowedOr
     const headers = new Headers(res.headers);
     headers.set('access-control-allow-origin', allowedOrigin);
     headers.set('access-control-allow-credentials', 'true');
-    headers.set('access-control-expose-headers', 'content-disposition');
+    headers.set('access-control-expose-headers', 'content-disposition, x-warnings');
     headers.append('vary', 'Origin');
     return new Response(res.body, { status: res.status, statusText: res.statusText, headers });
   };

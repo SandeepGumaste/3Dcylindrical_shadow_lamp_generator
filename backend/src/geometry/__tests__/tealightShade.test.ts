@@ -6,7 +6,9 @@ import {
 } from '../tealightShade';
 import { TEALIGHT_SAMPLES, asymmetricTestImage } from '../../image/tealightSamples';
 
-const P = (o: Partial<TealightParams> = {}): TealightParams => ({ ...DEFAULT_TEALIGHT_PARAMS, ...o });
+// These tests were written against the original 60 x 70 mm shade; pin it so later changes to the app defaults do not move them.
+const ORIGINAL = { invert: false, innerDiameter: 60, height: 70, patternGapTop: 0 };
+const P = (o: Partial<TealightParams> = {}): TealightParams => ({ ...DEFAULT_TEALIGHT_PARAMS, ...ORIGINAL, ...o });
 
 describe('tealight formulas', () => {
   it('r(z) = R(z) hf / (hf - z)', () => {
@@ -141,6 +143,22 @@ describe('LED socket + vents + ribs', () => {
     const res = generateTealightShade(img, p);
     expect(res.report.check.errors).toEqual([]);
     expect(res.report.check.signedVolume).toBeGreaterThan(0);
+  });
+  it('LED socket lip is a 45 degree chamfer: nothing above the rim faces down flatter than that', () => {
+    const p = P({ useLed: true, vents: 0 });
+    const res = generateTealightShade(TEALIGHT_SAMPLES[0].make(512), p);
+    const { positions: v, indices: ix } = res;
+    let worst = 0;
+    for (let t = 0; t < ix.length; t += 3) {
+      const a = ix[t] * 3, b = ix[t + 1] * 3, c = ix[t + 2] * 3;
+      if (Math.min(v[a + 2], v[b + 2], v[c + 2]) < p.height - 1e-6) continue;
+      const ux = v[b] - v[a], uy = v[b + 1] - v[a + 1], uz = v[b + 2] - v[a + 2];
+      const wx = v[c] - v[a], wy = v[c + 1] - v[a + 1], wz = v[c + 2] - v[a + 2];
+      const nx = uy * wz - uz * wy, ny = uz * wx - ux * wz, nz = ux * wy - uy * wx;
+      const len = Math.hypot(nx, ny, nz);
+      if (len > 1e-12) worst = Math.min(worst, nz / len);
+    }
+    expect(worst).toBeGreaterThan(-0.72);   // cos(45 deg) = 0.707; a flat underside would be -1
   });
   it('rests on z = 0 and fits a 1M triangle budget at 360 cols', () => {
     const res = generateTealightShade(TEALIGHT_SAMPLES[0].make(512), P());
@@ -318,8 +336,7 @@ describe('open bands above and below the pattern', () => {
   const img = () => TEALIGHT_SAMPLES[0].make(512);
   const holeRows = (g: ReturnType<typeof deriveGeometry>, lo: number, hi: number) =>
     Array.from({ length: g.zs.length }, (_, j) => j).filter((j) => g.zs[j] >= lo - 1e-9 && g.zs[j] <= hi + 1e-9);
-  it('default to no extra openings', () => {
-    expect(DEFAULT_TEALIGHT_PARAMS.patternGapTop).toBe(0);
+  it('no extra openings when the gaps are zero', () => {
     expect(DEFAULT_TEALIGHT_PARAMS.patternGapBottom).toBe(0);
     const g = deriveGeometry(P());
     expect(g.zs.length - 1 - g.bandEnd).toBe(1);                       // only the rim node above the pattern

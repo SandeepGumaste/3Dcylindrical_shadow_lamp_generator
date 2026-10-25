@@ -45,8 +45,8 @@ describe('applyFit', () => {
 describe('result converters', () => {
   const mesh = { positions: new Float32Array(9), indices: new Uint32Array(3) };
   it('keeps the wall numbers the viewport needs', () => {
-    const r = toWallResult({ ...mesh, meta: { triangleCount: 1, check: { watertight: true, errors: [] } as any, warnings: [], ms: 5, lightZ: 90, topZ: 70, groundRadius: 200 } });
-    expect([r.lightZ, r.topZ, r.groundRadius, r.triangleCount]).toEqual([90, 70, 200, 1]);
+    const r = toWallResult({ ...mesh, meta: { triangleCount: 1, supportIndexStart: 3, check: { watertight: true, errors: [] } as any, warnings: [], ms: 5, lightZ: 90, topZ: 70, groundRadius: 200 } });
+    expect([r.lightZ, r.topZ, r.groundRadius, r.triangleCount, r.supportIndexStart]).toEqual([90, 70, 200, 1, 3]);
   });
   it('shapes the box result as the panel and viewport read it', () => {
     const r = toBoxResult({ ...mesh, meta: { parts: [{ id: 'tray-2aa', label: 'Tray', generated: false }], light: { x: 1, y: 2, z: 3 }, warnings: ['w'], clamped: true, ms: 9 } });

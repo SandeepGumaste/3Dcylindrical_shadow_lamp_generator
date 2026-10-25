@@ -120,6 +120,8 @@ export const ShadowWallPanel: React.FC<{ c: ShadowWallController }> = ({ c }) =>
 
       <Group title="Printability">
         <Num label="Minimum feature (0 = off)" unit="mm" value={p.minFeature} min={0} max={3} step={0.1} onChange={(v) => c.setParams({ minFeature: v })} />
+        <Check label="Snappable supports" value={p.supports} onChange={(v) => c.setParams({ supports: v })}
+          hint="Thin pillars under overhanging cut-out roofs. Each touches the roof through a narrow neck: snap them off by hand after printing." />
       </Group>
 
       <div className="sticky bottom-0 z-10 mt-auto p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] bg-slate-950/95 backdrop-blur border-t border-slate-800 flex flex-col gap-2">

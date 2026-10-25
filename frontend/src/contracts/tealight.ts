@@ -36,10 +36,10 @@ export interface TealightParams {
 export const DEFAULT_TEALIGHT_PARAMS: TealightParams = {
   threshold: 128,
   edgeRounding: 10,
-  invert: false,
-  innerDiameter: 60,
+  invert: true,
+  innerDiameter: 44,
   topDiameter: 40,
-  height: 70,
+  height: 42,
   wallThickness: 0.8,
   cols: 480,           // ~0.4 mm per column at the foot: matches a 0.4 mm nozzle
   flameHeight: 25,
@@ -47,7 +47,7 @@ export const DEFAULT_TEALIGHT_PARAMS: TealightParams = {
   imageScale: 100,
   imageOffsetX: 0,
   imageOffsetY: 0,
-  patternGapTop: 0,
+  patternGapTop: 5,
   patternGapBottom: 0,
   ribs: 6,
   ribWidth: 2,

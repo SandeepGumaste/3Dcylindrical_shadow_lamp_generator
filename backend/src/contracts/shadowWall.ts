@@ -20,6 +20,7 @@ export interface ShadowWallParams extends FootprintParams {
   edgeRounding: number;  // 0..40, blur radius = value / 10 grid pixels
   invert: boolean;       // false: dark pixels are shadow (solid)
   minFeature: number;    // mm, 0 = off
+  supports: boolean;     // snap-off pillars under overhanging cut-out roofs
   base: boolean;         // plate under the wall (z = 0 of the wall is the top of the plate)
   baseThickness: number; // mm
   baseHoleDiameter: number; // mm, centre hole for the light
@@ -46,6 +47,7 @@ export const DEFAULT_SHADOW_WALL_PARAMS: ShadowWallParams = {
   edgeRounding: 10,
   invert: false,
   minFeature: 0.8,
+  supports: false,
   base: true,
   baseThickness: 3,
   baseHoleDiameter: 12.5,

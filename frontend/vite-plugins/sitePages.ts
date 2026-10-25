@@ -1,15 +1,15 @@
 import {existsSync, readdirSync, readFileSync} from 'node:fs';
 import path from 'node:path';
 import type {Plugin} from 'vite';
-import {findPlaceholders} from '../site/lib/placeholders';
-import {PAGES} from '../site/lib/pages';
-import {applyPartials} from '../site/lib/partials';
-import {renderRobots} from '../site/lib/robots';
-import {renderSitemap} from '../site/lib/sitemap';
+import {findPlaceholders} from '../site/lib/placeholders.ts';
+import {PAGES} from '../site/lib/pages.ts';
+import {applyPartials} from '../site/lib/partials.ts';
+import {renderRobots} from '../site/lib/robots.ts';
+import {renderSitemap} from '../site/lib/sitemap.ts';
 
 const DEV_URL = 'http://localhost:3000';
-const assetsDir = path.resolve(__dirname, '../site/assets');
-const partialsDir = path.resolve(__dirname, '../site/partials');
+const assetsDir = path.resolve(import.meta.dirname, '../site/assets');
+const partialsDir = path.resolve(import.meta.dirname, '../site/partials');
 
 export interface SitePagesOptions {
   siteUrl?: string;

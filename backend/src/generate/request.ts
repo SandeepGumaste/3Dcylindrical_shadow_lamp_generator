@@ -5,6 +5,7 @@ import { DEFAULT_BOWL_PARAMS, validateBowlParams } from '../geometry/shadowBowl'
 import { DEFAULT_BOX_PARAMS, validateBoxParams } from '../geometry/box/rimProfile';
 import { DEFAULT_SHADOW_WALL_PARAMS, validateShadowWallParams } from '../geometry/shadowWall/shadowWall';
 import { DEFAULT_HEIGHT, validateBracketParams } from '../geometry/lightSource/bracket';
+import { DEFAULT_FLAT_STRIP_PARAMS, validateFlatStrip } from '../geometry/flatStrip';
 
 export const GRAY_SIZE = 512;
 const GRAY_BYTES = GRAY_SIZE * GRAY_SIZE * 4;
@@ -52,6 +53,8 @@ const MODES: Record<Mode, ModeSpec> = {
   box: { defaults: DEFAULT_BOX_PARAMS as any, validate: validateBoxParams, needsImage: true },
   wall: { defaults: DEFAULT_SHADOW_WALL_PARAMS as any, validate: validateShadowWallParams, needsImage: true },
   light: { defaults: { height: DEFAULT_HEIGHT }, validate: validateBracketParams, needsImage: false },
+  // The flat strip takes the Tealight settings and the two flat settings in one params object.
+  flat: { defaults: { ...DEFAULT_TEALIGHT_PARAMS, ...DEFAULT_FLAT_STRIP_PARAMS } as any, extra: ['ribAngles'], validate: (p: any) => validateFlatStrip(p, p), needsImage: true },
 };
 
 const fail = (status: 400 | 422, ...errors: string[]) => ({ ok: false as const, status, errors });

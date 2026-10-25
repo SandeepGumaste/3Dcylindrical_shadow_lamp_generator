@@ -88,6 +88,33 @@ describe('generate: outputs', () => {
   }, 60_000);
 });
 
+describe('generate: flat strip', () => {
+  const entries = (z: ArrayBuffer) => {
+    const b = new Uint8Array(z), dv = new DataView(z);
+    const names: string[] = [];
+    for (let o = 0; o + 30 < b.length && dv.getUint32(o, true) === 0x04034b50; ) {
+      const size = dv.getUint32(o + 18, true), n = dv.getUint16(o + 26, true);
+      names.push(new TextDecoder().decode(b.subarray(o + 30, o + 30 + n)));
+      o += 30 + n + size;
+    }
+    return names;
+  };
+  it('returns a zip of each part alone and all parts together', async () => {
+    const r = file(await run({ mode: 'flat', output: 'zip', params: {} }));
+    expect(r.contentType).toBe('application/zip');
+    expect(entries(r.body as ArrayBuffer)).toEqual(['strip.stl', 'base-ring.stl', 'all-parts.stl']);
+  });
+  it('adds the socket ring in LED mode', async () => {
+    const r = file(await run({ mode: 'flat', output: 'zip', params: { useLed: true } }));
+    expect(entries(r.body as ArrayBuffer)).toEqual(['strip.stl', 'base-ring.stl', 'socket-ring.stl', 'all-parts.stl']);
+  });
+  it('refuses a preview and invalid settings', async () => {
+    await expect(run({ mode: 'flat', output: 'preview', params: {} })).rejects.toBeInstanceOf(RequestError);
+    const bad = parseRequest({ mode: 'flat', image: gray, params: { layers: 9 }, output: 'zip' } as GenerateRequest);
+    expect(bad).toMatchObject({ ok: false, status: 422 });
+  });
+});
+
 describe('generate: fit', () => {
   it('wall with fit returns the fitted size and generates with it', async () => {
     const r = framed(await run({ mode: 'wall', fit: true }));

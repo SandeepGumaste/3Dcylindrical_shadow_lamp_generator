@@ -1,4 +1,4 @@
-export type Mode = 'tealight' | 'bowl' | 'box' | 'wall' | 'light';
+export type Mode = 'tealight' | 'bowl' | 'box' | 'wall' | 'light' | 'flat';
 
 /** What the response carries: the preview mesh, or a downloadable file. */
 export type Output = 'preview' | 'stl' | 'svg' | 'zip' | { part: string };
