@@ -1,6 +1,6 @@
 # Deploying the backend to Render (free web service)
 
-`render.yaml` at the repo root describes the service: Node 22, root directory `backend/`, build `pnpm install && pnpm build`, start `pnpm start`. Render sets `PORT` itself.
+`render.yaml` at the repo root describes the service: Node 22, root directory `backend/`, build `pnpm install && pnpm build`, start `node dist/main.js`. Render sets `PORT` itself.
 
 ## 1. Create the service
 Render dashboard, New, Blueprint, pick this repo and branch. Render reads `render.yaml` and asks for the values marked `sync: false`.
