@@ -5,6 +5,7 @@ import { withCors } from './cors';
 import { handleMe } from './me';
 import { sendWebResponse, toWebRequest } from './node-adapter';
 import { createRateLimiter, type RateLimiter } from './rateLimit';
+import { createMongoDownloadRecorder, type DownloadRecorder } from './downloads';
 import { getSessionUser } from './session';
 import { frameResponse } from '../generate/frame';
 import { parseRequest, RequestError } from '../generate/request';
@@ -37,6 +38,8 @@ export interface GenerateDeps {
   limiter: RateLimiter;
   env?: NodeJS.ProcessEnv;
   generate?: typeof defaultGenerate;
+  /** Called once per finished file download (never for previews); a failure is logged and does not block the download. */
+  recordDownload?: DownloadRecorder;
 }
 
 export async function handleGenerate(req: Request, deps: GenerateDeps): Promise<Response> {
@@ -59,6 +62,13 @@ export async function handleGenerate(req: Request, deps: GenerateDeps): Promise<
     if (!parsed.ok) return json(parsed.status, { error: parsed.errors[0], errors: parsed.errors });
 
     const result = await (deps.generate ?? defaultGenerate)(parsed.req);
+    if (result.kind === 'file' && deps.recordDownload) {
+      try {
+        await deps.recordDownload(user.email, parsed.req.mode);
+      } catch (e) {
+        console.error('could not record the download', e);
+      }
+    }
     if (result.kind === 'framed') {
       return new Response(frameResponse(result.meta, result.positions, result.indices), {
         status: 200,
@@ -82,15 +92,16 @@ export async function handleGenerate(req: Request, deps: GenerateDeps): Promise<
 }
 
 /** The whole API as one Node server (Cloud Run, and local development). */
-export function createServer(deps: { limiter?: RateLimiter } = {}): Server {
+export function createServer(deps: { limiter?: RateLimiter; recordDownload?: DownloadRecorder } = {}): Server {
   const origin = process.env.FRONTEND_ORIGIN || 'http://localhost:3000';
   const limiter = deps.limiter ?? createRateLimiter({ limit: 60, windowMs: 10 * 60 * 1000 });
+  const recordDownload = deps.recordDownload ?? createMongoDownloadRecorder();
 
   const route = withCors(async (request) => {
     const { pathname } = new URL(request.url);
     if (pathname.startsWith('/api/auth/')) return authHandler(request);
     if (pathname === '/api/me') return handleMe(request);
-    if (pathname === '/api/generate') return handleGenerate(request, { limiter });
+    if (pathname === '/api/generate') return handleGenerate(request, { limiter, recordDownload });
     return json(404, { error: 'not found' });
   }, origin);
 

@@ -26,41 +26,39 @@ describe('static pages', () => {
   });
 });
 
-describe('placeholders in drafts', () => {
-  const names = (f: string) => new Set(findPlaceholders(read(f)));
-  it('/legal has name, country and email', () => {
-    expect(names('legal/index.html')).toEqual(
-      new Set(['[[OWNER_NAME]]', '[[OWNER_COUNTRY]]', '[[OWNER_EMAIL]]']),
-    );
+describe('owner details', () => {
+  it('no page leaves a [[PLACEHOLDER]] behind', () => {
+    for (const f of Object.values(PAGES).filter((x) => x !== 'app/index.html')) expect(findPlaceholders(read(f)), f).toEqual([]);
   });
-  it('/privacy and /terms have name and email', () => {
+  it('/legal names the owner, the country and the contact email', () => {
+    const t = read('legal/index.html');
+    expect(t).toContain('Sandeep Gumaste');
+    expect(t).toContain('India');
+    expect(t).toContain('mailto:sandeepgumaste10@gmail.com');
+  });
+  it('/privacy and /terms name the owner and the contact email', () => {
     for (const f of ['privacy/index.html', 'terms/index.html']) {
-      const n = names(f);
-      expect(n.has('[[OWNER_NAME]]'), f).toBe(true);
-      expect(n.has('[[OWNER_EMAIL]]'), f).toBe(true);
+      expect(read(f), f).toContain('Sandeep Gumaste');
+      expect(read(f), f).toContain('mailto:sandeepgumaste10@gmail.com');
     }
-  });
-  it('the landing and faq pages have none', () => {
-    expect(findPlaceholders(read('index.html'))).toEqual([]);
-    expect(findPlaceholders(read('faq/index.html'))).toEqual([]);
   });
 });
 
 describe('privacy policy content', () => {
   const text = read('privacy/index.html');
-  it('mentions the file name and the session cookie', () => {
-    expect(text).toMatch(/file name/i);
+  it('covers the session cookie, request logs and the per-account counter', () => {
     expect(text).toMatch(/session cookie/i);
     expect(text).not.toMatch(/JWT/);
     expect(text).toMatch(/request logs/i);
     expect(text).toMatch(/IP address/i);
     expect(text).toMatch(/counter/i);
   });
-  it('says what happens when an image upload fails', () => {
-    expect(text).toMatch(/image missing/i);
+  it('says what is counted and that files, pictures and settings are not stored', () => {
+    expect(text).toMatch(/counter on your account/i);
+    expect(text).toMatch(/do not store the files you download, the pictures you pick or your settings/i);
   });
-  it('hedges account deletion', () => {
-    expect(text).toMatch(/cannot remove/i);
+  it('does not describe features that do not exist', () => {
+    expect(text).not.toMatch(/imgbb|history|image missing/i);
   });
 });
 
@@ -74,8 +72,11 @@ describe('terms safety wording', () => {
 });
 
 describe('faq stored answer', () => {
-  it('mentions the file name', () => {
-    expect(read('faq/index.html')).toMatch(/file name of the picture you uploaded/);
+  it('mentions the download count and that the picture is not saved', () => {
+    const t = read('faq/index.html');
+    expect(t).toMatch(/count of the files you download/);
+    expect(t).toMatch(/is not saved/);
+    expect(t).not.toMatch(/imgbb|history/i);
   });
 });
 

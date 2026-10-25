@@ -7,6 +7,10 @@ export interface UserRecord {
   image: string;
   role: Role;
   createdAt: Date;
+  /** Finished downloads (any file output, not previews); written by the download recorder. */
+  downloadCount?: number;
+  downloadsByMode?: Record<string, number>;
+  lastDownloadAt?: Date;
 }
 
 export interface UserStore {

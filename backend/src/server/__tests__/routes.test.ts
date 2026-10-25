@@ -57,6 +57,26 @@ describe('POST /api/generate', () => {
     expect(res.headers.get('content-type')).toBe('model/stl');
     expect(res.headers.get('content-disposition')).toMatch(/^attachment; filename="wiring-bracket-100mm\.stl"$/);
   });
+  it('records a finished file download for the signed-in user, but not a preview', async () => {
+    const calls: string[][] = [];
+    const recordDownload = async (email: string, mode: string) => { calls.push([email, mode]); };
+    await handleGenerate(await post(base), { limiter: limiter(), env, recordDownload });
+    expect(calls).toEqual([]);
+    const res = await handleGenerate(await post({ ...base, mode: 'light', image: undefined, output: 'stl' }), { limiter: limiter(), env, recordDownload });
+    expect(res.status).toBe(200);
+    expect(calls).toEqual([['a@x.com', 'light']]);
+  });
+  it('still delivers the file when recording the download fails', async () => {
+    const recordDownload = async () => { throw new Error('db down'); };
+    const res = await handleGenerate(await post({ ...base, mode: 'light', image: undefined, output: 'stl' }), { limiter: limiter(), env, recordDownload });
+    expect(res.status).toBe(200);
+  });
+  it('does not record a download that failed validation', async () => {
+    const calls: string[] = [];
+    const res = await handleGenerate(await post({ ...base, output: 'stl', params: { height: -5 } }), { limiter: limiter(), env, recordDownload: async (e) => { calls.push(e); } });
+    expect(res.status).toBe(422);
+    expect(calls).toEqual([]);
+  });
   it('answers 413 for a body over the limit', async () => {
     const res = await handleGenerate(await post(null, { raw: 'x'.repeat(MAX_BODY_BYTES + 10) }), { limiter: limiter(), env });
     expect(res.status).toBe(413);
