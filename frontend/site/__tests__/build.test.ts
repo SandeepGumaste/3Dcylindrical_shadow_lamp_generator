@@ -45,7 +45,10 @@ describe('vercel.json', () => {
   it('enables cleanUrls', () => {
     expect(cfg.cleanUrls).toBe(true);
   });
-  it('rewrites only /app/:path*', () => {
-    expect(cfg.rewrites).toEqual([{source: '/app/:path*', destination: '/app/index.html'}]);
+  it('proxies /api/* to the backend and rewrites /app/:path*', () => {
+    expect(cfg.rewrites).toEqual([
+      {source: '/api/:path*', destination: 'https://odd-shadows-api.onrender.com/api/:path*'},
+      {source: '/app/:path*', destination: '/app/index.html'},
+    ]);
   });
 });
