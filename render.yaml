@@ -1,0 +1,28 @@
+services:
+  - type: web
+    name: odd-shadows-api
+    runtime: node
+    plan: free
+    rootDir: backend
+    buildCommand: corepack enable && pnpm install --frozen-lockfile && pnpm build
+    startCommand: pnpm start
+    healthCheckPath: /api/me
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: ASSETS_DIR
+        value: dist/assets
+      - key: ADMIN_EMAIL
+        sync: false
+      - key: AUTH_URL
+        sync: false
+      - key: FRONTEND_ORIGIN
+        sync: false
+      - key: AUTH_SECRET
+        sync: false
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: MONGODB_URI
+        sync: false
