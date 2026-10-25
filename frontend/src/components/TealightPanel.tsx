@@ -166,9 +166,9 @@ export const TealightPanel: React.FC<{ c: TealightController }> = ({ c }) => {
           </p>
         )}
         {!bad && c.result?.warnings.map((w) => <p key={w} className="text-amber-300/90 text-[11px]">⚠ {w}</p>)}
-        <div className="flex gap-2 [&_button]:min-h-11 lg:[&_button]:min-h-0">
-          <button onClick={c.reset} className="flex items-center gap-1 px-2.5 py-2 rounded-lg border border-slate-700 hover:bg-slate-800"><RotateCcw className="w-3.5 h-3.5" />Reset</button>
-          <button onClick={c.generate} disabled={bad || c.busy} className="flex-1 flex items-center justify-center gap-1.5 px-2.5 py-2 rounded-lg bg-amber-500/20 border border-amber-500/40 text-amber-200 hover:bg-amber-500/30 disabled:opacity-40">
+        <div className="grid grid-cols-2 gap-2 [&_button]:min-h-11 lg:[&_button]:min-h-0 [&_button]:justify-center">
+          <button onClick={c.reset} className="col-span-2 flex items-center gap-1 px-2.5 py-2 rounded-lg border border-slate-700 hover:bg-slate-800"><RotateCcw className="w-3.5 h-3.5" />Reset</button>
+          <button onClick={c.generate} disabled={bad || c.busy} className="flex items-center justify-center gap-1.5 px-2.5 py-2 rounded-lg bg-amber-500/20 border border-amber-500/40 text-amber-200 hover:bg-amber-500/30 disabled:opacity-40">
             <Play className="w-3.5 h-3.5" />{c.busy ? 'Generating…' : c.stale ? 'Regenerate 3D Model' : 'Generate 3D Model'}
           </button>
           <button onClick={c.download} disabled={!c.result || c.stale || bad || !c.result.check.watertight} className="flex items-center gap-1.5 px-2.5 py-2 rounded-lg bg-emerald-500/20 border border-emerald-500/40 text-emerald-200 hover:bg-emerald-500/30 disabled:opacity-40">

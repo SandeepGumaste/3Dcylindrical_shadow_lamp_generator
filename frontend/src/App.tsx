@@ -40,16 +40,18 @@ export default function App() {
   if (GUIDED_ENABLED && experience === 'guided' && appMode === 'tealight') return <GuidedApp c={tea} onSwitch={() => choose('advanced')} />;
 
   return (
-    <div className="flex flex-col lg:flex-row min-h-dvh w-full lg:h-dvh lg:w-screen bg-slate-950 text-slate-100 lg:overflow-hidden font-sans antialiased">
+    <div className="flex flex-col min-h-dvh w-full lg:h-dvh lg:w-screen bg-slate-950 text-slate-100 lg:overflow-hidden font-sans antialiased">
       {experience === null && <WelcomeChoice onChoose={choose} />}
-      {/* Left Sidebar: brand + mode switch + controls */}
+      {/* Top bar: brand on the left, guided link and account on the right */}
+      <Brand action={<>
+        {GUIDED_ENABLED && appMode === 'tealight' && (
+          <button type="button" onClick={() => choose('guided')} className="min-h-9 px-2.5 py-1.5 rounded-md border border-slate-700 text-[11px] font-medium text-slate-300 hover:bg-slate-800">Guided steps</button>
+        )}
+        <AccountChip />
+      </>} />
+      <div className="flex flex-col lg:flex-row flex-1 min-h-0 w-full">
+      {/* Left Sidebar: mode switch + controls */}
       <div className="order-2 lg:order-1 w-full lg:w-[380px] xl:w-[420px] lg:h-full shrink-0 flex flex-col z-20 shadow-2xl bg-slate-900">
-        <Brand action={<>
-          {GUIDED_ENABLED && appMode === 'tealight' && (
-            <button type="button" onClick={() => choose('guided')} className="min-h-9 px-2.5 py-1.5 rounded-md border border-slate-700 text-[11px] font-medium text-slate-300 hover:bg-slate-800">Guided steps</button>
-          )}
-          <AccountChip />
-        </>} />
         {MODES.length > 1 && <div className="shrink-0 p-2 border-b border-slate-800 bg-slate-950/60 grid grid-cols-2 gap-1" role="tablist" aria-label="Lamp mode">
           {MODES.map((m) => (
             <button
@@ -148,6 +150,7 @@ export default function App() {
           )}
         </div>
       )}
+      </div>
     </div>
   );
 }
