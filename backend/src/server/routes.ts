@@ -99,6 +99,7 @@ export function createServer(deps: { limiter?: RateLimiter; recordDownload?: Dow
 
   const route = withCors(async (request) => {
     const { pathname } = new URL(request.url);
+    if (pathname === '/health') return new Response('ok', { headers: { 'content-type': 'text/plain' } });
     if (pathname.startsWith('/api/auth/')) return authHandler(request);
     if (pathname === '/api/me') return handleMe(request);
     if (pathname === '/api/generate') return handleGenerate(request, { limiter, recordDownload });

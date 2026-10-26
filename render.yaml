@@ -6,7 +6,7 @@ services:
     rootDir: backend
     buildCommand: corepack enable && pnpm install --frozen-lockfile && pnpm build
     startCommand: node dist/main.js
-    healthCheckPath: /api/auth/providers
+    healthCheckPath: /health
     envVars:
       - key: NODE_VERSION
         value: "22"

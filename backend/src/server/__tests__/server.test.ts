@@ -32,6 +32,11 @@ describe('server', () => {
     expect(res.status).toBe(200);
     expect(Object.keys(await res.json())).toContain('google');
   });
+  it('answers a tiny 200 on /health for keep-alive pings', async () => {
+    const res = await fetch(`${base}/health`);
+    expect(res.status).toBe(200);
+    expect(await res.text()).toBe('ok');
+  });
   it('answers 401 on POST /api/generate without a session', async () => {
     const res = await fetch(`${base}/api/generate`, { method: 'POST', body: '{}' });
     expect(res.status).toBe(401);
